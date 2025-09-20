@@ -1,0 +1,26 @@
+footer{
+ font-family: "Playfair Display", Arial, serif;
+}
+
+.icon-list{
+    margin-left: 50px;
+}
+
+
+.hehe{
+    align-items: start !important;
+    justify-content: start !important;
+    text-align: start !important;
+    
+}
+.left-align{
+  padding-left:0 !important;
+}
+
+.useful-links{
+    margin-left: 70px;
+}
+
+.privacy{
+  padding-left: 100px;
+}

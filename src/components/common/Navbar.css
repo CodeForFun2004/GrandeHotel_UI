@@ -1,0 +1,38 @@
+/* Transparent, overlay-on-hero look */
+.deluxe-navbar {
+  background: transparent;
+  box-shadow: none;
+  padding: 1.1rem 0; /* giống template thoáng */
+  z-index: 1000;
+}
+
+/* Khi không nằm trên hero (hoặc bạn muốn dính màu khi scroll), thêm class .solid */
+.deluxe-navbar.solid {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: saturate(120%) blur(2px);
+}
+
+.deluxe-navbar .brand {
+  letter-spacing: 2px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.deluxe-navbar .nav-link {
+  color: #ffffffcc !important;
+  font-weight: 500;
+  padding: .5rem 1rem;
+}
+
+.deluxe-navbar .nav-link.active,
+.deluxe-navbar .nav-link:focus,
+.deluxe-navbar .nav-link:hover {
+  color: #fff !important;
+  text-decoration: none;
+}
+
+@media (max-width: 991.98px) {
+  .deluxe-navbar {
+    background: rgba(0, 0, 0, 0.7); /* mobile mở menu thấy nền tối */
+  }
+}

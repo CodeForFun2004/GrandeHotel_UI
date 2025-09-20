@@ -1,0 +1,58 @@
+:root { --deluxe-gold: #7c6532; }
+
+.welcome-section {
+  padding: 5rem 0 4rem;
+}
+
+/* ảnh bên trái với nút play tròn vàng nâu */
+.welcome-media {
+  position: relative;
+  width: 100%;
+  padding-top: 100%;
+  background-size: cover;
+  background-position: center;
+  border-radius: 2px;
+}
+
+.play-btn {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: var(--deluxe-gold);
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+}
+.play-btn .triangle {
+  width: 0; height: 0;
+  border-left: 22px solid #fff;
+  border-top: 14px solid transparent;
+  border-bottom: 14px solid transparent;
+  margin-left: 6px;
+}
+
+.heading .subheading {
+  color: var(--deluxe-gold);
+  text-transform: uppercase;
+  letter-spacing: .15rem;
+  font-weight: 600;
+}
+.heading .title {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-weight: 700;
+  margin: .4rem 0 1rem;
+}
+
+.content p {
+  color: #555;
+  font-size: 1.06rem;
+}
+
+.social li a {
+  color: #333;
+  font-size: 1.1rem;
+}
+.social li a:hover { color: var(--deluxe-gold); }

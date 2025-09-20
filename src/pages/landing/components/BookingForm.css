@@ -1,0 +1,101 @@
+:root {
+  --deluxe-gold: #7c6532;       /* vàng nâu giống template */
+  --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+/* đặt BookingForm đè lên cuối hero */
+.deluxe-booking {
+  position: relative;
+  margin-top: -80px;          /* kéo lên đè hero */
+  z-index: 5;
+}
+
+@media (min-width: 1200px) {
+  .deluxe-booking { margin-top: -120px; }
+}
+
+/* form wrapper */
+.booking-form {
+  width: 100%;
+}
+
+/* thẻ trắng giống template */
+.booking-card {
+  background: #fff;
+  box-shadow: var(--card-shadow);
+  border-radius: 2px;
+}
+
+/* nhãn vàng nâu, uppercase, tracking */
+.booking-card .label {
+  display: block;
+  color: var(--deluxe-gold);
+  text-transform: uppercase;
+  letter-spacing: 0.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+/* input/select lớn, placeholder nhìn như title */
+.control-lg,
+.control-lg.form-control,
+.control-lg.form-select {
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  font-size: 1.75rem;
+  line-height: 1.2;
+  color: #111;
+  box-shadow: none !important;
+  background-color: transparent;
+}
+
+/* loại bỏ caret default của select trên Chrome để giống template */
+.control-lg.form-select {
+  background-image: none;
+  padding-right: 2rem;
+  position: relative;
+}
+
+/* nút vàng nâu khối */
+.btn-availability {
+  background: var(--deluxe-gold);
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  min-height: 100%;
+  white-space: nowrap;
+}
+.btn-availability:hover,
+.btn-availability:focus {
+  background: #6d592d;
+}
+
+
+.booking-row-bottom{
+    margin-bottom: 4rem;
+}
+
+.input-form{
+    padding-left: 50px !important;
+}
+
+.label-booking{
+    text-align: start !important;
+}
+
+/* --- SELECT caret custom giống template --- */
+.select-wrap { position: relative; }
+.select-wrap::after{
+  content: "";
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  width: 0; height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid #111;   /* màu mũi tên */
+  transform: translateY(-50%);
+  pointer-events: none;
+}
