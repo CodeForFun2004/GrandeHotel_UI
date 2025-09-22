@@ -1,16 +1,29 @@
-
+import { useEffect, useState } from 'react';
 import { Navbar, Nav, Container, NavLink } from 'react-bootstrap';
 import './NavBar.css';
+
 const Header = () => {
+  const [solid, setSolid] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setSolid(window.scrollY > 24);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
-    <Navbar expand="lg" variant="dark" className="deluxe-navbar" fixed="top">
+    <Navbar
+      expand="lg"
+      variant="dark"
+      fixed="top"
+      className={`deluxe-navbar ${solid ? 'solid' : ''}`}
+    >
       <Container>
         <Navbar.Brand as={NavLink} to="/" className="brand">
           GRAND
         </Navbar.Brand>
-
         <Navbar.Toggle aria-controls="deluxe-nav" />
-
         <Navbar.Collapse id="deluxe-nav" className="justify-content-end">
           <Nav className="gap-2">
             <Nav.Link as={NavLink} to="/" end>Home</Nav.Link>
@@ -24,6 +37,5 @@ const Header = () => {
       </Container>
     </Navbar>
   );
-}
-
-export default Header
+};
+export default Header;

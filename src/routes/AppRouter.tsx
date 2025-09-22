@@ -1,5 +1,6 @@
 ﻿import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import LoginPage from "../pages/auth/LoginPage";
+import RegisterPage from "../pages/auth/RegisterPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import { PrivateRoute } from "./PrivateRoute";
 import LandingLayout from "../layouts/LandingLayout";
@@ -7,6 +8,8 @@ import DashboardLayoutBasic from "../layouts/DashboardLayout";
 import LandingPage from "../pages/landing/LandingPage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import Logout from "../pages/auth/Logout";
+import ForgotPass from "../pages/auth/ForgotPass";
+import VerifyEmail from "../pages/auth/VerifyEmail";
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const routes = {
@@ -23,6 +26,7 @@ export const routes = {
   PROJECTS_CREATE_PATH: "/dashboard/project/create",
   SHOPPING_PATH: "/shopping",
   PRODUCT_DETAIL_PATH: "/product/:id",
+  FORGOT_PASS_PATH: "/forgot-password",
 };
 // eslint-disable-next-line react-refresh/only-export-components
 export const router = createBrowserRouter([
@@ -32,6 +36,9 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <LandingPage /> },
       { path: routes.LOGIN_PATH, element: <LoginPage /> },
+      { path: routes.REGISTER_PATH, element: <RegisterPage /> },
+      { path: routes.FORGOT_PASS_PATH, element: <ForgotPass /> },
+      { path: "/verify-email", element: <VerifyEmail /> },
       { path: routes.ALL_PATH, element: <NotFoundPage /> },
       
     ],
