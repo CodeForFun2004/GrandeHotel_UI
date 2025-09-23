@@ -100,13 +100,13 @@ const Header: React.FC<Props> = ({
           {!isAuthenticated ? (
             <>
               {/* Dùng LinkContainer để tránh lỗi TS 2322 */}
-              <LinkContainer to="/login">
+              <LinkContainer to="/auth/login">
                 <Button className="btn-pill btn-login" variant="outline-light">
                   Login
                 </Button>
               </LinkContainer>
 
-              <LinkContainer to="/register">
+              <LinkContainer to="/auth/register">
                 <Button className="btn-pill btn-signup" variant="light">
                   Sign Up
                 </Button>

@@ -294,12 +294,12 @@ const LoginPage: React.FC = () => {
 
   const handleCreateClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    startSlideTo("/register");
+    startSlideTo("/auth/register");
   };
 
   const handleForgot = (e: React.MouseEvent) => {
     e.preventDefault();
-    startSlideTo("/forgot-password");
+    startSlideTo("/auth/forgot-password");
   };
 
   const handleRightColEnd = () => {
