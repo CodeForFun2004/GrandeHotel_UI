@@ -1,6 +1,6 @@
-
-import { Navbar, Nav, Container, NavLink } from 'react-bootstrap';
-import './NavBar.css';
+import { Navbar, Nav, Container } from 'react-bootstrap';
+import { NavLink } from 'react-router-dom';
+import './Navbar.css';
 const Header = () => {
   return (
     <Navbar expand="lg" variant="dark" className="deluxe-navbar" fixed="top">
