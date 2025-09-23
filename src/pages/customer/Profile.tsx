@@ -1,6 +1,18 @@
 // src/pages/customer/Profile.tsx
 import React, { useMemo, useRef, useState } from "react";
+import styled from "styled-components";
 import cameraIcon from "../../assets/camera.png";
+
+/* ============ COLORS cho EyeBtn (tránh lỗi nếu dự án chưa có COLORS) ============ */
+const COLORS = { brown700: "#7a4b2b" };
+
+/* ============ EyeBtn như bạn gửi ============ */
+const EyeBtn = styled.button`
+  position: absolute; right: 12px; top: 0; bottom: 0; margin-block: auto;
+  width: 36px; height: 36px; display: grid; place-items: center;
+  border: none; background: transparent; color: #7c7c7c; cursor: pointer; padding: 0; line-height: 0;
+  &:hover { color: ${COLORS.brown700}; }
+`;
 
 /* =================== Types =================== */
 type Gender = "Male" | "Female" | "Other";
@@ -8,9 +20,9 @@ type Account = {
   FirstName: string;
   LastName: string;
   Email: string;
-  PhoneNumber?: string;   // chỉ phần số, để bạn tự định dạng
+  PhoneNumber?: string;
   Gender?: Gender;
-  DOB?: string;           // yyyy-MM-dd
+  DOB?: string; // yyyy-MM-dd
   Address?: string;
   Country?: string;
   AvatarURL?: string;
@@ -34,11 +46,9 @@ const GlobalFix: React.FC = () => (
     :root { --grey:#6b7280; --border:#e7dfe4; --split:#f3f4f6; --text:#1f2937; }
     .ph::placeholder { color:#9ca3af; opacity:.9; }
 
-    /* Ẩn mũi tên mặc định select */
     .ui-select{appearance:none;-webkit-appearance:none;-moz-appearance:none;background:transparent;padding-right:0}
     select.ui-select::-ms-expand{display:none}
 
-    /* Date: ẩn icon mặc định khi không Edit, hiện khi Edit và thụt vào */
     .profile-page .ui-date{appearance:none;-webkit-appearance:none;-moz-appearance:none;background:transparent;padding-right:0}
     .profile-page .ui-date::-webkit-calendar-picker-indicator{display:none;opacity:0}
     .profile-page .ui-date::-webkit-inner-spin-button,.profile-page .ui-date::-webkit-clear-button{display:none}
@@ -55,12 +65,6 @@ const Ic = {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
       <circle cx="12" cy="8" r="4" stroke="#6b7280" strokeWidth="1.8" />
       <path d="M4 20c2.2-3 6-4.5 8-4.5S17.8 17 20 20" stroke="#6b7280" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  ),
-  mail: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="#6b7280" strokeWidth="1.8" />
-      <path d="M4 7l8 6 8-6" stroke="#6b7280" strokeWidth="1.8" />
     </svg>
   ),
   phone: (
@@ -86,6 +90,23 @@ const Ic = {
       <path d="M3 12h18M12 3c3.5 3.8 3.5 13.2 0 18-3.5-4.8-3.5-13.2 0-18Z" stroke="#6b7280" strokeWidth="1.8" />
     </svg>
   ),
+  mail: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="#6b7280" strokeWidth="1.8" />
+      <path d="M4 7l8 6 8-6" stroke="#6b7280" strokeWidth="1.8" />
+    </svg>
+  ),
+  chevron: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M9 6l6 6-6 6" stroke="#6b7280" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  edit: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M3 17.25V21h3.75L18.81 8.94l-3.75-3.75L3 17.25Z" stroke="#9ca3af" strokeWidth="1.6" />
+      <path d="M14.06 5.19l3.75 3.75" stroke="#9ca3af" strokeWidth="1.6" />
+    </svg>
+  ),
   settings: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z" stroke="#6b7280" strokeWidth="1.6" />
@@ -100,8 +121,10 @@ const Ic = {
   ),
   card: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect x="3" y="6" width="18" height="12" rx="2.5" stroke="#6b7280" strokeWidth="1.8" />
-      <path d="M3 10h18" stroke="#6b7280" strokeWidth="1.8" />
+      <rect x="3" y="6" width="18" height="12" rx="2" stroke="#6b7280" strokeWidth="1.8" />
+      <rect x="7" y="14" width="4" height="2" rx="1" fill="#6b7280" />
+      <rect x="15" y="14" width="2" height="2" rx="1" fill="#6b7280" />
+      <path d="M3 10h18" stroke="#6b7280" strokeWidth="1.2" />
     </svg>
   ),
   heart: (
@@ -127,22 +150,25 @@ const Ic = {
       <path d="M13 12H3m0 0 3-3m-3 3 3 3" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   ),
-  chevron: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M9 6l6 6-6 6" stroke="#6b7280" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  ),
-  edit: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M3 17.25V21h3.75L18.81 8.94l-3.75-3.75L3 17.25Z" stroke="#9ca3af" strokeWidth="1.6" />
-      <path d="M14.06 5.19l3.75 3.75" stroke="#9ca3af" strokeWidth="1.6" />
-    </svg>
-  ),
 };
+
+// Eye icons
+const Eye = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" stroke="#6b7280" strokeWidth="1.8" />
+    <circle cx="12" cy="12" r="3.5" stroke="#6b7280" strokeWidth="1.8" />
+  </svg>
+);
+const EyeOff = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" stroke="#6b7280" strokeWidth="1.8"/>
+    <path d="M3 3l18 18" stroke="#6b7280" strokeWidth="1.8" strokeLinecap="round"/>
+  </svg>
+);
 
 /* =================== Reusable styles =================== */
 const LABEL: React.CSSProperties  = { fontSize: 14, fontWeight: 700, color: "#4b5563", marginBottom: 10, textAlign: "left" };
-const WRAP: React.CSSProperties   = { display: "flex", alignItems: "center", height: 48, border: "1px solid var(--border)", borderRadius: 16, background: "#fff", overflow: "hidden", position: "relative" };
+const WRAP: React.CSSProperties   = { display: "flex", alignItems: "center", height: 48, border: "1px solid var(--border)", borderRadius: 16, background: "#fff", overflow: "hidden" };
 const LEFT_ICON: React.CSSProperties = { width: 48, display: "flex", alignItems: "center", justifyContent: "center", height: "100%", borderRight: "1px solid var(--split)", opacity: 0.85 };
 const INPUT: React.CSSProperties  = { flex: 1, height: "100%", padding: "0 14px", border: "none", outline: "none", background: "transparent", fontSize: 15, color: "var(--text)" };
 const CARET: React.CSSProperties  = { width: 44, height: "100%", display: "flex", alignItems: "center", justifyContent: "center", borderLeft: "1px solid var(--split)", userSelect: "none" };
@@ -188,7 +214,10 @@ const Sidebar: React.FC<{ avatarUrl: string; name: string; role: string }> = ({ 
       {Item(Ic.settings, "Settings")}
 
       <div style={{ flex: 1 }} />
-      <button onClick={() => { window.location.href = "/"; }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 12, border: "none", background: "transparent", color: "#ef4444", fontWeight: 700, cursor: "pointer", alignSelf: "flex-start" }}>
+      <button
+        onClick={() => { window.location.href = "/"; }}
+        style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 12, border: "none", background: "transparent", color: "#ef4444", fontWeight: 700, cursor: "pointer", alignSelf: "flex-start" }}
+      >
         {Ic.logout} Log out
       </button>
     </aside>
@@ -196,10 +225,13 @@ const Sidebar: React.FC<{ avatarUrl: string; name: string; role: string }> = ({ 
 };
 
 /* =================== Main =================== */
+type Tab = "profile" | "change";
+
 const Profile: React.FC = () => {
   const baseline = useRef<Account>(SEED);
   const [data, setData] = useState<Account>(baseline.current);
   const [editing, setEditing] = useState(false);
+  const [tab, setTab] = useState<Tab>("profile");
 
   const DEFAULT_AVATAR = "https://i.pravatar.cc/120?img=15";
   const avatarUrl = data.AvatarURL?.trim() ? (data.AvatarURL as string) : DEFAULT_AVATAR;
@@ -216,7 +248,6 @@ const Profile: React.FC = () => {
 
   const startEdit = () => setEditing(true);
 
-  /* Alerts cho save/discard */
   const onDiscard = () => {
     const changed = JSON.stringify(data) !== JSON.stringify(baseline.current);
     if (changed) {
@@ -238,21 +269,22 @@ const Profile: React.FC = () => {
     }
   };
 
-  /* Change Password */
-  const [showChangePass, setShowChangePass] = useState(false);
+  // Change Password tab state
   const [pw, setPw] = useState({ cur: "", n: "", c: "" });
-  const submitChangePass = () => {
+  const [pwDone, setPwDone] = useState(false);
+  const [show, setShow] = useState({ cur: false, n: false, c: false });
+
+  const handleSavePw = () => {
     if (!pw.cur || !pw.n || !pw.c) { alert("Please fill all fields."); return; }
     if (pw.n !== pw.c) { alert("New password and confirmation do not match."); return; }
     if (confirm("Confirm change password?")) {
       alert("Password changed successfully.");
-      setShowChangePass(false);
+      setPwDone(true);
       setPw({ cur: "", n: "", c: "" });
-      setEditing(true);
     }
   };
 
-  /* Upload avatar — always allowed */
+  // Upload avatar — always allowed
   const fileInputRef = useRef<HTMLInputElement>(null);
   const prevObjectUrl = useRef<string | null>(null);
   const onPickAvatar = () => fileInputRef.current?.click();
@@ -271,6 +303,7 @@ const Profile: React.FC = () => {
   return (
     <div className={`profile-page ${editing ? "editing" : ""}`} style={{ background: "#fff", minHeight: "100vh" }}>
       <GlobalFix />
+      {/* Header đen */}
       <div style={{ height: 80, background: "#000" }} />
 
       <div style={{ width: "100%", padding: 24, display: "grid", gridTemplateColumns: "25% 75%", gap: 24, boxSizing: "border-box" }}>
@@ -318,14 +351,12 @@ const Profile: React.FC = () => {
 
               <div>
                 <div style={{ fontWeight: 800, fontSize: 20 }}>My Profile</div>
-                <div style={{ color: "#9ca3af", fontSize: 13 }}>
-                  Real-time information and activities of your prototype.
-                </div>
+                <div style={{ color: "#9ca3af", fontSize: 13 }}>Real-time information and activities of your prototype.</div>
               </div>
             </div>
 
-            {/* Action bên phải */}
-            {!editing ? (
+            {/* Nút Edit chỉ xuất hiện ở tab Profile */}
+            {tab === "profile" && !editing && (
               <button
                 onClick={startEdit}
                 style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 36, padding: "0 12px", borderRadius: 10, border: "1px solid #e5e7eb", background: "#fff", color: "#6b7280", fontWeight: 600 }}
@@ -333,153 +364,223 @@ const Profile: React.FC = () => {
               >
                 {Ic.edit} Edit
               </button>
-            ) : (
-              <button
-                onClick={() => setShowChangePass(true)}
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 36, padding: "0 14px", borderRadius: 10, border: "1px solid #e5e7eb", background: "#fff", color: "#111827", fontWeight: 700 }}
-              >
-                Change Password
-              </button>
             )}
           </div>
 
-          {/* Form 2 cột */}
-          <div style={{ marginTop: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-            <div>
-              <div style={LABEL}>First Name</div>
-              <div style={WRAP}>
-                <div style={LEFT_ICON}>{Ic.user}</div>
-                <input {...lock()} style={INPUT} value={data.FirstName} onChange={onChange("FirstName")} placeholder="Emnilly" />
-              </div>
-            </div>
-
-            <div>
-              <div style={LABEL}>Last Name</div>
-              <div style={WRAP}>
-                <div style={LEFT_ICON}>{Ic.user}</div>
-                <input {...lock()} style={INPUT} value={data.LastName} onChange={onChange("LastName")} placeholder="Morgan" />
-              </div>
-            </div>
-
-            <div>
-              <div style={LABEL}>Email Address</div>
-              <div style={WRAP}>
-                <div style={CHIP}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-                    <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="#6b7280" strokeWidth="1.6"/>
-                    <path d="M4 7l8 6 8-6" stroke="#6b7280" strokeWidth="1.6"/>
-                  </svg>
-                </div>
-                <input {...lock({ type:"email" })} className="ph" style={INPUT} value={data.Email} onChange={onChange("Email")} placeholder="em***an@gmail.com" />
-              </div>
-            </div>
-
-            {/* Phone – chip icon điện thoại, KHÔNG dropdown */}
-            <div>
-              <div style={LABEL}>Phone Number</div>
-              <div style={WRAP}>
-                <div style={{ ...CHIP, gap: 6 }}>
-                  {Ic.phone}
-                </div>
-                <input
-                  {...lock()}
-                  className="ph"
-                  style={INPUT}
-                  value={data.PhoneNumber || ""}
-                  onChange={onChange("PhoneNumber")}
-                  placeholder="(+34) 000 000 000"
-                />
-              </div>
-            </div>
-
-            <div>
-              <div style={LABEL}>Gender</div>
-              <div style={WRAP}>
-                <div style={LEFT_ICON}>{Ic.gender}</div>
-                <select {...lock({ asSelect: true })} className="ui-select" style={SELECT} value={data.Gender || ""} onChange={onChange("Gender")}>
-                  <option value="">Gender</option>
-                  <option>Male</option>
-                  <option>Female</option>
-                  <option>Other</option>
-                </select>
-                <div style={CARET}>▾</div>
-              </div>
-            </div>
-
-            <div>
-              <div style={LABEL}>Birthday</div>
-              <div style={WRAP}>
-                <div style={LEFT_ICON}>{Ic.calendar}</div>
-                <input type="date" {...lock()} className="ui-date" style={DATE} value={data.DOB || ""} onChange={onChange("DOB")} />
-                {!editing && <div style={CARET}>▾</div>}
-              </div>
-            </div>
-
-            <div>
-              <div style={LABEL}>Address</div>
-              <div style={WRAP}>
-                <div style={LEFT_ICON}>{Ic.globe}</div>
-                <input {...lock()} style={INPUT} value={data.Address || ""} onChange={onChange("Address")} placeholder="123 Main Street, Spring" />
-              </div>
-            </div>
-
-            <div>
-              <div style={LABEL}>Country</div>
-              <div style={WRAP}>
-                <div style={LEFT_ICON}>{Ic.globe}</div>
-                <select {...lock({ asSelect: true })} className="ui-select" style={SELECT} value={data.Country || ""} onChange={onChange("Country")}>
-                  <option value="">Select country</option>
-                  <option>United States</option>
-                  <option>Viet Nam</option>
-                  <option>United Kingdom</option>
-                  <option>Japan</option>
-                  <option>Spain</option>
-                </select>
-                <div style={CARET}>▾</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Actions */}
-          {editing && (
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 26 }}>
-              <button onClick={onDiscard} style={{ height: 40, padding: "0 16px", borderRadius: 12, border: "1px solid #e5e7eb", background: "#fff", fontWeight: 600 }}>
-                Discard
-              </button>
-              <button onClick={onSave} style={{ height: 40, padding: "0 16px", borderRadius: 12, border: "1px solid #e5e7eb", background: "#111827", color: "#fff", fontWeight: 700 }}>
-                Save changes
-              </button>
-            </div>
-          )}
-
-          {/* Change Password overlay */}
-          {showChangePass && (
-            <div
+          {/* Tabs */}
+          <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              onClick={() => setTab("profile")}
               style={{
-                position: "fixed",
-                inset: 0,
-                background: "rgba(0,0,0,.35)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                zIndex: 2000
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: tab === "profile" ? "#111827" : "#6b7280",
+                fontWeight: tab === "profile" ? 700 : 500,
+                textDecoration: tab === "profile" ? "underline" : "none"
               }}
             >
-              <div style={{ width: 420, maxWidth: "90vw", background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", boxShadow: "0 12px 30px rgba(0,0,0,.22)", padding: 18, position: "relative" }}>
-                <button onClick={() => setShowChangePass(false)} aria-label="Close" style={{ position: "absolute", right: 10, top: 10, width: 28, height: 28, borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", cursor: "pointer", fontWeight: 800 }}>×</button>
-                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Change Password</h3>
-                <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
-                  <input type="password" placeholder="Current password" value={pw.cur} onChange={(e)=>setPw(p=>({...p, cur: e.target.value}))}
-                         style={{ height: 44, borderRadius: 12, border: "1px solid #e5e7eb", padding: "0 12px", fontSize: 14 }} />
-                  <input type="password" placeholder="New password" value={pw.n} onChange={(e)=>setPw(p=>({...p, n: e.target.value}))}
-                         style={{ height: 44, borderRadius: 12, border: "1px solid #e5e7eb", padding: "0 12px", fontSize: 14 }} />
-                  <input type="password" placeholder="Confirm new password" value={pw.c} onChange={(e)=>setPw(p=>({...p, c: e.target.value}))}
-                         style={{ height: 44, borderRadius: 12, border: "1px solid #e5e7eb", padding: "0 12px", fontSize: 14 }} />
+              Profile
+            </button>
+            <span style={{ color: "#9ca3af" }}>|</span>
+            <button
+              onClick={() => setTab("change")}
+              style={{
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: tab === "change" ? "#111827" : "#6b7280",
+                fontWeight: tab === "change" ? 700 : 500,
+                textDecoration: tab === "change" ? "underline" : "none"
+              }}
+            >
+              Change Password
+            </button>
+          </div>
+
+          {/* CONTENT BY TAB */}
+          {tab === "profile" ? (
+            <>
+              {/* Form 2 cột */}
+              <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+                <div>
+                  <div style={LABEL}>First Name</div>
+                  <div style={WRAP}>
+                    <div style={LEFT_ICON}>{Ic.user}</div>
+                    <input {...lock()} style={INPUT} value={data.FirstName} onChange={onChange("FirstName")} placeholder="Emnilly" />
+                  </div>
                 </div>
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 14 }}>
-                  <button onClick={submitChangePass} style={{ height: 38, padding: "0 14px", borderRadius: 10, border: "1px solid #e5e7eb", background: "#111827", color: "#fff", fontWeight: 700 }}>Save</button>
+
+                <div>
+                  <div style={LABEL}>Last Name</div>
+                  <div style={WRAP}>
+                    <div style={LEFT_ICON}>{Ic.user}</div>
+                    <input {...lock()} style={INPUT} value={data.LastName} onChange={onChange("LastName")} placeholder="Morgan" />
+                  </div>
+                </div>
+
+                <div>
+                  <div style={LABEL}>Email Address</div>
+                  <div style={WRAP}>
+                    <div style={CHIP}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+                        <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="#6b7280" strokeWidth="1.6"/>
+                        <path d="M4 7l8 6 8-6" stroke="#6b7280" strokeWidth="1.6"/>
+                      </svg>
+                    </div>
+                    <input {...lock({ type:"email" })} className="ph" style={INPUT} value={data.Email} onChange={onChange("Email")} placeholder="em***an@gmail.com" />
+                  </div>
+                </div>
+
+                <div>
+                  <div style={LABEL}>Phone Number</div>
+                  <div style={WRAP}>
+                    <div style={{ ...CHIP, gap: 6 }}>{Ic.phone}</div>
+                    <input {...lock()} className="ph" style={INPUT} value={data.PhoneNumber || ""} onChange={onChange("PhoneNumber")} placeholder="(+34) 000 000 000" />
+                  </div>
+                </div>
+
+                <div>
+                  <div style={LABEL}>Gender</div>
+                  <div style={WRAP}>
+                    <div style={LEFT_ICON}>{Ic.gender}</div>
+                    <select {...lock({ asSelect: true })} className="ui-select" style={SELECT} value={data.Gender || ""} onChange={onChange("Gender")}>
+                      <option value="">Gender</option>
+                      <option>Male</option>
+                      <option>Female</option>
+                      <option>Other</option>
+                    </select>
+                    <div style={CARET}>▾</div>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={LABEL}>Birthday</div>
+                  <div style={WRAP}>
+                    <div style={LEFT_ICON}>{Ic.calendar}</div>
+                    <input type="date" {...lock()} className="ui-date" style={DATE} value={data.DOB || ""} onChange={onChange("DOB")} />
+                    {!editing && <div style={CARET}>▾</div>}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={LABEL}>Address</div>
+                  <div style={WRAP}>
+                    <div style={LEFT_ICON}>{Ic.globe}</div>
+                    <input {...lock()} style={INPUT} value={data.Address || ""} onChange={onChange("Address")} placeholder="123 Main Street, Spring" />
+                  </div>
+                </div>
+
+                <div>
+                  <div style={LABEL}>Country</div>
+                  <div style={WRAP}>
+                    <div style={LEFT_ICON}>{Ic.globe}</div>
+                    <select {...lock({ asSelect: true })} className="ui-select" style={SELECT} value={data.Country || ""} onChange={onChange("Country")}>
+                      <option value="">Select country</option>
+                      <option>United States</option>
+                      <option>Viet Nam</option>
+                      <option>United Kingdom</option>
+                      <option>Japan</option>
+                      <option>Spain</option>
+                    </select>
+                    <div style={CARET}>▾</div>
+                  </div>
                 </div>
               </div>
+
+              {/* Actions */}
+              {editing && (
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 26 }}>
+                  <button onClick={onDiscard} style={{ height: 40, padding: "0 16px", borderRadius: 12, border: "1px solid #e5e7eb", background: "#fff", fontWeight: 600 }}>
+                    Discard
+                  </button>
+                  <button onClick={onSave} style={{ height: 40, padding: "0 16px", borderRadius: 12, border: "1px solid #e5e7eb", background: "#111827", color: "#fff", fontWeight: 700 }}>
+                    Save changes
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            // ====== TAB: CHANGE PASSWORD ======
+            <div style={{ marginTop: 16 }}>
+              {!pwDone ? (
+                <>
+                  {/* Không căn giữa input, chỉ giới hạn chiều rộng nếu muốn */}
+                  <div style={{ display: "grid", gap: 12, maxWidth: 460 }}>
+                    {/* Current password */}
+                    <div style={{ position: "relative" }}>
+                      <input
+                        type={show.cur ? "text" : "password"}
+                        placeholder="Current password"
+                        value={pw.cur}
+                        onChange={(e)=>setPw(p=>({...p, cur: e.target.value}))}
+                        style={{ width:"100%", height: 44, borderRadius: 12, border: "1px solid #e5e7eb", padding: "0 48px 0 12px", fontSize: 14 }}
+                      />
+                      <EyeBtn
+                        type="button"
+                        onClick={()=>setShow(s=>({...s, cur: !s.cur}))}
+                        aria-label={show.cur ? "Hide" : "Show"}
+                        title={show.cur ? "Hide password" : "Show password"}
+                      >
+                        {show.cur ? EyeOff : Eye}
+                      </EyeBtn>
+                    </div>
+
+                    {/* New password */}
+                    <div style={{ position: "relative" }}>
+                      <input
+                        type={show.n ? "text" : "password"}
+                        placeholder="New password"
+                        value={pw.n}
+                        onChange={(e)=>setPw(p=>({...p, n: e.target.value}))}
+                        style={{ width:"100%", height: 44, borderRadius: 12, border: "1px solid #e5e7eb", padding: "0 48px 0 12px", fontSize: 14 }}
+                      />
+                      <EyeBtn
+                        type="button"
+                        onClick={()=>setShow(s=>({...s, n: !s.n}))}
+                        aria-label={show.n ? "Hide" : "Show"}
+                        title={show.n ? "Hide password" : "Show password"}
+                      >
+                        {show.n ? EyeOff : Eye}
+                      </EyeBtn>
+                    </div>
+
+                    {/* Confirm password */}
+                    <div style={{ position: "relative" }}>
+                      <input
+                        type={show.c ? "text" : "password"}
+                        placeholder="Confirm new password"
+                        value={pw.c}
+                        onChange={(e)=>setPw(p=>({...p, c: e.target.value}))}
+                        style={{ width:"100%", height: 44, borderRadius: 12, border: "1px solid #e5e7eb", padding: "0 48px 0 12px", fontSize: 14 }}
+                      />
+                      <EyeBtn
+                        type="button"
+                        onClick={()=>setShow(s=>({...s, c: !s.c}))}
+                        aria-label={show.c ? "Hide" : "Show"}
+                        title={show.c ? "Hide password" : "Show password"}
+                      >
+                        {show.c ? EyeOff : Eye}
+                      </EyeBtn>
+                    </div>
+                  </div>
+
+                  {/* Save căn giữa, nằm dưới nhóm input */}
+                  <div style={{ display:"flex", justifyContent:"center", marginTop: 16, maxWidth: 460 }}>
+                    <button
+                      onClick={handleSavePw}
+                      style={{ height: 38, padding: "0 20px", borderRadius: 10, border: "1px solid #e5e7eb",
+                              background: "#111827", color: "#fff", fontWeight: 700, minWidth: 160 }}
+                    >
+                      Save
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div style={{ maxWidth: 520, padding: 16, border: "1px solid #e5e7eb", borderRadius: 12, background: "#f9fafb", color: "#111827", fontWeight: 600 }}>
+                  Password changed successfully. You can continue editing your profile or switch back to the Profile tab.
+                </div>
+              )}
             </div>
           )}
         </section>
