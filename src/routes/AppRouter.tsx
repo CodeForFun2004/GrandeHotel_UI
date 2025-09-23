@@ -11,6 +11,7 @@ import Logout from "../pages/auth/Logout";
 
 import ForgotPass from "../pages/auth/ForgotPass";
 import VerifyEmail from "../pages/auth/VerifyEmail";
+import Profile from "../pages/customer/Profile";
 
 
 import Rooms from "../pages/Rooms";
@@ -34,6 +35,10 @@ export const routes = {
   PROJECTS_CREATE_PATH: "/dashboard/project/create",
   SHOPPING_PATH: "/shopping",
   PRODUCT_DETAIL_PATH: "/product/:id",
+
+  FORGOT_PASS_PATH: "/forgot-password",
+  RESET_PASS_PATH: "/reset-password",
+
 
   FORGOT_PASS_PATH: "/auth/forgot-password",
 
@@ -66,9 +71,14 @@ export const router = createBrowserRouter([
       // { path: routes.FORGOT_PASS_PATH, element: <ForgotPass /> },
       // { path: "/verify-email", element: <VerifyEmail /> },
       { path: routes.ALL_PATH, element: <NotFoundPage /> },
+
+      { path: routes.PROFILE_PATH, element: <Profile /> },
+      
+
       { path: routes.ROOMS_PATH, element: <Rooms /> },
       // { path: routes.ROOM_DETAIL_PATH, element: <RoomDetail /> },
       { path: routes.BOOK_PATH, element: <BookingWizard /> },
+
     ],
   },
   {
