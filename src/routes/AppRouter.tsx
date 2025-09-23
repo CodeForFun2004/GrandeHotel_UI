@@ -8,8 +8,9 @@ import LandingPage from "../pages/landing/LandingPage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import Logout from "../pages/auth/Logout";
 import Rooms from "../pages/Rooms";
-import RoomDetail from "../pages/RoomDetail";
 import BookingWizard from "../pages/BookingWizard";
+import BookingDetail from "../pages/BookingDetail";
+import BookingList from "../pages/BookingList";
 // eslint-disable-next-line react-refresh/only-export-components
 export const routes = {
   ALL_PATH: "*",
@@ -26,8 +27,9 @@ export const routes = {
   SHOPPING_PATH: "/shopping",
   PRODUCT_DETAIL_PATH: "/product/:id",
   ROOMS_PATH: "/rooms",
-  BOOK_PATH: "/book",
-  ROOM_DETAIL_PATH: "/rooms/:id",
+  BOOK_PATH: "/reservation",
+  BOOKING_DETAIL_PATH: "/reservation/:id",
+  BOOKING_LIST_PATH: "/reservation/list",
 };
 // eslint-disable-next-line react-refresh/only-export-components
 export const router = createBrowserRouter([
@@ -39,8 +41,9 @@ export const router = createBrowserRouter([
       { path: routes.LOGIN_PATH, element: <LoginPage /> },
       { path: routes.ALL_PATH, element: <NotFoundPage /> },
       { path: routes.ROOMS_PATH, element: <Rooms /> },
-      { path: routes.ROOM_DETAIL_PATH, element: <RoomDetail /> },
       { path: routes.BOOK_PATH, element: <BookingWizard /> },
+      { path: routes.BOOKING_DETAIL_PATH, element: <BookingDetail /> },
+      { path: routes.BOOKING_LIST_PATH, element: <BookingList/> },
     ],
   },
   {
