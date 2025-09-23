@@ -8,7 +8,7 @@ import LandingPage from "../pages/landing/LandingPage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import Logout from "../pages/auth/Logout";
 import Rooms from "../pages/Rooms";
-import RoomDetail from "../pages/RoomDetail";
+// import RoomDetail from "../pages/RoomDetail";
 import BookingWizard from "../pages/BookingWizard";
 // eslint-disable-next-line react-refresh/only-export-components
 export const routes = {
@@ -39,7 +39,7 @@ export const router = createBrowserRouter([
       { path: routes.LOGIN_PATH, element: <LoginPage /> },
       { path: routes.ALL_PATH, element: <NotFoundPage /> },
       { path: routes.ROOMS_PATH, element: <Rooms /> },
-      { path: routes.ROOM_DETAIL_PATH, element: <RoomDetail /> },
+      // { path: routes.ROOM_DETAIL_PATH, element: <RoomDetail /> },
       { path: routes.BOOK_PATH, element: <BookingWizard /> },
     ],
   },
