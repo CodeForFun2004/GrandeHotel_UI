@@ -10,6 +10,7 @@ import AdminDashboard from "../pages/admin/AdminDashboard";
 import Logout from "../pages/auth/Logout";
 import ForgotPass from "../pages/auth/ForgotPass";
 import VerifyEmail from "../pages/auth/VerifyEmail";
+import Profile from "../pages/customer/Profile";
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const routes = {
@@ -27,6 +28,7 @@ export const routes = {
   SHOPPING_PATH: "/shopping",
   PRODUCT_DETAIL_PATH: "/product/:id",
   FORGOT_PASS_PATH: "/forgot-password",
+  RESET_PASS_PATH: "/reset-password",
 };
 // eslint-disable-next-line react-refresh/only-export-components
 export const router = createBrowserRouter([
@@ -40,6 +42,7 @@ export const router = createBrowserRouter([
       { path: routes.FORGOT_PASS_PATH, element: <ForgotPass /> },
       { path: "/verify-email", element: <VerifyEmail /> },
       { path: routes.ALL_PATH, element: <NotFoundPage /> },
+      { path: routes.PROFILE_PATH, element: <Profile /> },
       
     ],
   },
