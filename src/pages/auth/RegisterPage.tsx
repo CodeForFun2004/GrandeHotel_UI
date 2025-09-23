@@ -223,7 +223,7 @@ const RegisterPage: React.FC = () => {
 
   // điều hướng đợi animation
   const [nextPath, setNextPath] = useState<string | null>(null);
-  const [navState, setNavState] = useState<any>(null);
+  const [navState, setNavState] = useState<{ email?: string } | null>(null);
 
   // State cho các input
   const [fullName, setFullName] = useState("");
@@ -246,7 +246,7 @@ const RegisterPage: React.FC = () => {
 
   const handleBackToLogin = (e: React.MouseEvent) => {
     e.preventDefault();
-    setNextPath("/login");
+    setNextPath("/auth/login");
     setNavState(null);
     setSlidingOut(true);           // rời trang: RIGHT -> LEFT
   };
