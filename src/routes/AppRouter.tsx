@@ -7,6 +7,8 @@ import DashboardLayoutBasic from "../layouts/DashboardLayout";
 import LandingPage from "../pages/landing/LandingPage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import Logout from "../pages/auth/Logout";
+import AdminUserManagement from "../pages/admin/AdminUserManagement";
+import AdminHotelList from "../pages/admin/AdminHotelList";
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const routes = {
@@ -23,6 +25,8 @@ export const routes = {
   PROJECTS_CREATE_PATH: "/dashboard/project/create",
   SHOPPING_PATH: "/shopping",
   PRODUCT_DETAIL_PATH: "/product/:id",
+  USER_MANAGEMENT_PATH: "/dashboard/user-management",
+  HOTEL_LIST_PATH: "/dashboard/hotel-list",
 };
 // eslint-disable-next-line react-refresh/only-export-components
 export const router = createBrowserRouter([
@@ -48,6 +52,8 @@ export const router = createBrowserRouter([
       { path: routes.ADMIN_PROFILE_PATH, element: <AdminDashboard /> },
       { path: routes.PROJECTS_PATH, element: <AdminDashboard /> },
       { path: routes.PROJECTS_CREATE_PATH, element: <AdminDashboard /> },
+      { path: routes.USER_MANAGEMENT_PATH, element: <AdminUserManagement /> },
+      { path: routes.HOTEL_LIST_PATH, element: <AdminHotelList /> },
     ],
   },
   { path: routes.LOGOUT_PATH, element: <Logout /> },
