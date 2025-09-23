@@ -56,6 +56,7 @@ const Header: React.FC<Props> = ({
     return () => window.removeEventListener("scroll", onScroll);
   }, [heroSelector]);
 
+
   return (
     <Navbar
       expand="lg"
@@ -67,9 +68,7 @@ const Header: React.FC<Props> = ({
         <Navbar.Brand as={NavLink} to="/" className="brand">
           GRAND
         </Navbar.Brand>
-
         <Navbar.Toggle aria-controls="deluxe-nav" />
-
         <Navbar.Collapse id="deluxe-nav" className="justify-content-center">
           {/* MENU center */}
           <Nav className="gap-3 deluxe-menu">
