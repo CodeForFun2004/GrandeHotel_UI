@@ -8,8 +8,12 @@ import LandingPage from "../pages/landing/LandingPage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import Logout from "../pages/auth/Logout";
 import Rooms from "../pages/Rooms";
-import RoomDetail from "../pages/RoomDetail";
+// import RoomDetail from "../pages/RoomDetail";
 import BookingWizard from "../pages/BookingWizard";
+import ManagerDashboard from "../pages/admin/ManagerDashboard";
+import HotelInfoForm from "../pages/admin/HotelInfoForm";
+import RoomTable from "../pages/admin/rooms/RoomTable";
+
 // eslint-disable-next-line react-refresh/only-export-components
 export const routes = {
   ALL_PATH: "*",
@@ -39,7 +43,7 @@ export const router = createBrowserRouter([
       { path: routes.LOGIN_PATH, element: <LoginPage /> },
       { path: routes.ALL_PATH, element: <NotFoundPage /> },
       { path: routes.ROOMS_PATH, element: <Rooms /> },
-      { path: routes.ROOM_DETAIL_PATH, element: <RoomDetail /> },
+      // { path: routes.ROOM_DETAIL_PATH, element: <RoomDetail /> },
       { path: routes.BOOK_PATH, element: <BookingWizard /> },
     ],
   },
@@ -51,10 +55,10 @@ export const router = createBrowserRouter([
       </PrivateRoute>
     ),
     children: [
-      { index: true, element: <AdminDashboard /> },
+      { index: true, element: <ManagerDashboard /> },
       { path: routes.ADMIN_PROFILE_PATH, element: <AdminDashboard /> },
-      { path: routes.PROJECTS_PATH, element: <AdminDashboard /> },
-      { path: routes.PROJECTS_CREATE_PATH, element: <AdminDashboard /> },
+      { path: "/dashboard/hotel", element: <HotelInfoForm /> },
+      { path: "/dashboard/rooms", element: <RoomTable /> }
     ],
   },
   { path: routes.LOGOUT_PATH, element: <Logout /> },

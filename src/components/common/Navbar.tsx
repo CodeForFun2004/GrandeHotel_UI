@@ -1,6 +1,6 @@
 import { Navbar, Nav, Container } from "react-bootstrap";
 import { NavLink } from "react-router-dom"; // nếu bạn dùng react-router
-import "./NavBar.css";
+import "./Navbar.css";
 
 export default function AppNavBar() {
   return (
