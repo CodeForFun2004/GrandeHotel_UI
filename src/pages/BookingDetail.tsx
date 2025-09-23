@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import "./Booking.css";
 import Header from "../components/common/Header";
 
@@ -53,6 +53,7 @@ const BookingDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [booking, setBooking] = useState<BookingDetailData | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (id) {
@@ -62,6 +63,18 @@ const BookingDetail: React.FC = () => {
       });
     }
   }, [id]);
+
+  const handleCancel = () => {
+    if (window.confirm("Are you sure you want to cancel this booking?")) {
+      if (booking) {
+        setBooking({ ...booking, status: "pending" }); // UI only, for demo
+      }
+      // In real app, call API here
+      setTimeout(() => {
+        navigate("/reservation/list");
+      }, 800);
+    }
+  };
 
   if (loading) {
     return <div>Loading booking details...</div>;
@@ -134,8 +147,32 @@ const BookingDetail: React.FC = () => {
             </tr>
           </tbody>
         </table>
-        <div className="booking-detail-back-btn">
+        <div
+          className="booking-detail-back-btn"
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: 16,
+          }}
+        >
           <Link to="/reservation/list">Back to My Reservations</Link>
+          {["pending", "approved", "paid"].includes(booking.status) && (
+            <button
+              style={{
+                background: "#e53e3e",
+                color: "#fff",
+                border: "none",
+                borderRadius: 4,
+                padding: "10px 28px",
+                fontWeight: 600,
+                fontSize: 16,
+                cursor: "pointer",
+              }}
+              onClick={handleCancel}
+            >
+              Cancel
+            </button>
+          )}
         </div>
       </div>
     </div>

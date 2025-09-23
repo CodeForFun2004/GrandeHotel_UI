@@ -85,6 +85,17 @@ const BookingList: React.FC = () => {
     });
   }, []);
 
+  const handleCancel = (id: string) => {
+    if (window.confirm("Are you sure you want to cancel this booking?")) {
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === id ? { ...b, status: "pending" } : b // You may want to set to a "cancelled" status in real app
+        )
+      );
+      // Add API call here in real app
+    }
+  };
+
   if (loading) {
     return <div>Loading booking details...</div>;
   }
@@ -125,6 +136,23 @@ const BookingList: React.FC = () => {
                 </td>
                 <td>
                   <Link to={`/reservation/${booking.id}`}>View Details</Link>
+                  {["pending", "approved", "paid"].includes(booking.status) && (
+                    <button
+                      style={{
+                        marginLeft: 12,
+                        background: "#e53e3e",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 4,
+                        padding: "6px 14px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                      onClick={() => handleCancel(booking.id)}
+                    >
+                      Cancel
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
