@@ -36,7 +36,7 @@ export const routes = {
   SHOPPING_PATH: "/shopping",
   PRODUCT_DETAIL_PATH: "/product/:id",
 
-  FORGOT_PASS_PATH: "/forgot-password",
+
   RESET_PASS_PATH: "/reset-password",
 
 
