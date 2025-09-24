@@ -7,7 +7,10 @@ import type { JSX } from '@emotion/react/jsx-dev-runtime';
 export const LandingLayout = (): JSX.Element => {
   return (
     <>
-      <Header/>
+      <Header
+      isAuthenticated={false}
+      heroSelector="#hero"  
+      />
       <Outlet/>
       <Footer/>
     </>
