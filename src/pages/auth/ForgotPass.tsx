@@ -5,6 +5,14 @@ import { Global, css, keyframes } from "@emotion/react";
 import { useNavigate } from "react-router-dom";
 import bgImg from "../../assets/images/login.avif";
 
+import api from "../../api/axios";
+import { toast } from "react-toastify";
+import { routes } from "../../routes/AppRouter";
+
+/* ====== ENDPOINTS ====== */
+const SEND_OTP_ENDPOINT   = "/auth/forgot-password"; // { email }
+const RESET_PW_ENDPOINT   = "/auth/reset-password";  // { email, otp, newPassword, reNewPassword }
+
 /* ===== Colors ===== */
 const COLORS = {
   white: "#FFFFFF",
@@ -25,7 +33,6 @@ const LEFT_FR = 0.58;
 const RIGHT_FR = 0.42;
 const RADIUS = 56;
 const OVERLAP = 32;
-const CORRECT_CODE = "123456";
 
 /* ===== Global ===== */
 const GlobalStyles = () => (
@@ -47,19 +54,13 @@ const GlobalStyles = () => (
 );
 
 /* ===== Animations ===== */
-/* Vào: panel từ phải -> trái */
 const slideInRight = keyframes`from{transform:translateX(105%)}to{transform:translateX(0)}`;
-/* Rời: panel từ trái -> phải */
 const slideOutRight = keyframes`from{transform:translateX(0)}to{transform:translateX(105%)}`;
-
-/* Nội dung */
 const contentIn = keyframes`from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}`;
-
-/* Nền */
 const bgIn = keyframes`from{transform:translateX(8%) scale(1.02)}to{transform:translateX(0) scale(1.02)}`;
 const bgOutRight = keyframes`from{transform:translateX(0) scale(1.02)}to{transform:translateX(6%) scale(1.02)}`;
 
-/* ===== Layout ===== */
+/* ===== Layout & UI ===== */
 const Section = styled.section`
   min-height: 100vh;
   min-block-size: 100svh;
@@ -96,11 +97,9 @@ const RightCol = styled.main<{ appearing?: boolean; slidingOut?: boolean }>`
   width: ${RIGHT_FR * 100}%; z-index: 3;
   display: grid; place-items: center;
 
-  /* Vào */
   ${({ appearing, slidingOut }) =>
     appearing && !slidingOut && css`animation:${slideInRight} .55s ease both; will-change: transform;`}
 
-  /* Rời */
   ${({ slidingOut }) =>
     slidingOut && css`animation:${slideOutRight} .55s ease forwards; will-change: transform;`}
 
@@ -124,7 +123,6 @@ const Content = styled.div`
   width: 100%; animation: ${contentIn} .5s ease both;
 `;
 
-/* Titles */
 const BigTitle = styled.h1`
   margin: 0 0 8px;
   font-size: clamp(28px, 5vw, 44px);
@@ -134,7 +132,6 @@ const BigTitle = styled.h1`
 `;
 const SubTitle = styled.p` margin: 0 0 22px; color:#6b7280; `;
 
-/* Centered variants dùng riêng cho Step 2 */
 const CenterTitle = styled(BigTitle)` text-align:center; `;
 const CenterSub = styled(SubTitle)` text-align:center; `;
 
@@ -188,12 +185,10 @@ const OtpInput = styled.input`
 const ErrorText = styled.p`
   color:${COLORS.danger}; font-size:13px; margin:6px 0 0; text-align:center;
 `;
-
 const SuccessText = styled.p`
   color:${COLORS.success}; font-size:14px; margin:10px 0 0; text-align:center; font-weight:600;
 `;
 
-/* Centered note row dưới nút */
 const CenterRow = styled.div`
   margin-top: 12px;
   display: flex;
@@ -204,14 +199,6 @@ const CenterRow = styled.div`
   a{ color:${COLORS.brown700}; text-decoration:none; }
 `;
 
-const Small = styled.p` font-size:13px; color:#666; text-align:center; margin:12px 0 0; `;
-const EyeBtn = styled.button`
-  position:absolute; right:12px; top:0; bottom:0; margin-block:auto;
-  width:36px; height:36px; display:grid; place-items:center;
-  border:none; background:transparent; color:#7c7c7c; cursor:pointer; padding:0; line-height:0;
-`;
-
-/* ===== Component ===== */
 type Step = 1 | 2 | 3;
 
 const ForgotPass: React.FC = () => {
@@ -220,13 +207,15 @@ const ForgotPass: React.FC = () => {
   const [step, setStep] = useState<Step>(1);
 
   // Step 1
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => localStorage.getItem("fpEmail") || "");
   const emailValid = /\S+@\S+\.\S+/.test(email);
+  const [sending, setSending] = useState(false);
 
   // Step 2 — 6-digit OTP
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
   const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
   const [otpError, setOtpError] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0); // resend CD
   const otpFilled = otp.every((d) => d.length === 1);
 
   // Step 3 — new password
@@ -236,6 +225,7 @@ const ForgotPass: React.FC = () => {
   const [show2, setShow2] = useState(false);
   const [pwError, setPwError] = useState<string | null>(null);
   const [pwOk, setPwOk] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const bothFilled = pw1.length > 0 && pw2.length > 0;
 
@@ -246,6 +236,12 @@ const ForgotPass: React.FC = () => {
     return () => clearTimeout(t);
   }, []);
 
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setInterval(() => setCooldown((c) => c - 1), 1000);
+    return () => clearInterval(t);
+  }, [cooldown]);
+
   const masked = (e: string) => {
     const [name, domain] = e.split("@");
     if (!name || !domain) return e;
@@ -254,27 +250,48 @@ const ForgotPass: React.FC = () => {
     return `${hide}@${d[0]?.slice(0, 2)}****.${d.slice(1).join(".") || ""}`;
   };
 
+  /* ---------- STEP 1: GỬI OTP ---------- */
+  const requestReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailValid) return;
+
+    setSending(true);
+    try {
+      await api.post(SEND_OTP_ENDPOINT, { email: email.trim() });
+      toast.info("A reset code has been sent to your email.");
+      localStorage.setItem("fpEmail", email.trim());
+      setCooldown(60);
+      setStep(2);
+      setOtp(["", "", "", "", "", ""]);
+      setOtpError(null);
+      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || "Failed to send reset code";
+      toast.error(msg);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  /* Paste 6 số 1 lần */
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    const text = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!text) return;
+    const next = Array(6).fill("");
+    for (let i = 0; i < text.length && i < 6; i++) next[i] = text[i]!;
+    setOtp(next);
+    otpRefs.current[Math.min(text.length, 5)]?.focus();
+  };
+
   const handleOtpChange = (i: number, v: string) => {
     const only = v.replace(/\D/g, "").slice(0, 1);
     const next = [...otp];
     next[i] = only;
     setOtp(next);
+    setOtpError(null);
 
     if (only && otpRefs.current[i + 1]) otpRefs.current[i + 1]?.focus();
     if (!only && otpRefs.current[i - 1]) otpRefs.current[i - 1]?.focus();
-
-    setOtpError(null);
-
-    // Auto-verify khi đủ 6 số
-    const code = next.join("");
-    if (next.every((d) => d !== "")) {
-      if (code === CORRECT_CODE) {
-        setOtpError(null);
-        setStep(3);
-      } else {
-        setOtpError("Reset code is incorrect.");
-      }
-    }
   };
 
   const handleOtpKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -289,40 +306,40 @@ const ForgotPass: React.FC = () => {
     if (e.key === "ArrowRight" && i < 5) otpRefs.current[i + 1]?.focus();
   };
 
-  const verifyManually = (e: React.MouseEvent) => {
+  /* ---------- STEP 2: TIẾP TỤC (KHÔNG VERIFY API) ---------- */
+  const continueToReset = () => {
+    if (!otpFilled) {
+      setOtpError("Please enter the 6-digit code.");
+      return;
+    }
+    setOtpError(null);
+    setStep(3); // verify sẽ diễn ra ở bước resetPassword
+  };
+
+  const resend = async (e: React.MouseEvent) => {
     e.preventDefault();
-    const code = otp.join("");
-    if (otpFilled && code === CORRECT_CODE) {
+    if (!emailValid || cooldown > 0) return;
+
+    try {
+      await api.post(SEND_OTP_ENDPOINT, { email: email.trim() });
+      toast.info("A new code has been sent to your email.");
+      setOtp(["", "", "", "", "", ""]);
       setOtpError(null);
-      setStep(3);
-    } else {
-      setOtpError("Reset code is incorrect.");
+      otpRefs.current[0]?.focus();
+      setCooldown(60);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || "Failed to resend code";
+      setOtpError(msg);
+      toast.error(msg);
     }
   };
 
-  const resend = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setOtp(["", "", "", "", "", ""]);
-    setOtpError(null);
-    otpRefs.current[0]?.focus();
-  };
-
-  const goLogin = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setSlidingOut(true); // animate out rồi mới về login
-  };
-
-  const handlePanelAnimationEnd = () => {
-    if (slidingOut) navigate("/login");
-  };
-
-  // Submit đổi mật khẩu
-  const submitNewPassword = (e: React.FormEvent) => {
+  /* ---------- STEP 3: ĐỔI MẬT KHẨU (VERIFY + RESET GỘP TRONG BE) ---------- */
+  const submitNewPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPwOk(false);
 
     if (!bothFilled) return;
-
     if (pw1.length < 6) {
       setPwError("Password must be at least 6 characters.");
       return;
@@ -333,12 +350,42 @@ const ForgotPass: React.FC = () => {
     }
 
     setPwError(null);
-    setPwOk(true);
+    setResetting(true);
+    try {
+      const body = {
+        email: (email || "").trim(),
+        otp: otp.join(""),
+        newPassword: pw1,
+        reNewPassword: pw2,
+      };
 
-    // Hiện success rồi animate rời trang và chuyển sang login
-    setTimeout(() => {
-      setSlidingOut(true);
-    }, 900);
+      await api.post(RESET_PW_ENDPOINT, body);
+
+      setPwOk(true);
+      toast.success("Password updated. Redirecting to Login…");
+
+      // dọn dẹp
+      localStorage.removeItem("fpEmail");
+
+      setTimeout(() => {
+        setSlidingOut(true);
+      }, 900);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || "Failed to update password";
+      setPwError(msg);
+      toast.error(msg);
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const goLogin = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setSlidingOut(true);
+  };
+
+  const handlePanelAnimationEnd = () => {
+    if (slidingOut) navigate(routes.LOGIN_PATH);
   };
 
   return (
@@ -358,20 +405,14 @@ const ForgotPass: React.FC = () => {
         >
           <WhitePanel />
           <ContentWrap>
-            <Content>
+            <Content onPaste={step === 2 ? handlePaste : undefined}>
               {step === 1 && (
                 <>
                   <BigTitle>Forgot password</BigTitle>
                   <SubTitle>Please enter your email to reset the password</SubTitle>
 
                   <Card>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        if (emailValid) setStep(2);
-                      }}
-                      noValidate
-                    >
+                    <form onSubmit={requestReset} noValidate>
                       <FloatField>
                         <input
                           type="email"
@@ -385,8 +426,8 @@ const ForgotPass: React.FC = () => {
 
                       <div style={{ height: 14 }} />
 
-                      <Btn primary type="submit" disabled={!emailValid}>
-                        Reset Password
+                      <Btn primary type="submit" disabled={!emailValid || sending}>
+                        {sending ? "Sending..." : "Reset Password"}
                       </Btn>
                     </form>
                   </Card>
@@ -416,15 +457,17 @@ const ForgotPass: React.FC = () => {
                     ))}
                   </OtpWrap>
 
-                  <Btn primary onClick={verifyManually} disabled={!otpFilled}>
-                    Verify Code
+                  <Btn primary onClick={continueToReset} disabled={!otpFilled}>
+                    Continue
                   </Btn>
 
                   {otpError && <ErrorText role="alert">{otpError}</ErrorText>}
 
                   <CenterRow>
                     <span>Haven’t got the email yet?</span>
-                    <a href="#" onClick={resend}>Resend email</a>
+                    <a href="#" onClick={resend}>
+                      {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend email"}
+                    </a>
                   </CenterRow>
                 </>
               )}
@@ -445,9 +488,14 @@ const ForgotPass: React.FC = () => {
                           required
                         />
                         <span>Password</span>
-                        <EyeBtn type="button" onClick={() => setShow1((v) => !v)} aria-label="Toggle password">
+                        <button
+                          type="button"
+                          onClick={() => setShow1((v) => !v)}
+                          aria-label="Toggle password"
+                          style={{ position:'absolute', right:12, top:10, background:'transparent', border:'none', cursor:'pointer' }}
+                        >
                           {show1 ? "🙈" : "👁️"}
-                        </EyeBtn>
+                        </button>
                       </FloatField>
 
                       <div style={{ height: 14 }} />
@@ -461,15 +509,20 @@ const ForgotPass: React.FC = () => {
                           required
                         />
                         <span>Confirm Password</span>
-                        <EyeBtn type="button" onClick={() => setShow2((v) => !v)} aria-label="Toggle confirm password">
+                        <button
+                          type="button"
+                          onClick={() => setShow2((v) => !v)}
+                          aria-label="Toggle confirm password"
+                          style={{ position:'absolute', right:12, top:10, background:'transparent', border:'none', cursor:'pointer' }}
+                        >
                           {show2 ? "🙈" : "👁️"}
-                        </EyeBtn>
+                        </button>
                       </FloatField>
 
                       <div style={{ height: 14 }} />
 
-                      <Btn primary type="submit" disabled={!bothFilled}>
-                        Update Password
+                      <Btn primary type="submit" disabled={!bothFilled || resetting}>
+                        {resetting ? "Updating..." : "Update Password"}
                       </Btn>
                     </form>
                   </Card>
@@ -477,12 +530,12 @@ const ForgotPass: React.FC = () => {
                   {pwError && <ErrorText role="alert">{pwError}</ErrorText>}
                   {pwOk && <SuccessText>Password updated! Redirecting to Login…</SuccessText>}
 
-                  <Small>
+                  <p style={{ fontSize:13, color:"#666", textAlign:"center", margin:"12px 0 0" }}>
                     Remembered your password?{" "}
                     <a href="#" onClick={goLogin} style={{ color: COLORS.brown700, textDecoration: "none" }}>
                       Back to login
                     </a>
-                  </Small>
+                  </p>
                 </>
               )}
             </Content>

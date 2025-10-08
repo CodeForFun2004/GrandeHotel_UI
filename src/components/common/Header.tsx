@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+// src/components/common/Header.tsx
+import { useEffect, useMemo, useState } from "react";
 import {
   Navbar,
   Nav,
@@ -7,39 +8,37 @@ import {
   NavDropdown,
   Image,
 } from "react-bootstrap";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { LinkContainer } from "react-router-bootstrap";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import LogoutIcon from "@mui/icons-material/Logout";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState, AppDispatch } from "../../redux/store";
+import { logout } from "../../redux/slices/authSlice";
+import { routes } from "../../routes/AppRouter";
+import { toast } from "react-toastify";
 
 import "./Navbar.css";
 
-type User = {
-  username: string;
-  avatar?: string; // url
-};
-
 type Props = {
-  isAuthenticated: boolean;
-  user?: User | null;
-  onLogout?: () => void;
   /** selector của HeroSlider để xác định khi nào navbar rời khỏi hero */
   heroSelector?: string; // ví dụ "#hero"
 };
 
-const Header: React.FC<Props> = ({
-  isAuthenticated,
-  user,
-  onLogout,
-  heroSelector = "#hero",
-}) => {
+const Header: React.FC<Props> = ({ heroSelector = "#hero" }) => {
   const [overHero, setOverHero] = useState(true);
+
+  const dispatch = useDispatch<AppDispatch>();
+  const navigate = useNavigate();
+
+  // Lấy auth từ Redux
+  const { user, accessToken } = useSelector((s: RootState) => s.auth);
+  const isAuthenticated = useMemo(() => !!accessToken, [accessToken]);
 
   useEffect(() => {
     const heroEl = document.querySelector(heroSelector);
 
-    // Nếu tìm thấy Hero -> dùng IntersectionObserver chuẩn
     if (heroEl) {
       const io = new IntersectionObserver(
         ([entry]) => setOverHero(entry.isIntersecting),
@@ -49,13 +48,32 @@ const Header: React.FC<Props> = ({
       return () => io.disconnect();
     }
 
-    // Fallback: đổi trạng thái theo scrollY
+    // Fallback theo scroll
     const onScroll = () => setOverHero(window.scrollY < 80);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [heroSelector]);
 
+  const handleLogout = () => {
+    dispatch(logout());
+    toast.success("You’ve been signed out.");
+    navigate(routes.HOME_PATH, { replace: true });
+  };
+
+  // ---- SAFE NARROWING user ----
+  // Không cần import type User; chỉ cần ép về object generic rồi tự narrow.
+  const u = (user ?? null) as { username?: unknown; avatar?: unknown } | null;
+
+  const username =
+    u?.username && typeof u.username === "string" && u.username.trim() !== ""
+      ? u.username
+      : "User";
+
+  const avatarSrc =
+    u?.avatar && typeof u.avatar === "string" && u.avatar.trim() !== ""
+      ? u.avatar
+      : "https://ui-avatars.com/api/?name=G+H&background=baa07a&color=fff";
 
   return (
     <Navbar
@@ -68,6 +86,7 @@ const Header: React.FC<Props> = ({
         <Navbar.Brand as={NavLink} to="/" className="brand">
           GRAND
         </Navbar.Brand>
+
         <Navbar.Toggle aria-controls="deluxe-nav" />
         <Navbar.Collapse id="deluxe-nav" className="justify-content-center">
           {/* MENU center */}
@@ -81,11 +100,7 @@ const Header: React.FC<Props> = ({
             <Nav.Link as={NavLink} to="/service" className="deluxe-link">
               Service
             </Nav.Link>
-            <Nav.Link
-              as={NavLink}
-              to="/blog"
-              className="deluxe-link"
-            ></Nav.Link>
+            <Nav.Link as={NavLink} to="/blog" className="deluxe-link"></Nav.Link>
             <Nav.Link as={NavLink} to="/about" className="deluxe-link">
               About
             </Nav.Link>
@@ -93,20 +108,19 @@ const Header: React.FC<Props> = ({
               Contact
             </Nav.Link>
           </Nav>
-
-          {/* RIGHT area */}
         </Navbar.Collapse>
+
+        {/* RIGHT area */}
         <div className="d-flex align-items-center gap-2 ms-lg-4 py-10">
           {!isAuthenticated ? (
             <>
-              {/* Dùng LinkContainer để tránh lỗi TS 2322 */}
-              <LinkContainer to="/auth/login">
+              <LinkContainer to={routes.LOGIN_PATH}>
                 <Button className="btn-pill btn-login" variant="outline-light">
                   Login
                 </Button>
               </LinkContainer>
 
-              <LinkContainer to="/auth/register">
+              <LinkContainer to={routes.REGISTER_PATH}>
                 <Button className="btn-pill btn-signup" variant="light">
                   Sign Up
                 </Button>
@@ -122,18 +136,13 @@ const Header: React.FC<Props> = ({
                   <span className="user-chip" role="button" tabIndex={0}>
                     <Image
                       roundedCircle
-                      src={
-                        user?.avatar ||
-                        "https://ui-avatars.com/api/?name=G+H&background=baa07a&color=fff"
-                      }
+                      src={avatarSrc}           
                       alt="avatar"
                       width={32}
                       height={32}
                       className="me-2 user-chip__avatar"
                     />
-                    <span className="user-chip__name">
-                      {user?.username || "User"}
-                    </span>
+                    <span className="user-chip__name">{username}</span>
                   </span>
                 }
               >
@@ -152,7 +161,7 @@ const Header: React.FC<Props> = ({
                 </LinkContainer>
 
                 <NavDropdown.Divider />
-                <NavDropdown.Item onClick={onLogout}>
+                <NavDropdown.Item onClick={handleLogout}>
                   <LogoutIcon fontSize="small" className="me-2" />
                   Logout
                 </NavDropdown.Item>
