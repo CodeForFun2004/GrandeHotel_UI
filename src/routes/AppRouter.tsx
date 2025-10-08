@@ -18,6 +18,7 @@ import Rooms from "../pages/Rooms";
 // import RoomDetail from "../pages/RoomDetail";
 import BookingWizard from "../pages/BookingWizard";
 import AuthLayout from "../layouts/AuthLayout";
+import AuthCallback from "../pages/AuthCallPage";
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const routes = {
@@ -36,11 +37,13 @@ export const routes = {
   SHOPPING_PATH: "/shopping",
   PRODUCT_DETAIL_PATH: "/product/:id",
 
-
+  GOOGLE_CALLBACK_PATH: "/auth/callback",
   RESET_PASS_PATH: "/reset-password",
 
-
+  
   FORGOT_PASS_PATH: "/auth/forgot-password",
+  VERIFY_EMAIL_PATH: "/auth/verify-email",
+  CHANGE_PASS_PATH: "/change-password",
 
   ROOMS_PATH: "/rooms",
   BOOK_PATH: "/book",
@@ -57,7 +60,8 @@ export const router = createBrowserRouter([
       { path: routes.LOGIN_PATH, element: <LoginPage /> },
       { path: routes.REGISTER_PATH, element: <RegisterPage /> },
       { path: routes.FORGOT_PASS_PATH, element: <ForgotPass /> },
-      { path: "/auth/verify-email", element: <VerifyEmail /> },
+      { path: routes.VERIFY_EMAIL_PATH, element: <VerifyEmail /> },
+      { path: routes.GOOGLE_CALLBACK_PATH, element: <AuthCallback /> },
     ],
   },
 
@@ -66,15 +70,8 @@ export const router = createBrowserRouter([
     element: <LandingLayout />,
     children: [
       { index: true, element: <LandingPage /> },
-      // { path: routes.LOGIN_PATH, element: <LoginPage /> },
-      // { path: routes.REGISTER_PATH, element: <RegisterPage /> },
-      // { path: routes.FORGOT_PASS_PATH, element: <ForgotPass /> },
-      // { path: "/verify-email", element: <VerifyEmail /> },
       { path: routes.ALL_PATH, element: <NotFoundPage /> },
-
       { path: routes.PROFILE_PATH, element: <Profile /> },
-      
-
       { path: routes.ROOMS_PATH, element: <Rooms /> },
       // { path: routes.ROOM_DETAIL_PATH, element: <RoomDetail /> },
       { path: routes.BOOK_PATH, element: <BookingWizard /> },
