@@ -17,8 +17,13 @@ import Profile from "../pages/customer/Profile";
 import Rooms from "../pages/Rooms";
 // import RoomDetail from "../pages/RoomDetail";
 import BookingWizard from "../pages/BookingWizard";
+
+import ManagerDashboard from "../pages/admin/ManagerDashboard";
+import HotelInfoForm from "../pages/admin/HotelInfoForm";
+import RoomTable from "../pages/admin/rooms/RoomTable";
 import AuthLayout from "../layouts/AuthLayout";
 import AuthCallback from "../pages/AuthCallPage";
+
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const routes = {
@@ -86,10 +91,10 @@ export const router = createBrowserRouter([
       </PrivateRoute>
     ),
     children: [
-      { index: true, element: <AdminDashboard /> },
+      { index: true, element: <ManagerDashboard /> },
       { path: routes.ADMIN_PROFILE_PATH, element: <AdminDashboard /> },
-      { path: routes.PROJECTS_PATH, element: <AdminDashboard /> },
-      { path: routes.PROJECTS_CREATE_PATH, element: <AdminDashboard /> },
+      { path: "/dashboard/hotel", element: <HotelInfoForm /> },
+      { path: "/dashboard/rooms", element: <RoomTable /> }
     ],
   },
   { path: routes.LOGOUT_PATH, element: <Logout /> },
