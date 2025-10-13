@@ -11,7 +11,7 @@ import { loginUser } from "../../redux/slices/authSlice";
 import { toast } from "react-toastify";
 
 // (nếu cần Google OAuth)
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:1000/api";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:1000/api";
 
 /* ===== Colors ===== */
 const COLORS = {
@@ -473,8 +473,9 @@ const LoginPage: React.FC = () => {
       ).unwrap();
 
       toast.success("Welcome back!");
-      // chạy animation rời: dùng cơ chế sẵn có
-      startSlideTo("/"); // setNextPath('/') + setSliding(true)
+      // Redirect đến dashboard phù hợp với role thay vì về trang chủ
+      // Sẽ được xử lý bởi RoleBasedRedirect trong AppRouter
+      startSlideTo("/dashboard"); // setNextPath('/dashboard') + setSliding(true)
     } catch (err: unknown) {
       let errorMsg = "Login failed";
       if (typeof err === "string") errorMsg = err;
@@ -484,8 +485,20 @@ const LoginPage: React.FC = () => {
   };
 
   const handleGoogleLogin = () => {
-  window.location.href = `${API_BASE}/auth/google`;
-};
+    try {
+      // Kiểm tra API_BASE trước khi redirect
+      if (!API_BASE) {
+        toast.error("API URL not configured. Please check environment variables.");
+        return;
+      }
+      
+      console.log("Redirecting to Google OAuth:", `${API_BASE}/auth/google`);
+      window.location.href = `${API_BASE}/auth/google`;
+    } catch (error) {
+      console.error("Google login error:", error);
+      toast.error("Failed to initiate Google login. Please try again.");
+    }
+  };
 
 
   return (
