@@ -26,14 +26,23 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import "./DashboardLayout.css";
 import Logo from "../assets/logo.png";
 import { useState } from "react";
+import { HotelClassRounded } from "@mui/icons-material";
 
 const drawerWidth = 280;
 const collapsedDrawerWidth = 80;
 
 const navigationItems = [
+
+  { title: "Admin profile", icon: <PersonIcon />, path: "/dashboard/admin-profile" },
+  { title: "Schedule management", icon: <CalendarTodayIcon />, path: "/dashboard/project" },
+  { title: "User management", icon: <GroupIcon />, path: "/dashboard/user-management" },
+  { title: "Finance management", icon: <BarChartIcon />, path: "#" },
+  { title: "Hotel list", icon:<HotelClassRounded/>, path: "/dashboard/hotel-list" },
+
   { title: "Manager Dashboard", icon: <BarChartIcon />, path: "/dashboard" },
   { title: "Hotel Info", icon: <PersonIcon />, path: "/dashboard/hotel" },
   { title: "Rooms", icon: <CalendarTodayIcon />, path: "/dashboard/rooms" },
+
   { title: "Logout", icon: <LogoutIcon />, path: "/logout" },
 ];
 
@@ -140,7 +149,7 @@ export default function DashboardLayoutBasic() {
               variant="subtitle2"
               sx={{ color: "text.secondary", mb: 1 }}
             >
-              User info
+              {/* User info */}
             </Typography>
             <List>
               <ListItem disablePadding>

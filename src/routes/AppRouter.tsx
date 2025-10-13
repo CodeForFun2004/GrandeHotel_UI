@@ -9,6 +9,10 @@ import LandingPage from "../pages/landing/LandingPage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import Logout from "../pages/auth/Logout";
 
+import AdminUserManagement from "../pages/admin/AdminUserManagement";
+import AdminHotelList from "../pages/admin/AdminHotelList";
+
+
 import ForgotPass from "../pages/auth/ForgotPass";
 import VerifyEmail from "../pages/auth/VerifyEmail";
 import Profile from "../pages/customer/Profile";
@@ -23,6 +27,7 @@ import HotelInfoForm from "../pages/admin/HotelInfoForm";
 import RoomTable from "../pages/admin/rooms/RoomTable";
 import AuthLayout from "../layouts/AuthLayout";
 import AuthCallback from "../pages/AuthCallPage";
+
 
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -41,6 +46,10 @@ export const routes = {
   PROJECTS_CREATE_PATH: "/dashboard/project/create",
   SHOPPING_PATH: "/shopping",
   PRODUCT_DETAIL_PATH: "/product/:id",
+
+  USER_MANAGEMENT_PATH: "/dashboard/user-management",
+  HOTEL_LIST_PATH: "/dashboard/hotel-list",
+
 
   GOOGLE_CALLBACK_PATH: "/auth/callback",
   RESET_PASS_PATH: "/reset-password",
@@ -76,10 +85,12 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <LandingPage /> },
       { path: routes.ALL_PATH, element: <NotFoundPage /> },
+
       { path: routes.PROFILE_PATH, element: <Profile /> },
       { path: routes.ROOMS_PATH, element: <Rooms /> },
       // { path: routes.ROOM_DETAIL_PATH, element: <RoomDetail /> },
       { path: routes.BOOK_PATH, element: <BookingWizard /> },
+
 
     ],
   },
@@ -93,8 +104,15 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <ManagerDashboard /> },
       { path: routes.ADMIN_PROFILE_PATH, element: <AdminDashboard /> },
+
+      { path: routes.PROJECTS_PATH, element: <AdminDashboard /> },
+      { path: routes.PROJECTS_CREATE_PATH, element: <AdminDashboard /> },
+      { path: routes.USER_MANAGEMENT_PATH, element: <AdminUserManagement /> },
+      { path: routes.HOTEL_LIST_PATH, element: <AdminHotelList /> },
+
       { path: "/dashboard/hotel", element: <HotelInfoForm /> },
       { path: "/dashboard/rooms", element: <RoomTable /> }
+
     ],
   },
   { path: routes.LOGOUT_PATH, element: <Logout /> },

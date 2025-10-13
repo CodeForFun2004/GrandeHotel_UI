@@ -7,6 +7,7 @@ interface PrivateRouteProps {
 }
 
 export const PrivateRoute = ({ children }: PrivateRouteProps) => {
+
   const location = useLocation();
 
   // Đồng bộ đúng key đã dùng trong authSlice/axios
@@ -19,6 +20,7 @@ export const PrivateRoute = ({ children }: PrivateRouteProps) => {
     // Redirect đúng route login hiện tại
     return <Navigate to={routes.LOGIN_PATH} replace />;
   }
+
 
   return <>{children}</>;
 };
