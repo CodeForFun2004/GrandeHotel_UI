@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 
 // Tạo 1 action đơn giản trong authSlice: authLoginSuccess(payload)
 import { authLoginSuccess } from '../redux/slices/authSlice';
@@ -8,6 +8,8 @@ import { authLoginSuccess } from '../redux/slices/authSlice';
 export default function AuthCallback() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [isProcessing, setIsProcessing] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     try {
@@ -25,13 +27,35 @@ export default function AuthCallback() {
 
         // Đưa user vào Redux để HomePage hiển thị ngay
         dispatch(authLoginSuccess({ user, accessToken, refreshToken }));
+        
+        setIsProcessing(false);
+      } else {
+        setHasError(true);
+        setIsProcessing(false);
       }
     } catch (e) {
       console.error('Parse OAuth payload failed', e);
-    } finally {
-      navigate('/', { replace: true });
+      setHasError(true);
+      setIsProcessing(false);
     }
   }, [dispatch, navigate]);
 
-  return <div style={{ padding: 24 }}>Đang đăng nhập bằng Google...</div>;
+  if (hasError) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center' }}>
+        <h2>Đăng nhập thất bại</h2>
+        <p>Đã xảy ra lỗi khi đăng nhập bằng Google. Vui lòng thử lại.</p>
+        <button onClick={() => navigate('/auth/login')}>
+          Quay lại trang đăng nhập
+        </button>
+      </div>
+    );
+  }
+
+  if (isProcessing) {
+    return <div style={{ padding: 24 }}>Đang đăng nhập bằng Google...</div>;
+  }
+
+  // Google login luôn redirect về trang chủ
+  return <Navigate to="/" replace />;
 }

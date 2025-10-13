@@ -1,26 +1,27 @@
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import { routes } from './AppRouter';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../redux/store';
 
 interface PrivateRouteProps {
   children: ReactNode;
 }
 
 export const PrivateRoute = ({ children }: PrivateRouteProps) => {
-
-  const location = useLocation();
+  const user = useSelector((state: RootState) => state.auth.user);
 
   // Đồng bộ đúng key đã dùng trong authSlice/axios
   const isAuthenticated = !!localStorage.getItem('accessToken');
 
   if (!isAuthenticated) {
-    if (location.pathname !== routes.LOGIN_PATH && location.pathname !== routes.LOGOUT_PATH) {
-      alert('Authentication required. Please sign in.');
-    }
-    // Redirect đúng route login hiện tại
-    return <Navigate to={routes.LOGIN_PATH} replace />;
+    // Không hiển thị alert, chỉ redirect về home
+    return <Navigate to="/" replace />;
   }
 
+  // Nếu đã đăng nhập nhưng chưa có thông tin user, redirect về home
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
 
   return <>{children}</>;
 };
