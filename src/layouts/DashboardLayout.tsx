@@ -32,11 +32,17 @@ const drawerWidth = 280;
 const collapsedDrawerWidth = 80;
 
 const navigationItems = [
+
   { title: "Admin profile", icon: <PersonIcon />, path: "/dashboard/admin-profile" },
   { title: "Schedule management", icon: <CalendarTodayIcon />, path: "/dashboard/project" },
   { title: "User management", icon: <GroupIcon />, path: "/dashboard/user-management" },
   { title: "Finance management", icon: <BarChartIcon />, path: "#" },
   { title: "Hotel list", icon:<HotelClassRounded/>, path: "/dashboard/hotel-list" },
+
+  { title: "Manager Dashboard", icon: <BarChartIcon />, path: "/dashboard" },
+  { title: "Hotel Info", icon: <PersonIcon />, path: "/dashboard/hotel" },
+  { title: "Rooms", icon: <CalendarTodayIcon />, path: "/dashboard/rooms" },
+
   { title: "Logout", icon: <LogoutIcon />, path: "/logout" },
 ];
 
@@ -188,7 +194,7 @@ export default function DashboardLayoutBasic() {
               Admin
             </Typography>
             <List>
-              {navigationItems.slice(1, -1).map((item) => (
+              {navigationItems.slice(0, -1).map((item) => (
                 <ListItem key={item.path} disablePadding>
                   <ListItemButton
                     selected={isActive(item.path)}

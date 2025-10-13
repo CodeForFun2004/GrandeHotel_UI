@@ -1,5 +1,6 @@
 ﻿import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import LoginPage from "../pages/auth/LoginPage";
+import RegisterPage from "../pages/auth/RegisterPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import { PrivateRoute } from "./PrivateRoute";
 import LandingLayout from "../layouts/LandingLayout";
@@ -7,15 +8,35 @@ import DashboardLayoutBasic from "../layouts/DashboardLayout";
 import LandingPage from "../pages/landing/LandingPage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import Logout from "../pages/auth/Logout";
+
 import AdminUserManagement from "../pages/admin/AdminUserManagement";
 import AdminHotelList from "../pages/admin/AdminHotelList";
+
+
+import ForgotPass from "../pages/auth/ForgotPass";
+import VerifyEmail from "../pages/auth/VerifyEmail";
+import Profile from "../pages/customer/Profile";
+
+
+import Rooms from "../pages/Rooms";
+// import RoomDetail from "../pages/RoomDetail";
+import BookingWizard from "../pages/BookingWizard";
+
+import ManagerDashboard from "../pages/admin/ManagerDashboard";
+import HotelInfoForm from "../pages/admin/HotelInfoForm";
+import RoomTable from "../pages/admin/rooms/RoomTable";
+import AuthLayout from "../layouts/AuthLayout";
+import AuthCallback from "../pages/AuthCallPage";
+
+
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const routes = {
   ALL_PATH: "*",
   HOME_PATH: "/",
-  LOGIN_PATH: "/login",
-  REGISTER_PATH: "/register",
+  AUTH_PATH: "/auth",
+  LOGIN_PATH: "/auth/login",
+  REGISTER_PATH: "/auth/register",
   LOGOUT_PATH: "/logout",
   DASHBOARD_PATH: "/dashboard",
   ADMIN_PROFILE_PATH: "/dashboard/admin-profile",
@@ -25,19 +46,52 @@ export const routes = {
   PROJECTS_CREATE_PATH: "/dashboard/project/create",
   SHOPPING_PATH: "/shopping",
   PRODUCT_DETAIL_PATH: "/product/:id",
+
   USER_MANAGEMENT_PATH: "/dashboard/user-management",
   HOTEL_LIST_PATH: "/dashboard/hotel-list",
+
+
+  GOOGLE_CALLBACK_PATH: "/auth/callback",
+  RESET_PASS_PATH: "/reset-password",
+
+  
+  FORGOT_PASS_PATH: "/auth/forgot-password",
+  VERIFY_EMAIL_PATH: "/auth/verify-email",
+  CHANGE_PASS_PATH: "/change-password",
+
+  ROOMS_PATH: "/rooms",
+  BOOK_PATH: "/book",
+  ROOM_DETAIL_PATH: "/rooms/:id",
+
 };
 // eslint-disable-next-line react-refresh/only-export-components
 export const router = createBrowserRouter([
+
+  {
+    path: routes.AUTH_PATH,
+    element: <AuthLayout />,
+    children: [
+      { path: routes.LOGIN_PATH, element: <LoginPage /> },
+      { path: routes.REGISTER_PATH, element: <RegisterPage /> },
+      { path: routes.FORGOT_PASS_PATH, element: <ForgotPass /> },
+      { path: routes.VERIFY_EMAIL_PATH, element: <VerifyEmail /> },
+      { path: routes.GOOGLE_CALLBACK_PATH, element: <AuthCallback /> },
+    ],
+  },
+
   {
     path: routes.HOME_PATH,
     element: <LandingLayout />,
     children: [
       { index: true, element: <LandingPage /> },
-      { path: routes.LOGIN_PATH, element: <LoginPage /> },
       { path: routes.ALL_PATH, element: <NotFoundPage /> },
-      
+
+      { path: routes.PROFILE_PATH, element: <Profile /> },
+      { path: routes.ROOMS_PATH, element: <Rooms /> },
+      // { path: routes.ROOM_DETAIL_PATH, element: <RoomDetail /> },
+      { path: routes.BOOK_PATH, element: <BookingWizard /> },
+
+
     ],
   },
   {
@@ -48,12 +102,17 @@ export const router = createBrowserRouter([
       </PrivateRoute>
     ),
     children: [
-      { index: true, element: <AdminDashboard /> },
+      { index: true, element: <ManagerDashboard /> },
       { path: routes.ADMIN_PROFILE_PATH, element: <AdminDashboard /> },
+
       { path: routes.PROJECTS_PATH, element: <AdminDashboard /> },
       { path: routes.PROJECTS_CREATE_PATH, element: <AdminDashboard /> },
       { path: routes.USER_MANAGEMENT_PATH, element: <AdminUserManagement /> },
       { path: routes.HOTEL_LIST_PATH, element: <AdminHotelList /> },
+
+      { path: "/dashboard/hotel", element: <HotelInfoForm /> },
+      { path: "/dashboard/rooms", element: <RoomTable /> }
+
     ],
   },
   { path: routes.LOGOUT_PATH, element: <Logout /> },
