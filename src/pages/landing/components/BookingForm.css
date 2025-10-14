@@ -1,6 +1,9 @@
 :root {
   --deluxe-gold: #7c6532;       /* vàng nâu giống template */
   --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  --search-orange: #ff6b35;     /* màu cam cho nút search */
+  --input-bg: #f8f9fa;          /* màu nền input */
+  --input-border: #e9ecef;      /* màu border input */
 }
 
 /* đặt BookingForm đè lên cuối hero */
@@ -23,32 +26,48 @@
 .booking-card {
   background: #fff;
   box-shadow: var(--card-shadow);
-  border-radius: 2px;
+  border-radius: 8px;
+  border: 1px solid var(--input-border);
+  min-height: 85px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
-/* nhãn vàng nâu, uppercase, tracking */
+/* nhãn đen, font weight bold */
 .booking-card .label {
   display: block;
-  color: var(--deluxe-gold);
-  text-transform: uppercase;
-  letter-spacing: 0.25rem;
+  color: #333;
   font-weight: 600;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
   font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* input/select lớn, placeholder nhìn như title */
+/* input/select styling theo template */
 .control-lg,
 .control-lg.form-control,
 .control-lg.form-select {
-  border: none;
-  border-radius: 0;
-  padding: 0;
-  font-size: 1.75rem;
-  line-height: 1.2;
-  color: #111;
+  border: 2px solid var(--input-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  line-height: 1.3;
+  color: #333;
   box-shadow: none !important;
-  background-color: transparent;
+  background-color: var(--input-bg);
+  transition: all 0.3s ease;
+  height: 40px;
+}
+
+.control-lg:focus,
+.control-lg.form-control:focus,
+.control-lg.form-select:focus {
+  border-color: var(--search-orange);
+  box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25);
+  background-color: #fff;
 }
 
 /* loại bỏ caret default của select trên Chrome để giống template */
@@ -58,39 +77,33 @@
   position: relative;
 }
 
-/* nút vàng nâu khối */
-.btn-availability {
-  background: var(--deluxe-gold);
-  border: none;
-  color: #fff;
-  font-weight: 600;
-  min-height: 100%;
-  white-space: nowrap;
-}
-.btn-availability:hover,
-.btn-availability:focus {
-  background: #6d592d;
-}
-
-/* Search button styling */
+/* nút search cam theo template */
 .btn-search {
-  background: #ffd700;
+  background: var(--search-orange);
   border: none;
   color: #fff;
-  font-weight: 600;
-  min-height: 100%;
+  min-height: 40px;
   white-space: nowrap;
+  border-radius: 8px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  font-weight: 600;
+  height: 100%;
 }
 .btn-search:hover,
 .btn-search:focus {
-  background: #e6c200;
+  background: #e55a2b;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
 }
 
 .search-icon {
-  font-size: 1.2rem;
+  font-size: 1rem;
 }
 
 
@@ -108,20 +121,8 @@
 
 /* --- SELECT caret custom giống template --- */
 .select-wrap { position: relative; }
-.select-wrap::after{
-  content: "";
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  width: 0; height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 8px solid #111;   /* màu mũi tên */
-  transform: translateY(-50%);
-  pointer-events: none;
-}
 
-/* Input with icon styling */
+/* Input with icon styling theo template */
 .input-with-icon {
   position: relative;
   display: flex;
@@ -130,52 +131,139 @@
 
 .input-icon {
   position: absolute;
-  left: 12px;
+  left: 16px;
   z-index: 2;
   font-size: 1.2rem;
   color: #666;
+  pointer-events: none;
 }
 
 .destination-input,
 .promo-input {
-  padding-left: 40px !important;
+  padding-left: 48px !important;
 }
 
-/* Room stepper styling */
+/* Date picker styling */
+.date-input {
+  padding-left: 48px !important;
+  cursor: pointer;
+}
+
+/* Custom select dropdown arrow */
+.control-lg.form-select {
+  background-image: none;
+  padding-right: 2rem;
+  position: relative;
+  cursor: pointer;
+}
+
+.control-lg.form-select::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid #666;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+/* Room stepper styling theo template */
 .room-stepper {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #f8f9fa;
+  background: var(--input-bg);
   border-radius: 8px;
   padding: 8px 12px;
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--input-border);
+  transition: all 0.3s ease;
+  min-height: 40px;
+  justify-content: center;
+  height: 40px;
+}
+
+.room-stepper:hover {
+  border-color: var(--search-orange);
 }
 
 .stepper-btn {
   background: #fff;
   border: 1px solid #ddd;
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
-  font-size: 1.2rem;
+  font-size: 1rem;
   cursor: pointer;
   transition: all 0.2s;
+  color: #333;
 }
 
 .stepper-btn:hover {
-  background: #f8f9fa;
-  border-color: #007bff;
+  background: var(--search-orange);
+  border-color: var(--search-orange);
+  color: #fff;
+  transform: scale(1.1);
+}
+
+.stepper-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .room-count {
-  font-size: 1.1rem;
-  font-weight: 500;
+  font-size: 1rem;
+  font-weight: 600;
   color: #333;
-  min-width: 60px;
+  min-width: 30px;
   text-align: center;
+}
+
+/* Responsive design */
+@media (max-width: 991.98px) {
+  .booking-card {
+    min-height: 100px;
+    margin-bottom: 1rem;
+  }
+  
+  .btn-search {
+    min-height: 56px;
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .booking-card {
+    min-height: 90px;
+  }
+  
+  .control-lg,
+  .control-lg.form-control,
+  .control-lg.form-select {
+    font-size: 0.9rem;
+    padding: 10px 14px;
+  }
+  
+  .room-stepper {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  
+  .stepper-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
+  }
+  
+  .btn-search {
+    min-height: 50px;
+    font-size: 1rem;
+  }
 }
