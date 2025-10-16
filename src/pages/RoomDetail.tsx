@@ -1,12 +1,11 @@
-import React, { useMemo, useState } from "react";
+import React from "react";
 import { useParams, Link } from "react-router-dom";
 import heroBg from "../assets/images/bg_1.jpg";
 import room1 from "../assets/images/room-1.jpg";
 import room2 from "../assets/images/room-2.jpg";
 import room3 from "../assets/images/room-3.jpg";
 import "./Rooms.css";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
+// Booking controls are handled in the reservation wizard; no DatePicker here.
 
 const imageById: Record<string, string> = {
   "1": room1,
@@ -18,25 +17,8 @@ const RoomDetail: React.FC = () => {
   const { id = "1" } = useParams();
   const image = imageById[id] || room1;
 
-  const [checkIn, setCheckIn] = useState<Date | null>(null);
-  const [nights, setNights] = useState<number>(1);
-  const [rooms, setRooms] = useState<number>(1);
-  const [adults, setAdults] = useState<number>(2);
-  const [children, setChildren] = useState<number>(0);
-
+  // Static price info; booking is handled in the reservation wizard
   const nightlyRate = 180;
-
-  const total = useMemo(() => {
-    return Math.max(1, nights) * Math.max(1, rooms) * nightlyRate;
-  }, [nights, rooms]);
-
-  const deposit = useMemo(() => Math.round(total * 0.3), [total]);
-
-  const checkoutDate = useMemo(() => {
-    if (!checkIn) return null;
-    const msPerDay = 24 * 60 * 60 * 1000;
-    return new Date(checkIn.getTime() + Math.max(1, nights) * msPerDay);
-  }, [checkIn, nights]);
 
   return (
     <>
@@ -64,16 +46,24 @@ const RoomDetail: React.FC = () => {
 
       <section className="ftco-section">
         <div className="container">
-          <div className="row">
-            <div className="col-lg-8 mb-4">
-              <div className="room">
-                <div className="img" style={{ backgroundImage: `url(${image})` }} />
-                <div className="text p-3">
-                  <h3 className="mb-3">Deluxe Room</h3>
+          {/* Detail card reusing .room styles */}
+          <div className="room room-detail mb-4">
+            <div className="row g-0 align-items-stretch">
+              <div className="col-lg-5">
+                <div
+                  className="img d-flex align-items-center justify-content-center"
+                  style={{ backgroundImage: `url(${image})` }}
+                />
+              </div>
+              <div className="col-lg-7 d-flex">
+                <div className="text p-3 w-100">
+                  <h3 className="mb-2">Deluxe Room</h3>
+                  <p className="mb-2">
+                    <span className="price mr-2">${nightlyRate.toFixed(2)}</span>{" "}
+                    <span className="per">per night</span>
+                  </p>
                   <p>
-                    A spacious and elegant room featuring a comfortable king-size bed,
-                    modern amenities, and a beautiful view. Perfect for couples or
-                    solo travelers seeking luxury and comfort.
+                    A spacious and elegant room featuring a comfortable king-size bed, modern amenities, and a beautiful view. Perfect for couples or solo travelers seeking luxury and comfort.
                   </p>
                   <ul className="list">
                     <li><span>Max:</span> 2 Persons</li>
@@ -81,81 +71,45 @@ const RoomDetail: React.FC = () => {
                     <li><span>View:</span> Sea View</li>
                     <li><span>Bed:</span> 1</li>
                   </ul>
+
+                  <div className="d-flex gap-2 mt-2">
+                    <Link to="/reservation" className="btn-reserve">Reserve</Link>
+                    <Link to="/rooms" className="btn btn-outline-secondary">Back to Rooms</Link>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="col-lg-4">
-              <div className="sidebar-wrap bg-light p-4">
-                <h3 className="heading mb-4">Reserve This Room</h3>
-                <form>
-                  <div className="fields">
-                    <div className="form-group">
-                      <label className="small text-muted mb-1">Check In</label>
-                      <DatePicker
-                        selected={checkIn}
-                        onChange={(d) => setCheckIn(d)}
-                        placeholderText="Select date"
-                        className="form-control"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="small text-muted mb-1">Nights</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={nights}
-                        onChange={(e) => setNights(Math.max(1, parseInt(e.target.value || "1")))}
-                        className="form-control"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="small text-muted mb-1">Rooms</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={rooms}
-                        onChange={(e) => setRooms(Math.max(1, parseInt(e.target.value || "1")))}
-                        className="form-control"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="small text-muted mb-1">Adults</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={adults}
-                        onChange={(e) => setAdults(Math.max(0, parseInt(e.target.value || "0")))}
-                        className="form-control"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="small text-muted mb-1">Children</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={children}
-                        onChange={(e) => setChildren(Math.max(0, parseInt(e.target.value || "0")))}
-                        className="form-control"
-                      />
-                    </div>
+          </div>
 
-                    <div className="bg-white border p-3 mb-3">
-                      <div className="d-flex justify-content-between mb-2"><span>Nightly rate</span><strong className="text-muted">${nightlyRate}</strong></div>
-                      <div className="d-flex justify-content-between mb-2"><span>Nights</span><strong className="text-muted">{nights}</strong></div>
-                      <div className="d-flex justify-content-between mb-2"><span>Rooms</span><strong className="text-muted">{rooms}</strong></div>
-                      <div className="d-flex justify-content-between mb-2"><span>Subtotal</span><strong className="text-muted">${total}</strong></div>
-                      <div className="d-flex justify-content-between"><span>Deposit (30%)</span><strong>${deposit}</strong></div>
-                      {checkIn && (
-                        <div className="small text-muted mt-2">Checkout: {checkoutDate?.toLocaleDateString()}</div>
-                      )}
-                    </div>
-
-                    <button type="button" className="btn btn-primary w-100 mb-2">Reserve</button>
-                    <Link to="/rooms" className="btn btn-outline-secondary w-100">Back to Rooms</Link>
-                  </div>
-                </form>
+          {/* Reviews and ratings section */}
+          <div className="mb-3">
+            <h4 className="mb-2">Guest Reviews & Ratings</h4>
+            <div className="d-flex align-items-center gap-3 mb-3">
+              <div className="h3 mb-0">4.5</div>
+              <div>
+                <div className="small text-muted">Average rating</div>
+                <div className="text-warning">★★★★★</div>
               </div>
             </div>
+
+            <ul className="review-list">
+              {[
+                { name: "Alex Nguyen", rating: 5, text: "Beautiful room with a fantastic sea view. Staff were amazing!" },
+                { name: "Linh Tran", rating: 4, text: "Very clean and comfortable. The bed was super cozy." },
+                { name: "John Doe", rating: 4, text: "Good location and amenities. Check-in was smooth." },
+              ].map((r, i) => (
+                <li key={i}>
+                  <div style={{ width: "100%" }}>
+                    <div className="d-flex justify-content-between">
+                      <strong>{r.name}</strong>
+                      <span className="text-warning">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
+                    </div>
+                    <div className="small text-muted">Stayed in Deluxe Room</div>
+                    <p className="mb-0 mt-1">{r.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>

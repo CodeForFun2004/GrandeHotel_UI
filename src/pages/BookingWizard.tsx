@@ -240,5 +240,3 @@ const BookingWizard: React.FC = () => {
 };
 
 export default BookingWizard;
-
-

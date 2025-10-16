@@ -1,38 +1,191 @@
-/* Transparent, overlay-on-hero look */
-.deluxe-navbar {
-  background: transparent;
-  box-shadow: none;
-  padding: 1.1rem 0; /* giống template thoáng */
-  z-index: 1000;
+/* --- kill đường viền vàng toàn thanh navbar --- */
+.deluxe-navbar,
+.deluxe-navbar.over-hero,
+.deluxe-navbar.scrolled {
+  border: none !important;
+  border-bottom: none !important;
+  padding-top: 20px !important;
+  padding-bottom: 20px !important;
 }
 
-/* Khi không nằm trên hero (hoặc bạn muốn dính màu khi scroll), thêm class .solid */
-.deluxe-navbar.solid {
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: saturate(120%) blur(2px);
+/* Nếu theme/Bootstrap có pseudo tạo viền, tắt luôn */
+.deluxe-navbar::before,
+.deluxe-navbar::after {
+  content: none !important;
 }
 
-.deluxe-navbar .brand {
-  letter-spacing: 2px;
-  font-weight: 700;
-  text-transform: uppercase;
+/* Trạng thái khi nằm trên Hero: trong suốt, không viền */
+.deluxe-navbar.over-hero {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
 }
 
-.deluxe-navbar .nav-link {
-  color: #ffffffcc !important;
-  font-weight: 500;
-  padding: .5rem 1rem;
+/* Trạng thái sau khi thoát Hero: nền tối + bóng nhẹ */
+.deluxe-navbar.scrolled {
+  background: #1b1b1b !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25) !important;
+  border-radius: 5px !important;
+  margin: 24px 12px 0 !important;
 }
 
-.deluxe-navbar .nav-link.active,
-.deluxe-navbar .nav-link:focus,
-.deluxe-navbar .nav-link:hover {
+/* --- tab active vẫn gạch chân vàng --- */
+.deluxe-menu .nav-link {
+  position: relative;
+  font-weight: 600;
+  color: #ffffffcc;
+  padding: 0.25rem 0.5rem;
+}
+.deluxe-menu .nav-link:hover,
+.deluxe-menu .nav-link.active,
+.deluxe-menu .nav-link[aria-current="page"] {
+  color: #fff;
+}
+
+/* chỉ underline dưới link active, KHÔNG phải toàn thanh */
+.deluxe-menu .nav-link.active::after,
+.deluxe-menu .nav-link[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -6px;
+  width: 100%;
+  height: 2px;
+  background: #d9c3a0; /* vàng nhạt */
+  border-radius: 2px;
+}
+
+/* Hover effect */
+.navbar .btn-login:hover,
+.navbar .btn-signup:hover {
+  background-color: #f3af42;   /* vàng đậm hơn khi hover */
+  color: #fff;
+}
+
+/* Nếu muốn phân biệt nhẹ Sign Up */
+.navbar .btn-signup {
+  margin-left: 10px;
+}
+
+/* ===== Buttons match navbar states ===== */
+/* Over hero: make buttons transparent like the navbar */
+.deluxe-navbar.over-hero .btn-login,
+.deluxe-navbar.over-hero .btn-signup {
+  background: transparent !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: none !important;
+}
+
+.deluxe-navbar.over-hero .btn-login:hover,
+.deluxe-navbar.over-hero .btn-signup:hover {
+  background: #f3af42 !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Scrolled: ensure solid, visible background like navbar tone contrast */
+.deluxe-navbar.scrolled .btn-login,
+.deluxe-navbar.scrolled .btn-signup {
+  background-color: #f1f1f1 !important;
+  color: #1b1b1b !important;
+  border-color: transparent !important;
+}
+
+/* Ensure hover works after scrolled (override with higher specificity + !important) */
+.deluxe-navbar.scrolled .btn-login:hover,
+.deluxe-navbar.scrolled .btn-signup:hover {
+  background-color: #f3af42 !important; /* same hover tone as default */
   color: #fff !important;
-  text-decoration: none;
 }
 
-@media (max-width: 991.98px) {
-  .deluxe-navbar {
-    background: rgba(0, 0, 0, 0.7); /* mobile mở menu thấy nền tối */
-  }
+
+
+/* USERNAME + IMAGE */
+/* === USER CHIP (avatar + name) ========================================= */
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: #ffffff;                     /* nền trắng mặc định */
+  color: #1f2937;                          /* xám đậm, dễ đọc */
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  transition: box-shadow .2s ease, transform .08s ease, background .2s ease;
+}
+
+.user-chip:hover { box-shadow: 0 10px 24px rgba(0,0,0,0.18); }
+.user-chip:active { transform: translateY(1px); }
+.user-chip:focus-visible {
+  outline: 2px solid #d9c3a0;             /* viền vàng của hệ */
+  outline-offset: 2px;
+}
+
+.user-chip__avatar {
+  width: 32px; height: 32px;
+  object-fit: cover;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #fff inset;        /* viền trắng nhỏ cho avatar */
+}
+
+.user-chip__name {
+  max-width: 140px;                        /* cắt bớt nếu tên dài */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* caret của NavDropdown (mặc định là ::after của .dropdown-toggle) */
+#user-menu .dropdown-toggle::after {
+  border-top-color: #9ca3af;               /* caret màu xám nhẹ */
+  margin-left: 8px;
+}
+
+/* ====== phối hợp với 2 trạng thái navbar ====== */
+/* Đè trên Hero: hơi trong suốt để "hòa" vào nền ảnh */
+.deluxe-navbar.over-hero .user-chip {
+  background: rgba(255,255,255,0.92);
+  border-color: rgba(0,0,0,0.05);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+
+/* Đã cuộn (nền tối): giữ trắng 100% để tương phản */
+.deluxe-navbar.scrolled .user-chip {
+  background: #fff;
+}
+
+/* Dropdown tone tối gọn */
+#user-menu .dropdown-menu {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Giữ màu vàng chủ đạo cho underline link active (đã có) */
+.deluxe-menu .nav-link.active::after,
+.deluxe-menu .nav-link[aria-current="page"]::after {
+  background: #d9c3a0;
+}
+
+/* Ẩn caret cho dropdown user */
+/* Ẩn caret của toggle trong mọi trạng thái */
+.navbar .no-caret .dropdown-toggle::after,
+.navbar .no-caret .nav-link.dropdown-toggle::after,
+.navbar .no-caret.show .dropdown-toggle::after,
+.navbar .no-caret .dropdown-toggle.show::after {
+  display: none !important;
+  content: none !important;
+  border: 0 !important;
+  margin: 0 !important;
+}
+
+/* Một số build dùng background-image cho caret -> tắt luôn */
+.navbar .no-caret .dropdown-toggle {
+  background-image: none !important;
 }
