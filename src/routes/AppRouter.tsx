@@ -23,7 +23,7 @@ import VerifyEmail from "../pages/auth/VerifyEmail";
 import Profile from "../pages/customer/Profile";
 
 import Rooms from "../pages/Rooms";
-// import RoomDetail from "../pages/RoomDetail"; e chạy thử luốn  mấy file đỏ đỏ đây là mấy file ko khôi phục được đây
+// import RoomDetail from "../pages/RoomDetail";
 import BookingWizard from "../pages/BookingWizard";
 
 import ManagerDashboard from "../pages/admin/ManagerDashboard";

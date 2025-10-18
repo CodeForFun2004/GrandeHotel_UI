@@ -17,32 +17,31 @@ import {
 import BarChartIcon from "@mui/icons-material/BarChart";
 import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
+import HotelIcon from "@mui/icons-material/Hotel";
+import MeetingRoomIcon from "@mui/icons-material/MeetingRoom";
+import BookOnlineIcon from "@mui/icons-material/BookOnline";
 import GroupIcon from "@mui/icons-material/Group";
-
-import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import MenuIcon from "@mui/icons-material/Menu";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import "./DashboardLayout.css";
 import Logo from "../assets/logo.png";
 import { useState } from "react";
-import { HotelClassRounded } from "@mui/icons-material";
+import { useDispatch } from "react-redux";
+import { logout } from "../redux/slices/authSlice";
+import { toast } from "react-toastify";
+import { MANAGER_PATHS } from "../utils/constant/enum";
 
 const drawerWidth = 280;
 const collapsedDrawerWidth = 80;
 
-const navigationItems = [
-
-  { title: "Admin profile", icon: <PersonIcon />, path: "/dashboard/admin-profile" },
-  { title: "Schedule management", icon: <CalendarTodayIcon />, path: "/dashboard/project" },
-  { title: "User management", icon: <GroupIcon />, path: "/dashboard/user-management" },
-  { title: "Finance management", icon: <BarChartIcon />, path: "#" },
-  { title: "Hotel list", icon:<HotelClassRounded/>, path: "/dashboard/hotel-list" },
-
-  { title: "Manager Dashboard", icon: <BarChartIcon />, path: "/dashboard" },
-  { title: "Hotel Info", icon: <PersonIcon />, path: "/dashboard/hotel" },
-  { title: "Rooms", icon: <CalendarTodayIcon />, path: "/dashboard/rooms" },
-
+const managerNavigationItems = [
+  { title: "Dashboard", icon: <BarChartIcon />, path: MANAGER_PATHS.DASHBOARD },
+  { title: "Hotel Info", icon: <HotelIcon />, path: MANAGER_PATHS.HOTEL_INFO },
+  { title: "Rooms", icon: <MeetingRoomIcon />, path: MANAGER_PATHS.ROOMS },
+  { title: "Bookings", icon: <BookOnlineIcon />, path: MANAGER_PATHS.BOOKINGS },
+  { title: "Staff Management", icon: <GroupIcon />, path: MANAGER_PATHS.STAFF_MANAGEMENT },
+  { title: "Profile", icon: <PersonIcon />, path: MANAGER_PATHS.PROFILE },
   { title: "Logout", icon: <LogoutIcon />, path: "/logout" },
 ];
 
@@ -82,9 +81,10 @@ const theme = createTheme({
   },
 });
 
-export default function DashboardLayoutBasic() {
+export default function ManagerLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -101,6 +101,12 @@ export default function DashboardLayoutBasic() {
       navigate(path);
       setMobileOpen(false);
     }
+  };
+
+  const handleLogout = () => {
+    dispatch(logout());
+    toast.success("You've been signed out.");
+    navigate("/", { replace: true });
   };
 
   const isActive = (path: string) => {
@@ -130,7 +136,7 @@ export default function DashboardLayoutBasic() {
                 component="div"
                 sx={{ color: "#b8192b", fontWeight: "bold" }}
               >
-                TimeSheet
+                Manager Panel
               </Typography>
             </Box>
           </>
@@ -142,146 +148,42 @@ export default function DashboardLayoutBasic() {
       </Toolbar>
       <Divider />
 
-      {isExpanded && (
-        <>
-          <Box sx={{ p: 2 }}>
-            <Typography
-              variant="subtitle2"
-              sx={{ color: "text.secondary", mb: 1 }}
-            >
-              {/* User info */}
-            </Typography>
-            <List>
-              <ListItem disablePadding>
+      <Box sx={{ p: isExpanded ? 2 : 1 }}>
+        {isExpanded ? (
+          <List>
+            {managerNavigationItems.map((item) => (
+              <ListItem key={item.path} disablePadding>
                 <ListItemButton
-                  selected={isActive("/dashboard/profile")}
-                  onClick={() => handleNavigation("/dashboard/profile")}
+                  selected={isActive(item.path)}
+                  onClick={() => item.path === "/logout" ? handleLogout() : handleNavigation(item.path)}
                 >
                   <ListItemIcon
                     sx={{
-                      color: isActive("/dashboard/profile")
-                        ? "#b8192b"
-                        : "inherit",
+                      color: isActive(item.path) ? "#b8192b" : "inherit",
                     }}
                   >
-                    <PersonIcon />
+                    {item.icon}
                   </ListItemIcon>
                   <ListItemText
-                    primary="My profile"
+                    primary={item.title}
                     sx={{
                       "& .MuiTypography-root": {
-                        fontWeight: isActive("/dashboard/profile")
-                          ? "bold"
-                          : "normal",
-                        color: isActive("/dashboard/profile")
-                          ? "#b8192b"
-                          : "inherit",
+                        fontWeight: isActive(item.path) ? "bold" : "normal",
+                        color: isActive(item.path) ? "#b8192b" : "inherit",
                       },
                     }}
                   />
                 </ListItemButton>
               </ListItem>
-            </List>
-          </Box>
-
-          <Divider />
-
-          <Box sx={{ p: 2 }}>
-            <Typography
-              variant="subtitle2"
-              sx={{ color: "text.secondary", mb: 1 }}
-            >
-              Admin
-            </Typography>
-            <List>
-              {navigationItems.slice(0, -1).map((item) => (
-                <ListItem key={item.path} disablePadding>
-                  <ListItemButton
-                    selected={isActive(item.path)}
-                    onClick={() => handleNavigation(item.path)}
-                  >
-                    <ListItemIcon
-                      sx={{
-                        color: isActive(item.path) ? "#b8192b" : "inherit",
-                      }}
-                    >
-                      {item.icon}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={item.title}
-                      sx={{
-                        "& .MuiTypography-root": {
-                          fontWeight: isActive(item.path) ? "bold" : "normal",
-                          color: isActive(item.path) ? "#b8192b" : "inherit",
-                        },
-                      }}
-                    />
-                  </ListItemButton>
-                </ListItem>
-              ))}
-            </List>
-          </Box>
-
-          <Divider />
-        </>
-      )}
-
-      <Box sx={{ p: isExpanded ? 2 : 1 }}>
-        {isExpanded ? (
-          <List>
-            <ListItem disablePadding>
-              <ListItemButton
-                selected={isActive("/logout")}
-                onClick={() => handleNavigation("/logout")}
-              >
-                <ListItemIcon
-                  sx={{ color: isActive("/logout") ? "#b8192b" : "inherit" }}
-                >
-                  <LogoutIcon />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Logout"
-                  sx={{
-                    "& .MuiTypography-root": {
-                      fontWeight: isActive("/logout") ? "bold" : "normal",
-                      color: isActive("/logout") ? "#b8192b" : "inherit",
-                    },
-                  }}
-                />
-              </ListItemButton>
-            </ListItem>
+            ))}
           </List>
         ) : (
           <List>
-            {/* Collapsed navigation - only icons */}
-            <ListItem disablePadding>
-              <ListItemButton
-                selected={isActive("/dashboard/profile")}
-                onClick={() => handleNavigation("/dashboard/profile")}
-                sx={{
-                  minWidth: "auto",
-                  justifyContent: "center",
-                  px: 1,
-                }}
-              >
-                <ListItemIcon
-                  sx={{
-                    color: isActive("/dashboard/profile")
-                      ? "#b8192b"
-                      : "inherit",
-                    minWidth: "auto",
-                  }}
-                >
-                  <PersonIcon />
-                </ListItemIcon>
-              </ListItemButton>
-            </ListItem>
-
-            {navigationItems.slice(1).map((item) => (
+            {managerNavigationItems.map((item) => (
               <ListItem key={item.path} disablePadding>
                 <ListItemButton
                   selected={isActive(item.path)}
-                  onClick={() => handleNavigation(item.path)}
+                  onClick={() => item.path === "/logout" ? handleLogout() : handleNavigation(item.path)}
                   sx={{
                     minWidth: "auto",
                     justifyContent: "center",
