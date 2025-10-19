@@ -102,7 +102,6 @@ const AdminHotelList: React.FC = () => {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
     hotelDetails: true,
-    managerAssignment: true,
     rooms: true
   });
 
@@ -161,7 +160,7 @@ const AdminHotelList: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3, minHeight: 'calc(100vh - 64px)' }}>
       <Typography variant="h4" gutterBottom fontWeight={700} color="primary.main">
         Quản lý khách sạn
       </Typography>
@@ -284,7 +283,7 @@ const AdminHotelList: React.FC = () => {
       {/* Hotel Details Section */}
       {selectedHotel && (
         <>
-          {/* Hotel Information */}
+          {/* Hotel Information and Manager Assignment */}
           <Card sx={{ mb: 3, boxShadow: 3 }}>
             <CardContent>
               <Box
@@ -315,8 +314,9 @@ const AdminHotelList: React.FC = () => {
                   </Box>
 
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    <Box sx={{ minWidth: 250, flex: 1 }}>
-                      <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                    {/* Hotel Contact Information */}
+                    <Box sx={{ minWidth: 250, flex: 1, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                      <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="primary.main">
                         Thông tin liên hệ
                       </Typography>
                       <Box sx={{ mb: 2 }}>
@@ -328,11 +328,13 @@ const AdminHotelList: React.FC = () => {
                         <Typography variant="body1">{selectedHotel.email}</Typography>
                       </Box>
                     </Box>
-                    <Box sx={{ minWidth: 250, flex: 1 }}>
-                      <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                    
+                    {/* Room Status */}
+                    <Box sx={{ minWidth: 250, flex: 1, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                      <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="primary.main">
                         Tình trạng phòng
                       </Typography>
-                      <Box display="flex" alignItems="center" gap={2} mb={2}>
+                      <Box display="contents" alignItems="end" gap={2} mb={2}>
                         <Chip
                           icon={<MeetingRoom />}
                           label={`${selectedHotel.availableRooms} / ${selectedHotel.totalRooms} phòng trống`}
@@ -342,8 +344,72 @@ const AdminHotelList: React.FC = () => {
                         />
                       </Box>
                     </Box>
+                    
+                    {/* Manager Assignment Section */}
+                    <Box sx={{ minWidth: 250, flex: 1, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                      <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="primary.main">
+                        Quản lý khách sạn
+                      </Typography>
+                      {currentManager ? (
+                        <Box display="flex" alignItems="center" gap={2} mb={2}>
+                          <Avatar sx={{ bgcolor: 'warning.main', width: 40, height: 40 }}>
+                            <Business />
+                          </Avatar>
+                          <Box>
+                            <Typography variant="subtitle1" fontWeight="bold">
+                              {currentManager.name}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {currentManager.email}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      ) : (
+                        <Typography variant="body1" color="text.secondary" gutterBottom>
+                          Chưa chỉ định quản lý cho khách sạn này
+                        </Typography>
+                      )}
+                      <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                        <InputLabel>Thay đổi quản lý</InputLabel>
+                        <Select
+                          value=""
+                          label="Thay đổi quản lý"
+                          onChange={(e) => handleManagerChange(e.target.value === "" ? "" : Number(e.target.value))}
+                        >
+                          <MenuItem value="">
+                            <Box sx={{ opacity: 0.7 }}>
+                              -- Chọn quản lý --
+                            </Box>
+                          </MenuItem>
+                          {availableManagers.map((manager) => (
+                            <MenuItem
+                              key={manager.id}
+                              value={manager.id}
+                              disabled={manager.hotelId === selectedHotel.id}
+                            >
+                              <Box display="flex" alignItems="center" gap={1}>
+                                <Person fontSize="small" />
+                                <Box>
+                                  <Typography variant="body2">{manager.name}</Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {manager.email}
+                                  </Typography>
+                                </Box>
+                                {manager.hotelId === selectedHotel.id && (
+                                  <Chip label="Hiện tại" size="small" color="primary" sx={{ ml: 1 }} />
+                                )}
+                              </Box>
+                            </MenuItem>
+                          ))}
+                          <MenuItem value="">
+                            <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                              Huỷ chỉ định quản lý
+                            </Typography>
+                          </MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Box>
                   </Box>
-                  
 
                   {selectedHotel.description && (
                     <>
@@ -356,86 +422,6 @@ const AdminHotelList: React.FC = () => {
                       </Typography>
                     </>
                   )}
-                </Box>
-              </Collapse>
-            </CardContent>
-          </Card>
-
-          {/* Manager Assignment */}
-          <Card sx={{ mb: 3, boxShadow: 3 }}>
-            <CardContent>
-              <Box
-                sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-                onClick={() => toggleSection('managerAssignment')}
-              >
-                <Typography variant="h6" fontWeight="bold">
-                  Quản lý khách sạn
-                </Typography>
-                <IconButton size="small">
-                  {expandedSections.managerAssignment ? <ExpandLess /> : <ExpandMore />}
-                </IconButton>
-              </Box>
-              <Collapse in={expandedSections.managerAssignment}>
-                <Box sx={{ mt: 2 }}>
-                  {currentManager ? (
-                    <Box display="flex" alignItems="center" gap={2} mb={2}>
-                      <Avatar sx={{ bgcolor: 'warning.main', width: 40, height: 40 }}>
-                        <Business />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="subtitle1" fontWeight="bold">
-                          {currentManager.name}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {currentManager.email}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ) : (
-                    <Typography variant="body1" color="text.secondary" gutterBottom>
-                      Chưa chỉ định quản lý cho khách sạn này
-                    </Typography>
-                  )}
-
-                  <FormControl fullWidth size="small" sx={{ mt: 2, maxWidth: 400 }}>
-                    <InputLabel>Thay đổi quản lý</InputLabel>
-                    <Select
-                      value=""
-                      label="Thay đổi quản lý"
-                      onChange={(e) => handleManagerChange(e.target.value === "" ? "" : Number(e.target.value))}
-                    >
-                      <MenuItem value="">
-                        <Box sx={{ opacity: 0.7 }}>
-                          -- Chọn quản lý --
-                        </Box>
-                      </MenuItem>
-                      {availableManagers.map((manager) => (
-                        <MenuItem
-                          key={manager.id}
-                          value={manager.id}
-                          disabled={manager.hotelId === selectedHotel.id}
-                        >
-                          <Box display="flex" alignItems="center" gap={1}>
-                            <Person fontSize="small" />
-                            <Box>
-                              <Typography variant="body2">{manager.name}</Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {manager.email}
-                              </Typography>
-                            </Box>
-                            {manager.hotelId === selectedHotel.id && (
-                              <Chip label="Hiện tại" size="small" color="primary" />
-                            )}
-                          </Box>
-                        </MenuItem>
-                      ))}
-                      <MenuItem value="">
-                        <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                          Huỷ chỉ định quản lý
-                        </Typography>
-                      </MenuItem>
-                    </Select>
-                  </FormControl>
                 </Box>
               </Collapse>
             </CardContent>
