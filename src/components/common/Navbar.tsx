@@ -15,7 +15,7 @@ export default function AppNavBar() {
         <Navbar.Collapse id="deluxe-nav" className="justify-content-end">
           <Nav className="gap-2">
             <Nav.Link as={NavLink} to="/" end>Home</Nav.Link>
-            <Nav.Link as={NavLink} to="/rooms">Hotels</Nav.Link>
+            <Nav.Link as={NavLink} to="/hotels">Hotels</Nav.Link>
             <Nav.Link as={NavLink} to="/restaurant">Restaurant</Nav.Link>
             <Nav.Link as={NavLink} to="/about">About</Nav.Link>
             <Nav.Link as={NavLink} to="/blog">Blog</Nav.Link>

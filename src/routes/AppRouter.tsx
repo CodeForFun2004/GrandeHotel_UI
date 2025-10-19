@@ -5,14 +5,15 @@ import NotFoundPage from "../pages/NotFoundPage";
 import { PrivateRoute } from "./PrivateRoute";
 import { RoleBasedRoute, RoleBasedRedirect } from "./RoleBasedRoute";
 import LandingLayout from "../layouts/LandingLayout";
+import AboutUs from "../pages/landing/AboutUs";
+import Contact from "../pages/landing/Contact";
+
 import AdminLayout from "../layouts/AdminLayout";
 import ManagerLayout from "../layouts/ManagerLayout";
 import StaffLayout from "../layouts/StaffLayout";
 import LandingPage from "../pages/landing/LandingPage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import Logout from "../pages/auth/Logout";
-import About from "../pages/About";
-import Contact from "../pages/Contact";
 
 import AdminUserManagement from "../pages/admin/AdminUserManagement";
 import AdminHotelList from "../pages/admin/AdminHotelList";
@@ -21,9 +22,10 @@ import ForgotPass from "../pages/auth/ForgotPass";
 import VerifyEmail from "../pages/auth/VerifyEmail";
 import Profile from "../pages/customer/Profile";
 
-import Rooms from "../pages/RoomType";
-import RoomDetail from "../pages/RoomDetail";
-import BookingWizard from "../pages/BookingWizard";
+import Hotels from "../pages/Hotels";
+// import RoomDetail from "../pages/RoomDetail";
+import Rooms from "../pages/Room.tsx";
+import ReservationReview from "../pages/ReservationReview";
 
 import ManagerDashboard from "../pages/admin/ManagerDashboard";
 import HotelInfoForm from "../pages/admin/HotelInfoForm";
@@ -32,8 +34,13 @@ import RoomTable from "../pages/admin/rooms/RoomTable";
 // Staff components
 import StaffDashboard from "../pages/staff/StaffDashboard";
 import StaffRooms from "../pages/staff/StaffRooms";
+import StaffRoomDetail from "../pages/staff/StaffRoomDetail";
 import StaffBookings from "../pages/staff/StaffBookings";
 import StaffCustomers from "../pages/staff/StaffCustomers";
+import CheckIn from "../pages/staff/Check-in";
+import CheckOut from "../pages/staff/Check-out";
+import StaffChat from "../pages/staff/StaffChat";
+import StaffProfile from "../pages/staff/StaffProfile";
 
 import AuthLayout from "../layouts/AuthLayout";
 import AuthCallback from "../pages/AuthCallPage";
@@ -42,12 +49,11 @@ import { USER_ROLES, ADMIN_PATHS, MANAGER_PATHS, STAFF_PATHS } from "../utils/co
 
 
 
-import BookingDetail from "../pages/BookingDetail";
-import BookingList from "../pages/BookingList";
 // eslint-disable-next-line react-refresh/only-export-components
 export const routes = {
   ALL_PATH: "*",
   HOME_PATH: "/",
+  ABOUT_PATH: "/about",
   AUTH_PATH: "/auth",
   LOGIN_PATH: "/auth/login",
   REGISTER_PATH: "/auth/register",
@@ -63,11 +69,10 @@ export const routes = {
   VERIFY_EMAIL_PATH: "/auth/verify-email",
   CHANGE_PASS_PATH: "/change-password",
 
+  HOTELS_PATH: "/hotels",
   ROOMS_PATH: "/rooms",
-  ROOM_DETAIL_PATH: "/rooms/:id",
-  BOOK_PATH: "/reservation",
-  BOOKING_DETAIL_PATH: "/reservation/:id",
-  BOOKING_LIST_PATH: "/reservation/list",
+  RESERVATION_REVIEW_PATH: "/reservation/review",
+  RESERVATION_PAYMENT_PATH: "/reservation/transaction",
 
   // Role-based paths
   ADMIN_DASHBOARD_PATH: ADMIN_PATHS.DASHBOARD,
@@ -109,15 +114,18 @@ export const router = createBrowserRouter([
     element: <LandingLayout />,
     children: [
       { index: true, element: <LandingPage /> },
-      { path: "/about", element: <About /> },
-      { path: "/contact", element: <Contact /> },
-      { path: routes.ALL_PATH, element: <NotFoundPage /> },
+      { path: "about", element: <AboutUs /> },
+      { path: "contact", element: <Contact /> },
       { path: routes.PROFILE_PATH, element: <Profile /> },
+      { path: routes.HOTELS_PATH, element: <Hotels /> },
       { path: routes.ROOMS_PATH, element: <Rooms /> },
-      { path: routes.ROOM_DETAIL_PATH, element: <RoomDetail /> },
-      { path: routes.BOOK_PATH, element: <BookingWizard /> },
-      { path: routes.BOOKING_DETAIL_PATH, element: <BookingDetail /> },
-      { path: routes.BOOKING_LIST_PATH, element: <BookingList/> },
+      { path: routes.RESERVATION_REVIEW_PATH, element: (
+        <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
+          <ReservationReview />
+        </RoleBasedRoute>
+      ) },
+      // { path: routes.ROOM_DETAIL_PATH, element: <RoomDetail /> },
+      { path: routes.ALL_PATH, element: <NotFoundPage /> },
     ],
   },
 
@@ -176,10 +184,14 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <RoleBasedRedirect /> },
       { path: "dashboard", element: <StaffDashboard /> },
+      { path: "checkin", element: <CheckIn /> },
+      { path: "checkout", element: <CheckOut /> },
       { path: "rooms", element: <StaffRooms /> },
+      { path: "rooms/:roomId", element: <StaffRoomDetail /> },
       { path: "bookings", element: <StaffBookings /> },
+      { path: "chat", element: <StaffChat /> },
       { path: "customers", element: <StaffCustomers /> },
-      { path: "profile", element: <StaffDashboard /> },
+      { path: "profile", element: <StaffProfile /> },
     ],
   },
 

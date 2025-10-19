@@ -8,6 +8,7 @@ export const LandingLayout = (): JSX.Element => {
   return (
     <>
       <Header/>
+  {/* BookingBar removed: keep landing page as originally designed with its own BookingForm */}
       <Outlet/>
       <Footer/>
     </>

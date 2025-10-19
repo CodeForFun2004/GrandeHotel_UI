@@ -1,7 +1,7 @@
 :root {
   --deluxe-gold: #7c6532;       /* vàng nâu giống template */
   --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  --search-orange: #f3af42 ;     /* màu cam cho nút search */
+  --search-orange: #ff6b35;     /* màu cam cho nút search */
   --input-bg: #f8f9fa;          /* màu nền input */
   --input-border: #e9ecef;      /* màu border input */
 }
@@ -65,7 +65,7 @@
 .control-lg:focus,
 .control-lg.form-control:focus,
 .control-lg.form-select:focus {
-  border-color: #1b1b1b;
+  border-color: var(--search-orange);
   box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25);
   background-color: #fff;
 }
@@ -80,10 +80,10 @@
 
 /* nút search cam theo template */
 .btn-search {
-  background: #1b1b1b;
+  background: var(--search-orange);
   border: none;
-  color: #f1f1f1;
-  min-height: 60px;
+  color: #fff;
+  min-height: 40px;
   white-space: nowrap;
   border-radius: 8px;
   display: flex;
@@ -94,12 +94,11 @@
   font-size: 0.9rem;
   padding: 8px 12px;
   font-weight: 600;
-  font-size: medium;
   height: 100%;
 }
 .btn-search:hover,
 .btn-search:focus {
-  background: #f3af42 ;
+  background: #e55a2b;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
 }
@@ -119,7 +118,8 @@
     text-align: start !important;
 }
 
-/* (Removed) .select-wrap was unused */
+/* --- SELECT caret custom giống template --- */
+.select-wrap { position: relative; }
 
 /* Input with icon styling theo template */
 .input-with-icon {
@@ -137,7 +137,8 @@
   pointer-events: none;
 }
 
-.destination-input {
+.destination-input,
+.promo-input {
   padding-left: 48px !important;
 }
 
@@ -147,7 +148,27 @@
   cursor: pointer;
 }
 
-/* Note: Avoid custom pseudo-arrow on <select> for cross-browser consistency */
+/* Custom select dropdown arrow */
+.control-lg.form-select {
+  background-image: none;
+  padding-right: 2rem;
+  position: relative;
+  cursor: pointer;
+}
+
+.control-lg.form-select::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid #666;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
 
 /* Room stepper styling theo template */
 .room-stepper {
@@ -165,7 +186,7 @@
 }
 
 .room-stepper:hover {
-  border-color:#1b1b1b;
+  border-color: var(--search-orange);
 }
 
 .stepper-btn {
@@ -185,9 +206,9 @@
 }
 
 .stepper-btn:hover {
-  background: #1b1b1b;
-  border-color: #1b1b1b;
-  color: #f1f1f1;
+  background: var(--search-orange);
+  border-color: var(--search-orange);
+  color: #fff;
   transform: scale(1.1);
 }
 
@@ -214,28 +235,6 @@
   .btn-search {
     min-height: 56px;
     font-size: 1.1rem;
-  }
-}
-
-/* Desktop layout: 3 inputs sized 50% / 30% / 20% */
-@media (min-width: 992px) {
-  .booking-form .booking-row-bottom {
-    display: grid;
-    grid-template-columns: 50% 30% 20%; /* hotel / date / rooms */
-    gap: 1rem; /* spacing between cards */
-    align-items: stretch;
-  }
-  /* Ensure items fill their grid cell without Bootstrap width constraints */
-  .booking-form .booking-row-bottom > [class^="col-"],
-  .booking-form .booking-row-bottom > [class*=" col-"] {
-    width: 100% !important;
-    max-width: 100% !important;
-    flex: 0 0 auto !important;
-  }
-  /* Place the Search button in the 3rd column on the next row */
-  .booking-form .booking-row-bottom > *:nth-child(4) {
-    grid-column: 1 / -1; /* span full row under inputs */
-  
   }
 }
 

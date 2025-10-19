@@ -1,3 +1,11 @@
+.filter-box { background: #fff; border-radius: 8px; padding: 18px; box-shadow: 0 6px 20px rgba(8,24,48,0.06); }
+.filter-box h5 { margin: 0 0 8px 0; font-weight:700; }
+.filter-box ul { list-style:none; padding:0; margin:8px 0 0 0; }
+.filter-box li { margin-bottom:8px; color:#334e68; }
+.hotel-card-wrap { margin-bottom: 20px; }
+.btn-reserve { background:#0b2747; color:#fff; padding:10px 16px; border-radius:6px; text-decoration:none; }
+
+.hotel-listing { display:flex; gap:18px; }
 /* Rooms page – minimal luxury refinement (clean) */
 
 :root {
@@ -141,15 +149,92 @@
 .review-list li { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px dashed #eee; padding: 8px 0; line-height: 1.4; }
 .review-list li span { color: #777; }
 
-/* Sidebar form controls (kept) */
-.sidebar .fields .form-group { margin-bottom: 15px; }
-.sidebar .form-control { height: 52px; background: #fff !important; border: 1px solid #eee; box-shadow: none; color: #000; font-size: 14px; border-radius: 0; }
-.sidebar .form-group.position-relative .icon, .sidebar .select-wrap .icon.left { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--lux-gold); z-index: 2; }
-.sidebar .form-group.position-relative .form-control, .sidebar .select-wrap .form-control { padding-left: 40px !important; }
-.sidebar .form-range { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; background: #b08a5f; outline: none; }
-.sidebar .form-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #8a693f; cursor: pointer; }
-.sidebar .form-range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #8a693f; cursor: pointer; }
-.sidebar .form-control:focus { border-color: var(--lux-gold); outline: 0; box-shadow: 0 0 0 0.2rem rgba(193, 155, 118, 0.15); }
-.sidebar .select-wrap { position: relative; }
-.sidebar .btn.btn-primary { background: var(--lux-gold); border-color: var(--lux-gold); text-transform: uppercase; letter-spacing: 1px; }
-.sidebar .btn.btn-primary:hover { background: var(--lux-gold-dark); border-color: var(--lux-gold-dark); }
+/* Form controls like deluxe-master */
+.sidebar .fields .form-group {
+  margin-bottom: 15px;
+}
+
+.sidebar .form-control {
+  height: 52px;
+  background: #fff !important;
+  border: 1px solid #eee;
+  box-shadow: none;
+  color: #000;
+  font-size: 14px;
+  border-radius: 0;
+}
+
+/* Inline icons inside inputs/selects */
+.sidebar .form-group.position-relative .icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #c19b76;
+  z-index: 2;
+}
+
+.sidebar .select-wrap .icon.left {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #c19b76;
+  z-index: 2;
+}
+
+/* Ensure sufficient padding for inputs/selects with icons */
+.sidebar .form-group.position-relative .form-control,
+.sidebar .select-wrap .form-control {
+  padding-left: 40px !important; /* fallback if utility class missing */
+}
+
+/* Range sliders */
+.sidebar .form-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: #b08a5f;
+  outline: none;
+}
+
+.sidebar .form-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #8a693f;
+  cursor: pointer;
+}
+
+.sidebar .form-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #8a693f;
+  cursor: pointer;
+}
+
+.sidebar .form-control:focus {
+  border-color: #c19b76;
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(193, 155, 118, 0.15);
+}
+
+.sidebar .select-wrap {
+  position: relative;
+}
+
+.sidebar .btn.btn-primary {
+  background: #c19b76;
+  border-color: #c19b76;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.sidebar .btn.btn-primary:hover {
+  background: #a9855f;
+  border-color: #a9855f;
+}

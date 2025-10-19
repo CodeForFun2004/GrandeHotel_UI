@@ -5,7 +5,7 @@
   border: none !important;
   border-bottom: none !important;
   padding-top: 20px !important;
-  padding-bottom: 20px !important;
+  padding-bottom: 10px !important;
 }
 
 /* Nếu theme/Bootstrap có pseudo tạo viền, tắt luôn */
@@ -28,8 +28,8 @@
 .deluxe-navbar.scrolled {
   background: #1b1b1b !important;
   box-shadow: 0 6px 18px rgba(0,0,0,0.25) !important;
-  border-radius: 5px !important;
-  margin: 24px 12px 0 !important;
+  border-radius: 12px !important;
+  margin: 8px 12px 0 !important;
 }
 
 /* --- tab active vẫn gạch chân vàng --- */
@@ -58,48 +58,28 @@
   border-radius: 2px;
 }
 
+/* Áp dụng chung cho cả 2 nút */
+.navbar .btn-login,
+.navbar .btn-signup {
+  background-color: #d9c3a0;   /* vàng chủ đạo */
+  border: none;
+  color: #1b1b1b;              /* chữ tối cho dễ đọc */
+  font-weight: 600;
+  padding: 6px 18px;
+  border-radius: 50px;         /* pill button */
+  transition: all 0.3s ease;
+}
+
 /* Hover effect */
 .navbar .btn-login:hover,
 .navbar .btn-signup:hover {
-  background-color: #f3af42;   /* vàng đậm hơn khi hover */
+  background-color: #d9c3a0;   /* vàng đậm hơn khi hover */
   color: #fff;
 }
 
 /* Nếu muốn phân biệt nhẹ Sign Up */
 .navbar .btn-signup {
   margin-left: 10px;
-}
-
-/* ===== Buttons match navbar states ===== */
-/* Over hero: make buttons transparent like the navbar */
-.deluxe-navbar.over-hero .btn-login,
-.deluxe-navbar.over-hero .btn-signup {
-  background: transparent !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.5) !important;
-  box-shadow: none !important;
-}
-
-.deluxe-navbar.over-hero .btn-login:hover,
-.deluxe-navbar.over-hero .btn-signup:hover {
-  background: #f3af42 !important;
-  color: #ffffff !important;
-  border-color: rgba(255, 255, 255, 0.6) !important;
-}
-
-/* Scrolled: ensure solid, visible background like navbar tone contrast */
-.deluxe-navbar.scrolled .btn-login,
-.deluxe-navbar.scrolled .btn-signup {
-  background-color: #f1f1f1 !important;
-  color: #1b1b1b !important;
-  border-color: transparent !important;
-}
-
-/* Ensure hover works after scrolled (override with higher specificity + !important) */
-.deluxe-navbar.scrolled .btn-login:hover,
-.deluxe-navbar.scrolled .btn-signup:hover {
-  background-color: #f3af42 !important; /* same hover tone as default */
-  color: #fff !important;
 }
 
 
