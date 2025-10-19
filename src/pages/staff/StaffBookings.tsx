@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Typography,
@@ -39,7 +39,7 @@ import {
   Logout as LogoutIcon,
   DeleteOutline as DeleteOutlineIcon,
 } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { formatVND } from "../../utils/formatCurrency";
 
 /* =========================
@@ -187,7 +187,32 @@ const toISODate = (d: Date) => d.toISOString().slice(0, 10);
    ========================= */
 const StaffBookings: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [rows, setRows] = useState<Booking[]>(INITIAL_BOOKINGS);
+
+  // Focus reservation passed from Calendar (state.focus)
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const focusTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const st = location.state as { focus?: string } | undefined;
+    if (st?.focus) {
+      setFocusId(st.focus);
+      // Scroll to the row after paint
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`rsv-${st.focus}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+      // Clear highlight after a few seconds
+      if (focusTimeoutRef.current) window.clearTimeout(focusTimeoutRef.current);
+      focusTimeoutRef.current = window.setTimeout(() => setFocusId(null), 4000);
+      // Clear navigation state so it doesn't persist on back/refresh
+      history.replaceState && history.replaceState(null, document.title, location.pathname);
+    }
+    return () => {
+      if (focusTimeoutRef.current) window.clearTimeout(focusTimeoutRef.current);
+    };
+  }, [location.pathname, location.state]);
 
   /* Snackbar */
   const [snack, setSnack] = useState<{ open: boolean; msg: string; type: "success" | "info" | "error" }>({
@@ -491,7 +516,20 @@ const StaffBookings: React.FC = () => {
                   const isCancelled = b.Status === "cancelled";
 
                   return (
-                    <TableRow key={b.Reservation_ID} hover>
+                    <TableRow
+                      key={b.Reservation_ID}
+                      id={`rsv-${b.Reservation_ID}`}
+                      hover
+                      sx={
+                        focusId === b.Reservation_ID
+                          ? {
+                              outline: "2px solid #b8192b",
+                              outlineOffset: -2,
+                              transition: "outline-color .8s ease",
+                            }
+                          : undefined
+                      }
+                    >
                       <TableCell>
                         <Stack direction="row" spacing={1} alignItems="center">
                           <span>#{b.Reservation_ID}</span>

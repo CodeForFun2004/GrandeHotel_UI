@@ -22,6 +22,7 @@ import {
   Alert,
   Stack,
 } from "@mui/material";
+import CssBaseline from "@mui/material/CssBaseline";
 
 import MenuIcon from "@mui/icons-material/Menu";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
@@ -122,7 +123,25 @@ const CURRENT_HOTEL: Hotel | null = {
 
 const theme = createTheme({
   palette: { primary: { main: "#0049a9ff" }, secondary: { main: "#b8192b" } },
+  typography: {
+    // Robust system font stack to avoid webfont loading issues and ensure Vietnamese compatibility
+    fontFamily:
+      'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif',
+  },
   components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        html: {
+          WebkitFontSmoothing: "antialiased",
+          MozOsxFontSmoothing: "grayscale",
+          textRendering: "optimizeLegibility",
+        },
+        body: {
+          fontFeatureSettings: '"liga" 1, "kern" 1',
+          fontSynthesis: "none",
+        },
+      },
+    },
     MuiDrawer: {
       styleOverrides: { paper: { backgroundColor: "#f5f5f5", borderRight: "none" } },
     },
@@ -293,6 +312,7 @@ export default function StaffLayout() {
 
   return (
     <ThemeProvider theme={theme}>
+      <CssBaseline />
       <Box sx={{ display: "flex" }}>
         {/* HEADER đơn giản */}
         <AppBar

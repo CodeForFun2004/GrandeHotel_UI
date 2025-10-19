@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Typography,
@@ -40,7 +40,7 @@ import {
   ReportProblem,
   ChevronRight,
 } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 /* ----------------------------
    Helpers
@@ -72,11 +72,7 @@ type RoomType = {
   Description?: string;
 };
 
-type FacilityType = {
-  FacilityType_ID: number;
-  Name: string;
-  Description?: string;
-};
+// Removed unused FacilityType type
 
 type RoomFacility = {
   Room_Facility_ID: number;
@@ -113,13 +109,8 @@ const ROOM_TYPES: RoomType[] = [
   { RoomType_ID: 3, Name: "Suite", Number_of_Bed: 2, Capacity: 4, Base_price: 2_500_000 },
 ];
 
-const FACILITY_TYPES: FacilityType[] = [
-  { FacilityType_ID: 1, Name: "A/C" },
-  { FacilityType_ID: 2, Name: "Wi-Fi" },
-  { FacilityType_ID: 3, Name: "TV" },
-  { FacilityType_ID: 4, Name: "Bathtub" },
-  { FacilityType_ID: 5, Name: "Balcony" },
-];
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// Removed unused FACILITY_TYPES to avoid lint errors
 
 const INIT_ROOMS: Room[] = [
   { Room_ID: 1, RoomType_ID: 1, Number: "101", Name: "Standard 101", Price: 1_100_000, Status: "Available", Hotel_ID: 1 },
@@ -171,6 +162,7 @@ const STATUS_META: Record<
 
 const StaffRooms: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Local copy để thao tác UI
   const [rooms, setRooms] = useState<Room[]>(INIT_ROOMS);
@@ -179,6 +171,19 @@ const StaffRooms: React.FC = () => {
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState<RoomStatus | "ALL">("ALL");
   const [typeId, setTypeId] = useState<number | "ALL">("ALL");
+
+  // If navigated with a specific room filter (from Calendar or other pages), apply it once on mount
+  useEffect(() => {
+    const state = location.state as { filterRoom?: string } | undefined;
+    if (state?.filterRoom) {
+      setKeyword(state.filterRoom);
+    }
+    // We don't want to keep state filter around forever; clear the history state
+    // so refreshing or navigating back doesn't reapply unintentionally.
+    // This is safe in SPA context.
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    history.replaceState && history.replaceState(null, document.title, location.pathname);
+  }, [location.pathname, location.state]);
 
   // Snackbar
   const [snack, setSnack] = useState<{ open: boolean; msg: string; severity: "success" | "info" | "warning" | "error" }>({
@@ -354,7 +359,7 @@ const StaffRooms: React.FC = () => {
           gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "repeat(3, 1fr)" },
         }}
       >
-        {data.map(({ room, type, imgs, facs }) => {
+  {data.map(({ room, type, imgs }) => {
           const firstImg = imgs[0]?.URL;
           const meta = STATUS_META[room.Status];
 

@@ -40,6 +40,8 @@ import CheckIn from "../pages/staff/Check-in";
 import CheckOut from "../pages/staff/Check-out";
 import StaffChat from "../pages/staff/StaffChat";
 import StaffProfile from "../pages/staff/StaffProfile";
+import StaffCalendar from "../pages/staff/StaffCalendar";
+import StaffTasks from "../pages/staff/StaffTasks";
 
 import AuthLayout from "../layouts/AuthLayout";
 import AuthCallback from "../pages/AuthCallPage";
@@ -182,6 +184,8 @@ export const router = createBrowserRouter([
       { path: "rooms", element: <StaffRooms /> },
       { path: "rooms/:roomId", element: <StaffRoomDetail /> },
       { path: "bookings", element: <StaffBookings /> },
+      { path: "calendar", element: <StaffCalendar /> },
+  { path: "tasks", element: <StaffTasks /> },
       { path: "chat", element: <StaffChat /> },
       { path: "customers", element: <StaffCustomers /> },
       { path: "profile", element: <StaffProfile /> },
