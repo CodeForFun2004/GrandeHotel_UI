@@ -9,6 +9,7 @@ export type Room = {
   capacity: number;
   pricePerNight: number;
   status: "Active" | "Inactive" | "Maintenance";
+  hotelId?: number;
 };
 
 type Props = {
@@ -72,4 +73,4 @@ export default function RoomFormModal({ open, initial, onClose, onSubmit }: Prop
       </DialogActions>
     </Dialog>
   );
-} 
+}
