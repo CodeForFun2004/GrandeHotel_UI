@@ -39,7 +39,7 @@ const managerNavigationItems = [
   { title: "Dashboard", icon: <BarChartIcon />, path: MANAGER_PATHS.DASHBOARD },
   { title: "Hotel Info", icon: <HotelIcon />, path: MANAGER_PATHS.HOTEL_INFO },
   { title: "Rooms", icon: <MeetingRoomIcon />, path: MANAGER_PATHS.ROOMS },
-  { title: "Bookings", icon: <BookOnlineIcon />, path: MANAGER_PATHS.BOOKINGS },
+  { title: "Booking Management", icon: <BookOnlineIcon />, path: MANAGER_PATHS.BOOKINGS },
   { title: "Staff Management", icon: <GroupIcon />, path: MANAGER_PATHS.STAFF_MANAGEMENT },
   { title: "Profile", icon: <PersonIcon />, path: MANAGER_PATHS.PROFILE },
   { title: "Logout", icon: <LogoutIcon />, path: "/logout" },
@@ -279,6 +279,8 @@ export default function ManagerLayout() {
             minWidth: 0,
             p: 3,
             mt: "64px",
+            backgroundColor: "#ffffff",
+            minHeight: "calc(100vh - 64px)",
           }}
         >
           <Outlet />
