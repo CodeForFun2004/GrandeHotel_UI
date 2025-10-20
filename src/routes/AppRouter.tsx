@@ -22,9 +22,10 @@ import ForgotPass from "../pages/auth/ForgotPass";
 import VerifyEmail from "../pages/auth/VerifyEmail";
 import Profile from "../pages/customer/Profile";
 
-import Rooms from "../pages/Rooms";
+import Hotels from "../pages/Hotels";
 // import RoomDetail from "../pages/RoomDetail";
-import BookingWizard from "../pages/BookingWizard";
+import Rooms from "../pages/Room.tsx";
+import ReservationReview from "../pages/ReservationReview";
 
 import ManagerDashboard from "../pages/admin/ManagerDashboard";
 import HotelInfoForm from "../pages/admin/HotelInfoForm";
@@ -70,9 +71,10 @@ export const routes = {
   VERIFY_EMAIL_PATH: "/auth/verify-email",
   CHANGE_PASS_PATH: "/change-password",
 
+  HOTELS_PATH: "/hotels",
   ROOMS_PATH: "/rooms",
-  BOOK_PATH: "/book",
-  ROOM_DETAIL_PATH: "/rooms/:id",
+  RESERVATION_REVIEW_PATH: "/reservation/review",
+  RESERVATION_PAYMENT_PATH: "/reservation/transaction",
 
   // Role-based paths
   ADMIN_DASHBOARD_PATH: ADMIN_PATHS.DASHBOARD,
@@ -117,9 +119,14 @@ export const router = createBrowserRouter([
       { path: "about", element: <AboutUs /> },
       { path: "contact", element: <Contact /> },
       { path: routes.PROFILE_PATH, element: <Profile /> },
+      { path: routes.HOTELS_PATH, element: <Hotels /> },
       { path: routes.ROOMS_PATH, element: <Rooms /> },
+      { path: routes.RESERVATION_REVIEW_PATH, element: (
+        <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
+          <ReservationReview />
+        </RoleBasedRoute>
+      ) },
       // { path: routes.ROOM_DETAIL_PATH, element: <RoomDetail /> },
-      { path: routes.BOOK_PATH, element: <BookingWizard /> },
       { path: routes.ALL_PATH, element: <NotFoundPage /> },
     ],
   },

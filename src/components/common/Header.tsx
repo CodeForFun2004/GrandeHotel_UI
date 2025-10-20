@@ -85,7 +85,7 @@ const Header: React.FC<Props> = ({ heroSelector = "#hero" }) => {
     >
       <Container>
         <Navbar.Brand as={NavLink} to="/" className="brand">
-          GRAND
+          GRAND DELUXE
         </Navbar.Brand>
 
         <Navbar.Toggle aria-controls="deluxe-nav" />
@@ -95,8 +95,8 @@ const Header: React.FC<Props> = ({ heroSelector = "#hero" }) => {
             <Nav.Link as={NavLink} to="/" end className="deluxe-link">
               Home
             </Nav.Link>
-            <Nav.Link as={NavLink} to="/rooms" className="deluxe-link">
-              Rooms
+            <Nav.Link as={NavLink} to="/hotels" className="deluxe-link">
+              Hotels
             </Nav.Link>
             <Nav.Link as={NavLink} to="/service" className="deluxe-link">
               Service

@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import styled from "@emotion/styled";
 import { Global, css, keyframes } from "@emotion/react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import loginImg from "../../assets/images/login.avif";
 
 // NEW
@@ -431,6 +431,7 @@ const LoginPage: React.FC = () => {
   const [nextPath, setNextPath] = useState<string | null>(null);
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Only enable when email looks valid + password not empty
   const canSubmit = useMemo(() => {
@@ -473,9 +474,11 @@ const LoginPage: React.FC = () => {
       ).unwrap();
 
       toast.success("Welcome back!");
-      // Redirect đến dashboard phù hợp với role thay vì về trang chủ
-      // Sẽ được xử lý bởi RoleBasedRedirect trong AppRouter
-      startSlideTo("/dashboard"); // setNextPath('/dashboard') + setSliding(true)
+  // Nếu được gọi từ luồng bảo vệ (returnTo), quay lại path đó
+  const params = new URLSearchParams(location.search);
+  const returnTo = params.get('returnTo');
+  if (returnTo) startSlideTo(decodeURIComponent(returnTo));
+  else startSlideTo("/dashboard");
     } catch (err: unknown) {
       let errorMsg = "Login failed";
       if (typeof err === "string") errorMsg = err;

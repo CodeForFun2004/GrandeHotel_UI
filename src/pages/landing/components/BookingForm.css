@@ -75,6 +75,7 @@
   background-image: none;
   padding-right: 2rem;
   position: relative;
+  cursor: pointer;
 }
 
 /* nút search cam theo template */
@@ -111,9 +112,7 @@
     margin-bottom: 4rem;
 }
 
-.input-form{
-    padding-left: 50px !important;
-}
+/* .input-form was unused; removed to avoid confusion */
 
 .label-booking{
     text-align: start !important;
