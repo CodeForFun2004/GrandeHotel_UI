@@ -17,6 +17,7 @@ import Logout from "../pages/auth/Logout";
 
 import AdminUserManagement from "../pages/admin/AdminUserManagement";
 import AdminHotelList from "../pages/admin/AdminHotelList";
+import HotelDetail from "../pages/admin/HotelDetail";
 
 import ForgotPass from "../pages/auth/ForgotPass";
 import VerifyEmail from "../pages/auth/VerifyEmail";

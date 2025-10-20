@@ -4,13 +4,20 @@ import RoomFormModal, { type Room } from "./RoomFormModal";
 import { toast } from "react-toastify";
 
 const MOCK_ROOMS: Room[] = [
-  { id: 1, code: "A101", name: "Suite Ocean", type: "Suite", capacity: 3, pricePerNight: 220, status: "Active" },
-  { id: 2, code: "B203", name: "Deluxe Garden", type: "Deluxe", capacity: 2, pricePerNight: 180, status: "Active" },
-  { id: 3, code: "C305", name: "Family City", type: "Family", capacity: 5, pricePerNight: 200, status: "Inactive" },
-  { id: 4, code: "D107", name: "Classic Cozy", type: "Classic", capacity: 2, pricePerNight: 150, status: "Maintenance" },
+  { id: 1, code: "A101", name: "Suite Ocean", type: "Suite", capacity: 3, pricePerNight: 220, status: "Active", hotelId: 1 },
+  { id: 2, code: "B203", name: "Deluxe Garden", type: "Deluxe", capacity: 2, pricePerNight: 180, status: "Active", hotelId: 1 },
+  { id: 3, code: "C305", name: "Family City", type: "Family", capacity: 5, pricePerNight: 200, status: "Inactive", hotelId: 2 },
+  { id: 4, code: "D107", name: "Classic Cozy", type: "Classic", capacity: 2, pricePerNight: 150, status: "Maintenance", hotelId: 2 },
+  { id: 5, code: "E209", name: "Ocean View Deluxe", type: "Deluxe", capacity: 2, pricePerNight: 190, status: "Active", hotelId: 3 },
+  { id: 6, code: "F401", name: "Mountain Suite", type: "Suite", capacity: 4, pricePerNight: 250, status: "Active", hotelId: 3 },
 ];
 
-export default function RoomTable() {
+type RoomTableProps = {
+  hotelId?: number;
+  canEdit?: boolean;
+};
+
+export default function RoomTable({ hotelId, canEdit = true }: RoomTableProps) {
   const [rooms, setRooms] = useState<Room[]>(MOCK_ROOMS);
   const [keyword, setKeyword] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("All");
@@ -30,9 +37,10 @@ export default function RoomTable() {
       const matchesKw = [r.code, r.name].some((v) => v.toLowerCase().includes(keyword.toLowerCase()));
       const matchesType = typeFilter === "All" || r.type === (typeFilter as any);
       const matchesStatus = statusFilter === "All" || r.status === (statusFilter as any);
-      return matchesKw && matchesType && matchesStatus;
+      const matchesHotel = !hotelId || r.hotelId === hotelId;
+      return matchesKw && matchesType && matchesStatus && matchesHotel;
     });
-  }, [rooms, keyword, typeFilter, statusFilter]);
+  }, [rooms, keyword, typeFilter, statusFilter, hotelId]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageData = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -53,7 +61,7 @@ export default function RoomTable() {
       toast.success("Cập nhật phòng thành công (mock)");
     } else {
       const id = Math.max(0, ...rooms.map((r) => r.id ?? 0)) + 1;
-      setRooms((prev) => [{ ...room, id }, ...prev]);
+      setRooms((prev) => [{ ...room, id, hotelId }, ...prev]);
       toast.success("Thêm phòng thành công (mock)");
     }
     setModalOpen(false);
@@ -101,7 +109,7 @@ export default function RoomTable() {
               </FormControl>
             </Box>
             <Box>
-              <Button variant="contained" onClick={openCreate} fullWidth>Thêm phòng</Button>
+              {canEdit && <Button variant="contained" onClick={openCreate} fullWidth>Thêm phòng</Button>}
             </Box>
           </Box>
         </CardContent>
@@ -132,10 +140,12 @@ export default function RoomTable() {
                   <Chip size="small" label={r.status} color={r.status === "Active" ? "success" : r.status === "Inactive" ? "default" : "warning"} />
                 </TableCell>
                 <TableCell align="right">
-                  <Stack direction="row" spacing={1} justifyContent="flex-end">
-                    <Button size="small" onClick={() => openEdit(r)}>Sửa</Button>
-                    <Button size="small" color="error" onClick={() => askDelete(r)}>Xóa</Button>
-                  </Stack>
+                  {canEdit && (
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                      <Button size="small" onClick={() => openEdit(r)}>Sửa</Button>
+                      <Button size="small" color="error" onClick={() => askDelete(r)}>Xóa</Button>
+                    </Stack>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -168,4 +178,4 @@ export default function RoomTable() {
       </Dialog>
     </Box>
   );
-} 
+}
