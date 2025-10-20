@@ -1,7 +1,21 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-const AboutUs: React.FC = () => {
+type Props = {
+  showHero?: boolean;
+  showStats?: boolean;
+  showIntro?: boolean;
+  showServices?: boolean;
+  showInstagram?: boolean;
+};
+
+const AboutUs: React.FC<Props> = ({
+  showHero = true,
+  showStats = true,
+  showIntro = true,
+  showServices = true,
+  showInstagram = true,
+}) => {
   const stats = [
     { label: "Happy Guests", value: 50000 },
     { label: "Rooms", value: 3000 },
@@ -14,6 +28,7 @@ const AboutUs: React.FC = () => {
   const hasAnimated = useRef(false);
 
   useEffect(() => {
+    if (!showStats) return;
     const handleScroll = () => {
       if (!sectionRef.current || hasAnimated.current) return;
       const rect = sectionRef.current.getBoundingClientRect();
@@ -41,7 +56,7 @@ const AboutUs: React.FC = () => {
     };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [showStats]);
 
   return (
     <>
@@ -297,102 +312,112 @@ const AboutUs: React.FC = () => {
       `}</style>
 
       {/* ---------- HERO ---------- */}
-      <section className="about-hero">
-        <div className="about-hero-content">
-          <div className="breadcrumb">
-            <Link to="/">HOME</Link>
-            <span>/</span>
-            <span>ABOUT</span>
+      {showHero && (
+        <section className="about-hero">
+          <div className="about-hero-content">
+            <div className="breadcrumb">
+              <Link to="/">HOME</Link>
+              <span>/</span>
+              <span>ABOUT</span>
+            </div>
+            <h1>About Us</h1>
           </div>
-          <h1>About Us</h1>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ---------- STATS ---------- */}
-      <section className="stats-section" ref={sectionRef}>
-        <div className="stats-grid">
-          {stats.map((stat, i) => (
-            <div className="stat-item" key={i}>
-              <div className="stat-number">{counts[i].toLocaleString()}</div>
-              <div className="stat-label">{stat.label}</div>
-            </div>
-          ))}
-        </div>
-      </section>
+      {showStats && (
+        <section className="stats-section" ref={sectionRef}>
+          <div className="stats-grid">
+            {stats.map((stat, i) => (
+              <div className="stat-item" key={i}>
+                <div className="stat-number">{counts[i].toLocaleString()}</div>
+                <div className="stat-label">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ---------- ABOUT INTRO ---------- */}
-      <section className="about-intro">
-        <div className="intro-video">
-          <iframe
-            src="https://player.vimeo.com/video/45830194"
-            title="Hotel Video"
-            allowFullScreen
-          ></iframe>
-        </div>
-        <div className="intro-text">
-          <h2 className="intro-title">Welcome To Our Hotel</h2>
-          <p>
-            On her way she met a copy. The copy warned the Little Blind Text,
-            that where it came from it would have been rewritten a thousand
-            times and everything that was left from its origin would be the word
-            "and" and the Little Blind Text should turn around and return to its
-            own, safe country. But nothing the copy said could convince her and
-            so it didn’t take long until a few insidious Copy Writers ambushed
-            her, made her drunk with Longe and Parole and dragged her into their
-            agency, where they abused her for their.
-          </p>
-          <p>
-            When she reached the first hills of the Italic Mountains, she had a
-            last view back on the skyline of her hometown Bookmarksgrove, the
-            headline of Alphabet Village and the subline of her own road, the
-            Line Lane. Pityful a rethoric question ran over her cheek, then she
-            continued her way.
-          </p>
-          <div className="social-icons">
-            <i className="fab fa-twitter"></i>
-            <i className="fab fa-facebook-f"></i>
-            <i className="fab fa-google-plus-g"></i>
-            <i className="fab fa-instagram"></i>
+      {showIntro && (
+        <section className="about-intro">
+          <div className="intro-video">
+            <iframe
+              src="https://player.vimeo.com/video/45830194"
+              title="Hotel Video"
+              allowFullScreen
+            ></iframe>
           </div>
-        </div>
-      </section>
+          <div className="intro-text">
+            <h2 className="intro-title">Welcome To Our Hotel</h2>
+            <p>
+              On her way she met a copy. The copy warned the Little Blind Text,
+              that where it came from it would have been rewritten a thousand
+              times and everything that was left from its origin would be the word
+              "and" and the Little Blind Text should turn around and return to its
+              own, safe country. But nothing the copy said could convince her and
+              so it didn’t take long until a few insidious Copy Writers ambushed
+              her, made her drunk with Longe and Parole and dragged her into their
+              agency, where they abused her for their.
+            </p>
+            <p>
+              When she reached the first hills of the Italic Mountains, she had a
+              last view back on the skyline of her hometown Bookmarksgrove, the
+              headline of Alphabet Village and the subline of her own road, the
+              Line Lane. Pityful a rethoric question ran over her cheek, then she
+              continued her way.
+            </p>
+            <div className="social-icons">
+              <i className="fab fa-twitter"></i>
+              <i className="fab fa-facebook-f"></i>
+              <i className="fab fa-google-plus-g"></i>
+              <i className="fab fa-instagram"></i>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ---------- SERVICES ---------- */}
-      <section className="services-section">
-        <div className="services-grid">
-          <div className="service-card">
-            <div className="service-icon"><i className="fas fa-concierge-bell"></i></div>
-            <h4>24/7 Front Desk</h4>
-            <p>A small river named Duden flows by their place and supplies.</p>
+      {showServices && (
+        <section className="services-section">
+          <div className="services-grid">
+            <div className="service-card">
+              <div className="service-icon"><i className="fas fa-concierge-bell"></i></div>
+              <h4>24/7 Front Desk</h4>
+              <p>A small river named Duden flows by their place and supplies.</p>
+            </div>
+            <div className="service-card">
+              <div className="service-icon"><i className="fas fa-utensils"></i></div>
+              <h4>Restaurant Bar</h4>
+              <p>A small river named Duden flows by their place and supplies.</p>
+            </div>
+            <div className="service-card">
+              <div className="service-icon"><i className="fas fa-car"></i></div>
+              <h4>Transfer Services</h4>
+              <p>A small river named Duden flows by their place and supplies.</p>
+            </div>
+            <div className="service-card">
+              <div className="service-icon"><i className="fas fa-spa"></i></div>
+              <h4>Spa Suites</h4>
+              <p>A small river named Duden flows by their place and supplies.</p>
+            </div>
           </div>
-          <div className="service-card">
-            <div className="service-icon"><i className="fas fa-utensils"></i></div>
-            <h4>Restaurant Bar</h4>
-            <p>A small river named Duden flows by their place and supplies.</p>
-          </div>
-          <div className="service-card">
-            <div className="service-icon"><i className="fas fa-car"></i></div>
-            <h4>Transfer Services</h4>
-            <p>A small river named Duden flows by their place and supplies.</p>
-          </div>
-          <div className="service-card">
-            <div className="service-icon"><i className="fas fa-spa"></i></div>
-            <h4>Spa Suites</h4>
-            <p>A small river named Duden flows by their place and supplies.</p>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ---------- INSTAGRAM ---------- */}
-      <section className="instagram-section">
-        <h3>Instagram</h3>
-        <div className="insta-grid">
-          <img src="https://themewagon.github.io/deluxe/images/insta-1.jpg" alt="insta1" />
-          <img src="https://themewagon.github.io/deluxe/images/insta-2.jpg" alt="insta2" />
-          <img src="https://themewagon.github.io/deluxe/images/insta-3.jpg" alt="insta3" />
-          <img src="https://themewagon.github.io/deluxe/images/insta-4.jpg" alt="insta4" />
-        </div>
-      </section>
+      {showInstagram && (
+        <section className="instagram-section">
+          <h3>Instagram</h3>
+          <div className="insta-grid">
+            <img src="https://themewagon.github.io/deluxe/images/insta-1.jpg" alt="insta1" />
+            <img src="https://themewagon.github.io/deluxe/images/insta-2.jpg" alt="insta2" />
+            <img src="https://themewagon.github.io/deluxe/images/insta-3.jpg" alt="insta3" />
+            <img src="https://themewagon.github.io/deluxe/images/insta-4.jpg" alt="insta4" />
+          </div>
+        </section>
+      )}
     </>
   );
 };

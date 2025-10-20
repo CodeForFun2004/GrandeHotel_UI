@@ -1,6 +1,10 @@
 import React from "react";
 
-const Contact: React.FC = () => {
+type Props = {
+  showHero?: boolean;
+};
+
+const Contact: React.FC<Props> = ({ showHero = true }) => {
   const mapQuery = "198 West 21th Street, Suite 721, New York, NY 10016";
 
   const styles = {
@@ -149,17 +153,19 @@ const Contact: React.FC = () => {
   return (
     <div style={styles.page}>
       {/* HERO */}
-      <header style={styles.hero}>
-        <div style={styles.overlay} />
-        <div style={styles.heroInner}>
-          <div style={styles.breadcrumb as React.CSSProperties}>
-            <a href="/" style={styles.breadcrumbLink}>Home</a>
-            <span style={styles.breadcrumbSep}>›</span>
-            <span>Contact</span>
+      {showHero && (
+        <header style={styles.hero}>
+          <div style={styles.overlay} />
+          <div style={styles.heroInner}>
+            <div style={styles.breadcrumb as React.CSSProperties}>
+              <a href="/" style={styles.breadcrumbLink}>Home</a>
+              <span style={styles.breadcrumbSep}>›</span>
+              <span>Contact</span>
+            </div>
+            <h1 style={styles.heroTitle}>Contact Us</h1>
           </div>
-          <h1 style={styles.heroTitle}>Contact Us</h1>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* BODY */}
       <section style={styles.section}>
