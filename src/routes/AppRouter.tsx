@@ -27,6 +27,7 @@ import ManagerDashboard from "../pages/admin/ManagerDashboard";
 import HotelInfoForm from "../pages/admin/HotelInfoForm";
 import RoomTable from "../pages/admin/rooms/RoomTable";
 import BookingManagement from "../pages/admin/BookingManagement";
+import BookingDetail from "../pages/admin/BookingDetail";
 
 // Staff components
 import StaffDashboard from "../pages/staff/StaffDashboard";
@@ -149,6 +150,7 @@ export const router = createBrowserRouter([
       { path: "hotel-info", element: <HotelInfoForm /> },
       { path: "rooms", element: <RoomTable /> },
       { path: "bookings", element: <BookingManagement /> },
+      { path: "bookings/:id", element: <BookingDetail /> },
       { path: "staff", element: <ManagerDashboard /> },
       { path: "profile", element: <ManagerDashboard /> },
     ],
