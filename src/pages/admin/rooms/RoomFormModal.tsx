@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem, Box } from "@mui/material";
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem, Box, CircularProgress } from "@mui/material";
+import type { RoomType } from "./RoomTypeFormModal";
 
 export type Room = {
   id?: number;
   code: string;
   name: string;
-  type: "Suite" | "Deluxe" | "Family" | "Classic";
+  type: string; // Changed from hardcoded to dynamic
   capacity: number;
   pricePerNight: number;
   status: "Active" | "Inactive" | "Maintenance";
@@ -21,7 +22,7 @@ type Props = {
 const emptyRoom: Room = {
   code: "",
   name: "",
-  type: "Suite",
+  type: "",
   capacity: 2,
   pricePerNight: 100,
   status: "Active",
@@ -29,10 +30,41 @@ const emptyRoom: Room = {
 
 export default function RoomFormModal({ open, initial, onClose, onSubmit }: Props) {
   const [form, setForm] = useState<Room>(emptyRoom);
+  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setForm(initial ?? emptyRoom);
   }, [initial, open]);
+
+  useEffect(() => {
+    if (open) {
+      loadRoomTypes();
+    }
+  }, [open]);
+
+  const loadRoomTypes = async () => {
+    setLoading(true);
+    try {
+      // TODO: Replace with actual API call
+      // const response = await fetch('/api/room-types');
+      // const data = await response.json();
+      
+      // Mock data for now
+      const mockRoomTypes: RoomType[] = [
+        { id: 1, name: "Suite", description: "Phòng suite cao cấp", basePrice: 300, maxCapacity: 4, amenities: [], isActive: true },
+        { id: 2, name: "Deluxe", description: "Phòng deluxe tiện nghi", basePrice: 200, maxCapacity: 3, amenities: [], isActive: true },
+        { id: 3, name: "Family", description: "Phòng gia đình", basePrice: 180, maxCapacity: 6, amenities: [], isActive: true },
+        { id: 4, name: "Classic", description: "Phòng classic", basePrice: 120, maxCapacity: 2, amenities: [], isActive: true },
+      ];
+      
+      setRoomTypes(mockRoomTypes.filter(rt => rt.isActive));
+    } catch (error) {
+      console.error('Error loading room types:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const change = (key: keyof Room) => (e: any) => {
     const value = key === "capacity" || key === "pricePerNight" ? Number(e.target.value) : e.target.value;
@@ -52,10 +84,28 @@ export default function RoomFormModal({ open, initial, onClose, onSubmit }: Prop
         <Box sx={{ mt: 0.5, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
           <TextField label="Mã phòng" fullWidth value={form.code} onChange={change("code")} />
           <TextField label="Tên phòng" fullWidth value={form.name} onChange={change("name")} />
-          <TextField select label="Loại" fullWidth value={form.type} onChange={change("type")}>
-            {(["Suite", "Deluxe", "Family", "Classic"] as const).map((t) => (
-              <MenuItem key={t} value={t}>{t}</MenuItem>
-            ))}
+          <TextField 
+            select 
+            label="Loại phòng" 
+            fullWidth 
+            value={form.type} 
+            onChange={change("type")}
+            disabled={loading}
+          >
+            {loading ? (
+              <MenuItem disabled>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CircularProgress size={16} />
+                  Đang tải...
+                </Box>
+              </MenuItem>
+            ) : (
+              roomTypes.map((rt) => (
+                <MenuItem key={rt.id} value={rt.name}>
+                  {rt.name} - ${rt.basePrice} ({rt.maxCapacity} người)
+                </MenuItem>
+              ))
+            )}
           </TextField>
           <TextField type="number" label="Sức chứa" fullWidth value={form.capacity} onChange={change("capacity")} />
           <TextField type="number" label="Giá/đêm" fullWidth value={form.pricePerNight} onChange={change("pricePerNight")} />

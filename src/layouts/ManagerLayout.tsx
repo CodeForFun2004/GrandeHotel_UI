@@ -19,6 +19,7 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
 import HotelIcon from "@mui/icons-material/Hotel";
 import MeetingRoomIcon from "@mui/icons-material/MeetingRoom";
+import CategoryIcon from "@mui/icons-material/Category";
 import BookOnlineIcon from "@mui/icons-material/BookOnline";
 import GroupIcon from "@mui/icons-material/Group";
 import MenuIcon from "@mui/icons-material/Menu";
@@ -39,6 +40,7 @@ const managerNavigationItems = [
   { title: "Dashboard", icon: <BarChartIcon />, path: MANAGER_PATHS.DASHBOARD },
   { title: "Hotel Info", icon: <HotelIcon />, path: MANAGER_PATHS.HOTEL_INFO },
   { title: "Rooms", icon: <MeetingRoomIcon />, path: MANAGER_PATHS.ROOMS },
+  { title: "Room Types", icon: <CategoryIcon />, path: MANAGER_PATHS.ROOM_TYPES },
   { title: "Booking Management", icon: <BookOnlineIcon />, path: MANAGER_PATHS.BOOKINGS },
   { title: "Staff Management", icon: <GroupIcon />, path: MANAGER_PATHS.STAFF_MANAGEMENT },
   { title: "Profile", icon: <PersonIcon />, path: MANAGER_PATHS.PROFILE },
