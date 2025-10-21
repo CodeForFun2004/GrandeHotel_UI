@@ -5,6 +5,7 @@ import './Room.css';
 import * as roomApi from '../api/room';
 import BookingForm from './landing/components/BookingForm';
 // We'll navigate to a review page before creating a reservation
+//Chon phong ne
 
 function useQuery() {
   return new URLSearchParams(useLocation().search);
@@ -18,6 +19,7 @@ interface TempSelection {
   children: number; // 0..3
   infants: number;  // 0..3
 }
+
 
 interface SelectedRoom {
   roomTypeId: string;
