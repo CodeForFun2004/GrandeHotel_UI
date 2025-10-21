@@ -1,5 +1,15 @@
 
-import React, { useMemo } from 'react';
+import React, { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import type { AppDispatch, RootState } from '../../redux/store';
+import { formatVNDAbbreviated } from '../../utils/formatCurrency';
+import {
+  fetchDashboardStats,
+  fetchRevenueData,
+  fetchHotelPerformance,
+  fetchBookingStatus,
+  fetchUserStats
+} from '../../redux/slices/dashboardSlice';
 import {
   Box,
   Card,
@@ -18,7 +28,8 @@ import {
   ListItem,
   ListItemText,
   Avatar,
-  Divider
+  Divider,
+  CircularProgress
 } from '@mui/material';
 import {
   Business,
@@ -47,52 +58,26 @@ import {
   Bar
 } from 'recharts';
 
-// Mock data cho dashboard
-const mockRevenueData = [
-  { month: 'T1', revenue: 125000, bookings: 145 },
-  { month: 'T2', revenue: 158000, bookings: 167 },
-  { month: 'T3', revenue: 142000, bookings: 159 },
-  { month: 'T4', revenue: 189000, bookings: 201 },
-  { month: 'T5', revenue: 167000, bookings: 183 },
-  { month: 'T6', revenue: 195000, bookings: 215 },
-];
-
-const mockHotelPerformance = [
-  { id: 1, name: 'Grande Hotel Saigon', revenue: 45000, occupancy: 85, status: 'Active' },
-  { id: 2, name: 'Grande Hotel Hanoi', revenue: 38000, occupancy: 78, status: 'Active' },
-  { id: 3, name: 'Grande Hotel Da Nang', revenue: 32000, occupancy: 72, status: 'Active' },
-  { id: 4, name: 'Grande Hotel HCMC Airport', revenue: 28000, occupancy: 68, status: 'Maintenance' },
-  { id: 5, name: 'Grande Hotel Nha Trang', revenue: 25000, occupancy: 65, status: 'Active' },
-];
-
-const mockBookingStatus = [
-  { name: 'Đã duyệt', value: 45, color: '#4CAF50' },
-  { name: 'Đang chờ', value: 28, color: '#FF9800' },
-  { name: 'Đã hủy', value: 15, color: '#F44336' },
-  { name: 'Đã check-in', value: 12, color: '#2196F3' },
-];
-
-const mockUserStats = [
-  { role: 'Khách hàng', count: 1250, newThisMonth: 45 },
-  { role: 'Nhân viên', count: 320, newThisMonth: 8 },
-  { role: 'Quản lý', count: 25, newThisMonth: 1 },
-];
-
-const mockRecentActivities = [
-  { type: 'booking', message: 'Đặt phòng mới tại Grande Hotel Saigon', time: '2 phút trước', user: 'John Doe' },
-  { type: 'user', message: 'Tài khoản mới đăng ký', time: '10 phút trước', user: 'Jane Smith' },
-  { type: 'payment', message: 'Thanh toán thành công', time: '1 giờ trước', user: 'Mike Wilson' },
-  { type: 'room', message: 'Phòng A101 được cập nhật', time: '2 giờ trước', user: 'Manager Nguyễn' },
-  { type: 'alert', message: 'Khách sạn Da Nang cần bảo trì', time: '3 giờ trước', user: 'System' },
-];
 
 const AdminDashboard: React.FC = () => {
-  const stats = useMemo(() => ({
-    totalHotels: 5,
-    totalRooms: 1200,
-    totalUsers: 1595,
-    totalRevenue: 976000,
-  }), []);
+  const dispatch = useDispatch<AppDispatch>();
+  const {
+    stats,
+    revenueData,
+    hotelPerformance,
+    bookingStatus,
+    userStats,
+    loading,
+    error
+  } = useSelector((state: RootState) => state.dashboard);
+
+  useEffect(() => {
+    dispatch(fetchDashboardStats());
+    dispatch(fetchRevenueData());
+    dispatch(fetchHotelPerformance());
+    dispatch(fetchBookingStatus());
+    dispatch(fetchUserStats());
+  }, [dispatch]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -162,8 +147,8 @@ const AdminDashboard: React.FC = () => {
                 <Typography variant="overline" sx={{ color: 'text.secondary' }}>
                   Doanh thu Tháng
                 </Typography>
-                <Typography variant="h4" sx={{ mt: 1, fontWeight: 'bold' }}>
-                  ${stats.totalRevenue.toLocaleString()}
+              <Typography variant="h4" sx={{ mt: 1, fontWeight: 'bold' }}>
+                  {formatVNDAbbreviated(stats.totalRevenue)}
                 </Typography>
               </Box>
               <Avatar sx={{ bgcolor: 'warning.main' }}>
@@ -181,21 +166,30 @@ const AdminDashboard: React.FC = () => {
               Doanh thu 6 tháng gần nhất
             </Typography>
             <Box sx={{ height: 300 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={mockRevenueData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
-                  <Line
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="#1976d2"
-                    strokeWidth={3}
-                    name="Doanh thu"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={revenueData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis tickFormatter={(value) => formatVNDAbbreviated(value)} />
+                    <Tooltip
+                      formatter={(value) => [formatVNDAbbreviated(Number(value)), 'Doanh thu']}
+                      labelFormatter={(label) => `Tháng: ${label}`}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="#1976d2"
+                      strokeWidth={3}
+                      name="Doanh thu"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </Box>
           </CardContent>
         </Card>
@@ -209,7 +203,7 @@ const AdminDashboard: React.FC = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={mockBookingStatus}
+                    data={bookingStatus as any[]}
                     cx="50%"
                     cy="50%"
                     outerRadius={80}
@@ -217,7 +211,7 @@ const AdminDashboard: React.FC = () => {
                     dataKey="value"
                     label={(entry) => `${entry.name}: ${entry.value}`}
                   >
-                    {mockBookingStatus.map((entry, index) => (
+                    {bookingStatus.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -246,7 +240,7 @@ const AdminDashboard: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {mockHotelPerformance.map((hotel) => (
+                  {hotelPerformance.map((hotel) => (
                     <TableRow key={hotel.id} hover>
                       <TableCell>
                         <Box display="flex" alignItems="center" gap={1}>
@@ -259,7 +253,7 @@ const AdminDashboard: React.FC = () => {
                         </Box>
                       </TableCell>
                       <TableCell align="right">
-                        ${hotel.revenue.toLocaleString()}
+                        {formatVNDAbbreviated(hotel.revenue)}
                       </TableCell>
                       <TableCell align="center">
                         <Box>
@@ -293,7 +287,7 @@ const AdminDashboard: React.FC = () => {
             </Typography>
             <Box sx={{ height: 250 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={mockUserStats}>
+                <BarChart data={userStats as any[]}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="role" />
                   <YAxis />

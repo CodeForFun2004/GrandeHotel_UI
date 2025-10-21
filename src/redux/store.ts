@@ -6,6 +6,7 @@ import roomReducer from './slices/roomSlice';
 import serviceReducer from './slices/serviceSlice';
 import reservationReducer from './slices/reservationSlice';
 import contactReducer from './slices/contactSlice';
+import dashboardReducer from './slices/dashboardSlice';
 
 export const store = configureStore({
   reducer: {
@@ -15,6 +16,7 @@ export const store = configureStore({
     services: serviceReducer,
     reservations: reservationReducer,
     contacts: contactReducer,
+    dashboard: dashboardReducer,
   },
 });
 
