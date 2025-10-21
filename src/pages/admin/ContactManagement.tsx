@@ -38,6 +38,7 @@ import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../redux/store";
 import { fetchContacts, updateContact } from "../../redux/slices/contactSlice";
 import type { Contact } from "../../types/entities";
+import { toast } from "react-toastify";
 
 const STATUS_CONFIG = {
   pending: { label: "Chưa xử lý", color: "warning" as const, icon: <Assignment /> },
@@ -123,11 +124,13 @@ export default function ContactManagement() {
       await dispatch(updateContact({
         id: contactId,
         payload: { status: newStatus as Contact['status'] }
-      }));
+      })).unwrap();
+      toast.success("Trạng thái liên hệ đã được cập nhật thành công!");
       setActionDialog(false);
       setSelectedContact(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to update contact status:", error);
+      toast.error(error.response?.data?.message || "Không thể cập nhật trạng thái. Vui lòng thử lại!");
     }
   };
 
