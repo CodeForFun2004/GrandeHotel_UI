@@ -1,49 +1,17 @@
-import { useMemo, useState } from "react";
-import { Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography, Pagination, Stack } from "@mui/material";
+import { useMemo, useState, useEffect } from "react";
+import { Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography, Pagination, Stack, CircularProgress, Alert } from "@mui/material";
 import RoomTypeFormModal, { type RoomType } from "./RoomTypeFormModal";
+import type { RoomType as ReduxRoomType } from "../../../redux/slices/roomTypeSlice";
 import { toast } from "react-toastify";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { fetchRoomTypes, createRoomType, updateRoomType, deleteRoomType, clearError } from "../../../redux/slices/roomTypeSlice";
+import type { CreateRoomTypePayload, UpdateRoomTypePayload } from "../../../redux/slices/roomTypeSlice";
 
-const MOCK_ROOM_TYPES: RoomType[] = [
-  { 
-    id: 1, 
-    name: "Suite", 
-    description: "Phòng suite cao cấp với view biển", 
-    basePrice: 300, 
-    maxCapacity: 4, 
-    amenities: ["WiFi", "TV", "Air Conditioning", "Ocean View", "Room Service"], 
-    isActive: true 
-  },
-  { 
-    id: 2, 
-    name: "Deluxe", 
-    description: "Phòng deluxe tiện nghi đầy đủ", 
-    basePrice: 200, 
-    maxCapacity: 3, 
-    amenities: ["WiFi", "TV", "Air Conditioning", "Mini Bar"], 
-    isActive: true 
-  },
-  { 
-    id: 3, 
-    name: "Family", 
-    description: "Phòng gia đình rộng rãi", 
-    basePrice: 180, 
-    maxCapacity: 6, 
-    amenities: ["WiFi", "TV", "Air Conditioning", "Balcony"], 
-    isActive: true 
-  },
-  { 
-    id: 4, 
-    name: "Classic", 
-    description: "Phòng classic tiết kiệm", 
-    basePrice: 120, 
-    maxCapacity: 2, 
-    amenities: ["WiFi", "TV"], 
-    isActive: false 
-  },
-];
+
 
 export default function RoomTypeTable() {
-  const [roomTypes, setRoomTypes] = useState<RoomType[]>(MOCK_ROOM_TYPES);
+  const dispatch = useAppDispatch();
+  const { roomTypes, loading, error, creating, updating, deleting } = useAppSelector((state) => state.roomType);
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("All");
 
@@ -51,18 +19,22 @@ export default function RoomTypeTable() {
   const [editing, setEditing] = useState<RoomType | undefined>(undefined);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [deleting, setDeleting] = useState<RoomType | undefined>(undefined);
+  const [deletingRoomType, setDeletingRoomType] = useState<ReduxRoomType | undefined>(undefined);
 
   const [page, setPage] = useState(1);
   const pageSize = 5;
+
+  // Fetch room types from API
+  useEffect(() => {
+    dispatch(fetchRoomTypes());
+  }, [dispatch]);
 
   const filtered = useMemo(() => {
     return roomTypes.filter((rt) => {
       const matchesKw = rt.name.toLowerCase().includes(keyword.toLowerCase()) ||
                        rt.description?.toLowerCase().includes(keyword.toLowerCase());
-      const matchesStatus = statusFilter === "All" || 
-                           (statusFilter === "Active" && rt.isActive) ||
-                           (statusFilter === "Inactive" && !rt.isActive);
+      // Since Redux type doesn't have isActive, always treat as active
+      const matchesStatus = statusFilter === "All" || statusFilter === "Active";
       return matchesKw && matchesStatus;
     });
   }, [roomTypes, keyword, statusFilter]);
@@ -75,33 +47,68 @@ export default function RoomTypeTable() {
     setModalOpen(true);
   };
 
-  const openEdit = (roomType: RoomType) => {
-    setEditing(roomType);
+  const openEdit = (roomType: ReduxRoomType) => {
+    // Convert ReduxRoomType to RoomType (form modal expects RoomType with optional id)
+    const formRoomType: RoomType = {
+      id: roomType.id,
+      name: roomType.name,
+      description: roomType.description,
+      basePrice: roomType.basePrice,
+      capacity: roomType.capacity,
+      numberOfBeds: roomType.numberOfBeds,
+    };
+    setEditing(formRoomType);
     setModalOpen(true);
   };
 
-  const handleSubmit = (roomType: RoomType) => {
-    if (editing) {
-      setRoomTypes((prev) => prev.map((rt) => (rt.id === editing.id ? { ...roomType, id: editing.id } : rt)));
-      toast.success("Cập nhật loại phòng thành công (mock)");
-    } else {
-      const id = Math.max(0, ...roomTypes.map((rt) => rt.id ?? 0)) + 1;
-      setRoomTypes((prev) => [{ ...roomType, id }, ...prev]);
-      toast.success("Thêm loại phòng thành công (mock)");
+  const handleSubmit = async (roomType: RoomType) => {
+    try {
+      if (editing) {
+        // Update existing room type
+        const updatePayload: UpdateRoomTypePayload = {
+          name: roomType.name,
+          description: roomType.description,
+          basePrice: roomType.basePrice,
+          capacity: roomType.capacity,
+          numberOfBeds: roomType.numberOfBeds,
+        };
+        await dispatch(updateRoomType({ roomTypeId: editing.id!, roomTypeData: updatePayload })).unwrap();
+        toast.success("Cập nhật loại phòng thành công");
+      } else {
+        // Create new room type
+        const createPayload: CreateRoomTypePayload = {
+          name: roomType.name,
+          description: roomType.description,
+          basePrice: roomType.basePrice,
+          capacity: roomType.capacity,
+          numberOfBeds: roomType.numberOfBeds,
+        };
+        await dispatch(createRoomType(createPayload)).unwrap();
+        toast.success("Thêm loại phòng thành công");
+      }
+      setModalOpen(false);
+      setEditing(undefined);
+    } catch (error) {
+      console.error('Room type operation error:', error);
+      toast.error("Có lỗi xảy ra");
     }
-    setModalOpen(false);
   };
 
-  const askDelete = (roomType: RoomType) => {
-    setDeleting(roomType);
+  const askDelete = (roomType: ReduxRoomType) => {
+    setDeletingRoomType(roomType);
     setConfirmOpen(true);
   };
 
-  const doDelete = () => {
-    if (!deleting) return;
-    setRoomTypes((prev) => prev.filter((rt) => rt.id !== deleting.id));
-    setConfirmOpen(false);
-    toast.success("Xóa loại phòng thành công (mock)");
+  const doDelete = async () => {
+    if (!deletingRoomType) return;
+    try {
+      await dispatch(deleteRoomType(deletingRoomType.id)).unwrap();
+      setConfirmOpen(false);
+      setDeletingRoomType(undefined);
+      toast.success("Xóa loại phòng thành công");
+    } catch (error) {
+      toast.error("Có lỗi xảy ra");
+    }
   };
 
   return (
@@ -150,7 +157,7 @@ export default function RoomTypeTable() {
               <TableCell>Mô tả</TableCell>
               <TableCell>Giá cơ bản</TableCell>
               <TableCell>Sức chứa</TableCell>
-              <TableCell>Tiện nghi</TableCell>
+              <TableCell>Số giường</TableCell>
               <TableCell>Trạng thái</TableCell>
               <TableCell align="right">Hành động</TableCell>
             </TableRow>
@@ -173,32 +180,13 @@ export default function RoomTypeTable() {
                     ${rt.basePrice}
                   </Typography>
                 </TableCell>
-                <TableCell>{rt.maxCapacity} người</TableCell>
+                <TableCell>{rt.capacity} người</TableCell>
+                <TableCell>{rt.numberOfBeds} giường</TableCell>
                 <TableCell>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: 200 }}>
-                    {rt.amenities.slice(0, 3).map((amenity, index) => (
-                      <Chip 
-                        key={index} 
-                        label={amenity} 
-                        size="small" 
-                        variant="outlined"
-                      />
-                    ))}
-                    {rt.amenities.length > 3 && (
-                      <Chip 
-                        label={`+${rt.amenities.length - 3}`} 
-                        size="small" 
-                        variant="outlined"
-                        color="primary"
-                      />
-                    )}
-                  </Box>
-                </TableCell>
-                <TableCell>
-                  <Chip 
-                    size="small" 
-                    label={rt.isActive ? "Hoạt động" : "Không hoạt động"} 
-                    color={rt.isActive ? "success" : "default"} 
+                  <Chip
+                    size="small"
+                    label="Hoạt động"
+                    color="success"
                   />
                 </TableCell>
                 <TableCell align="right">
@@ -239,7 +227,7 @@ export default function RoomTypeTable() {
         <DialogTitle>Xóa loại phòng?</DialogTitle>
         <DialogContent>
           <Typography>
-            Bạn có chắc muốn xóa loại phòng "{deleting?.name}"?
+            Bạn có chắc muốn xóa loại phòng "{deletingRoomType?.name}"?
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             Hành động này không thể hoàn tác.

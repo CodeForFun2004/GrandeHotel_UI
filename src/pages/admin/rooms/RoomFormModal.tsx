@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem, Box, CircularProgress } from "@mui/material";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { fetchRoomTypes } from "../../../redux/slices/roomTypeSlice";
 import type { RoomType } from "./RoomTypeFormModal";
 
 export type Room = {
-  id?: number;
+  id?: string;
   code: string;
   name: string;
   type: string; // Changed from hardcoded to dynamic
@@ -29,9 +31,9 @@ const emptyRoom: Room = {
 };
 
 export default function RoomFormModal({ open, initial, onClose, onSubmit }: Props) {
+  const dispatch = useAppDispatch();
+  const { roomTypes, loading } = useAppSelector((state) => state.roomType);
   const [form, setForm] = useState<Room>(emptyRoom);
-  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setForm(initial ?? emptyRoom);
@@ -44,25 +46,10 @@ export default function RoomFormModal({ open, initial, onClose, onSubmit }: Prop
   }, [open]);
 
   const loadRoomTypes = async () => {
-    setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/room-types');
-      // const data = await response.json();
-      
-      // Mock data for now
-      const mockRoomTypes: RoomType[] = [
-        { id: 1, name: "Suite", description: "Phòng suite cao cấp", basePrice: 300, maxCapacity: 4, amenities: [], isActive: true },
-        { id: 2, name: "Deluxe", description: "Phòng deluxe tiện nghi", basePrice: 200, maxCapacity: 3, amenities: [], isActive: true },
-        { id: 3, name: "Family", description: "Phòng gia đình", basePrice: 180, maxCapacity: 6, amenities: [], isActive: true },
-        { id: 4, name: "Classic", description: "Phòng classic", basePrice: 120, maxCapacity: 2, amenities: [], isActive: true },
-      ];
-      
-      setRoomTypes(mockRoomTypes.filter(rt => rt.isActive));
+      await dispatch(fetchRoomTypes()).unwrap();
     } catch (error) {
       console.error('Error loading room types:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -102,7 +89,7 @@ export default function RoomFormModal({ open, initial, onClose, onSubmit }: Prop
             ) : (
               roomTypes.map((rt) => (
                 <MenuItem key={rt.id} value={rt.name}>
-                  {rt.name} - ${rt.basePrice} ({rt.maxCapacity} người)
+                  {rt.name} - ${rt.basePrice} ({rt.capacity} người)
                 </MenuItem>
               ))
             )}
@@ -122,4 +109,4 @@ export default function RoomFormModal({ open, initial, onClose, onSubmit }: Prop
       </DialogActions>
     </Dialog>
   );
-} 
+}

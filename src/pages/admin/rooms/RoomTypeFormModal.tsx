@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box, FormControlLabel, Switch, Chip, Autocomplete, Typography } from "@mui/material";
 
 export type RoomType = {
-  id?: number;
+  id?: string;
   name: string;
   description?: string;
   basePrice: number;
-  maxCapacity: number;
-  amenities: string[];
-  isActive: boolean;
+  capacity: number;
+  numberOfBeds: number;
+  amenities?: string[];
+  isActive?: boolean;
 };
 
 type Props = {
@@ -22,7 +23,8 @@ const emptyRoomType: RoomType = {
   name: "",
   description: "",
   basePrice: 100,
-  maxCapacity: 2,
+  capacity: 2,
+  numberOfBeds: 1,
   amenities: [],
   isActive: true,
 };
@@ -43,33 +45,33 @@ export default function RoomTypeFormModal({ open, initial, onClose, onSubmit }: 
   }, [initial, open]);
 
   const change = (key: keyof RoomType) => (e: any) => {
-    const value = key === "basePrice" || key === "maxCapacity" ? Number(e.target.value) : e.target.value;
+    const value = key === "basePrice" || key === "capacity" || key === "numberOfBeds" ? Number(e.target.value) : e.target.value;
     setForm({ ...form, [key]: value } as RoomType);
   };
 
   const handleAmenitiesChange = (event: any, newValue: string[]) => {
-    setForm({ ...form, amenities: newValue });
+    setForm({ ...form, amenities: newValue || [] });
   };
 
   const addCustomAmenity = () => {
-    if (amenitiesInput.trim() && !form.amenities.includes(amenitiesInput.trim())) {
-      setForm({ 
-        ...form, 
-        amenities: [...form.amenities, amenitiesInput.trim()] 
+    if (amenitiesInput.trim() && !(form.amenities || []).includes(amenitiesInput.trim())) {
+      setForm({
+        ...form,
+        amenities: [...(form.amenities || []), amenitiesInput.trim()]
       });
       setAmenitiesInput("");
     }
   };
 
   const removeAmenity = (amenity: string) => {
-    setForm({ 
-      ...form, 
-      amenities: form.amenities.filter(a => a !== amenity) 
+    setForm({
+      ...form,
+      amenities: (form.amenities || []).filter(a => a !== amenity)
     });
   };
 
   const handleSubmit = () => {
-    if (!form.name || form.basePrice <= 0 || form.maxCapacity <= 0) {
+    if (!form.name || form.basePrice <= 0 || form.capacity <= 0) {
       return;
     }
     onSubmit(form);
@@ -95,12 +97,20 @@ export default function RoomTypeFormModal({ open, initial, onClose, onSubmit }: 
             onChange={change("basePrice")}
             required
           />
-          <TextField 
-            type="number" 
-            label="Sức chứa tối đa" 
-            fullWidth 
-            value={form.maxCapacity} 
-            onChange={change("maxCapacity")}
+          <TextField
+            type="number"
+            label="Sức chứa tối đa"
+            fullWidth
+            value={form.capacity}
+            onChange={change("capacity")}
+            required
+          />
+          <TextField
+            type="number"
+            label="Số giường"
+            fullWidth
+            value={form.numberOfBeds}
+            onChange={change("numberOfBeds")}
             required
           />
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
