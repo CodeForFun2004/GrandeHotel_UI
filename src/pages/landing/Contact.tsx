@@ -1,11 +1,29 @@
-import React from "react";
+import React, { useState } from "react";
+import { useDispatch } from "react-redux";
+import type { AppDispatch } from "../../redux/store";
+import type { Contact } from "../../types/entities";
+import { toast } from "react-toastify";
+
+// API import để tạo contact (nếu backend đã ready)
+import * as contactApi from "../../api/contact";
 
 type Props = {
   showHero?: boolean;
 };
 
-const Contact: React.FC<Props> = ({ showHero = true }) => {
-  const mapQuery = "198 West 21th Street, Suite 721, New York, NY 10016";
+const LandingContact: React.FC<Props> = ({ showHero = true }) => {
+  const dispatch = useDispatch<AppDispatch>();
+  const mapQuery = "FPT University Da Nang";
+
+  // Form state
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    subject: "",
+    message: "",
+  });
+  const [isLoading, setIsLoading] = useState(false);
 
   const styles = {
     page: {
@@ -120,6 +138,17 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
       marginBottom: 16,
       transition: "border-color .2s",
     } as React.CSSProperties,
+    select: {
+      width: "100%",
+      padding: "12px 14px",
+      border: "1px solid #dfe3e8",
+      borderRadius: 4,
+      fontSize: 15,
+      outline: "none",
+      marginBottom: 16,
+      transition: "border-color .2s",
+      backgroundColor: "#fff",
+    } as React.CSSProperties,
     textarea: {
       width: "100%",
       padding: "12px 14px",
@@ -134,20 +163,71 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
     },
     submit: {
       display: "inline-block",
-      background: "#b6895b",
+      background: isLoading ? "#999" : "#b6895b",
       color: "#fff",
       border: "none",
       padding: "12px 26px",
       borderRadius: 4,
       fontWeight: 600,
-      cursor: "pointer",
+      cursor: isLoading ? "not-allowed" : "pointer",
       transition: "background .25s, transform .05s",
     } as React.CSSProperties,
   };
 
-  const onFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+  // Handle input changes
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      // Validate form
+      if (!formData.name || !formData.email || !formData.message) {
+        toast.error("Vui lòng điền đầy đủ thông tin bắt buộc!");
+        return;
+      }
+
+      // Call API to create contact
+      const payload = {
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        subject: formData.subject as Contact['subject'] || undefined,
+        message: formData.message.trim(),
+      };
+
+      await contactApi.createContact(payload);
+
+      toast.success("Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi sớm nhất có thể.");
+
+      // Reset form
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        subject: "",
+        message: "",
+      });
+
+    } catch (error: any) {
+      console.error('Error creating contact:', error);
+      toast.error(error.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại!");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const onFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     (e.currentTarget.style.borderColor = "#b6895b");
-  const onBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+  const onBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     (e.currentTarget.style.borderColor = "#dfe3e8");
 
   return (
@@ -178,7 +258,7 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
               <div><span style={styles.infoLabel}>Address:</span></div>
               <div style={{ whiteSpace: "pre-line" as const }}>
                 <span style={styles.infoValue}>
-                  198 West 21th Street, Suite 721 New York{"\n"}NY 10016
+                  FPT University{"\n"}Khu công nghệ FPT, Ngũ Hành Sơn, Đà Nẵng
                 </span>
               </div>
             </div>
@@ -188,7 +268,7 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
             <div>
               <span style={styles.infoLabel}>Phone:</span>
               <a href="tel:+1235235598" style={{ ...styles.infoValue, color: "#b6895b", textDecoration: "none" }}>
-                + 1235 2355 98
+                + 84 974122333
               </a>
             </div>
           </div>
@@ -197,7 +277,7 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
             <div>
               <span style={styles.infoLabel}>Email:</span>
               <a href="mailto:info@yoursite.com" style={{ ...styles.infoValue, color: "#b6895b", textDecoration: "none" }}>
-                info@yoursite.com
+                dinhquochuy.2004hl@gmail.com
               </a>
             </div>
           </div>
@@ -206,7 +286,7 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
             <div>
               <span style={styles.infoLabel}>Website</span>{" "}
               <a href="#" style={{ ...styles.infoValue, color: "#b6895b", textDecoration: "none" }}>
-                yoursite.com
+                grandehotel.com.vn
               </a>
             </div>
           </div>
@@ -234,16 +314,14 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
 
           {/* FORM */}
           <div style={styles.formWrap}>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                // TODO: gọi API gửi mail/message
-              }}
-            >
+            <form onSubmit={handleSubmit}>
               <input
                 style={styles.input}
                 type="text"
-                placeholder="Your Name"
+                name="name"
+                placeholder="Tên của bạn"
+                value={formData.name}
+                onChange={handleChange}
                 required
                 onFocus={onFocus}
                 onBlur={onBlur}
@@ -251,34 +329,59 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
               <input
                 style={styles.input}
                 type="email"
-                placeholder="Your Email"
+                name="email"
+                placeholder="Email của bạn"
+                value={formData.email}
+                onChange={handleChange}
                 required
                 onFocus={onFocus}
                 onBlur={onBlur}
               />
               <input
                 style={styles.input}
-                type="text"
-                placeholder="Subject"
-                required
+                type="tel"
+                name="phone"
+                placeholder="Số điện thoại (tùy chọn)"
+                value={formData.phone}
+                onChange={handleChange}
                 onFocus={onFocus}
                 onBlur={onBlur}
               />
+              <select
+                style={styles.select}
+                name="subject"
+                value={formData.subject}
+                onChange={handleChange}
+                onFocus={onFocus}
+                onBlur={onBlur}
+              >
+                <option value="">Chọn chủ đề</option>
+                <option value="room-price">Phòng & Giá</option>
+                <option value="reservation">Đặt phòng</option>
+                <option value="services">Dịch vụ</option>
+                <option value="events">Sự kiện</option>
+                <option value="complaint">Khiếu nại</option>
+                <option value="other">Khác</option>
+              </select>
               <textarea
                 style={styles.textarea}
-                placeholder="Message"
+                name="message"
+                placeholder="Nội dung tin nhắn"
+                value={formData.message}
+                onChange={handleChange}
                 required
                 onFocus={onFocus}
                 onBlur={onBlur}
               />
               <input
                 type="submit"
-                value="Send Message"
+                value={isLoading ? "Đang gửi..." : "Gửi tin nhắn"}
                 style={styles.submit}
-                onMouseOver={(e) => (e.currentTarget.style.background = "#9b7544")}
-                onMouseOut={(e) => (e.currentTarget.style.background = "#b6895b")}
-                onMouseDown={(e) => (e.currentTarget.style.transform = "scale(.98)")}
-                onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                disabled={isLoading}
+                onMouseOver={(e) => !isLoading && (e.currentTarget.style.background = "#9b7544")}
+                onMouseOut={(e) => !isLoading && (e.currentTarget.style.background = "#b6895b")}
+                onMouseDown={(e) => !isLoading && (e.currentTarget.style.transform = "scale(.98)")}
+                onMouseUp={(e) => !isLoading && (e.currentTarget.style.transform = "scale(1)")}
               />
             </form>
           </div>
@@ -288,4 +391,4 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
   );
 };
 
-export default Contact;
+export default LandingContact;

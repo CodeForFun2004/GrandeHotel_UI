@@ -6,7 +6,7 @@ import { PrivateRoute } from "./PrivateRoute";
 import { RoleBasedRoute, RoleBasedRedirect } from "./RoleBasedRoute";
 import LandingLayout from "../layouts/LandingLayout";
 import AboutUs from "../pages/landing/AboutUs";
-import Contact from "../pages/landing/Contact";
+import LandingContact from "../pages/landing/Contact";
 
 import AdminLayout from "../layouts/AdminLayout";
 import ManagerLayout from "../layouts/ManagerLayout";
@@ -120,7 +120,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <LandingPage /> },
       { path: "about", element: <AboutUs /> },
-      { path: "contact", element: <Contact /> },
+      { path: "contact", element: <LandingContact /> },
       { path: routes.PROFILE_PATH, element: <Profile /> },
       { path: routes.HOTELS_PATH, element: <Hotels /> },
       { path: routes.ROOMS_PATH, element: <Rooms /> },
