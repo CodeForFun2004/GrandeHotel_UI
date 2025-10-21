@@ -100,3 +100,15 @@ export interface Reservation {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface Contact {
+  _id?: string;
+  id?: string;
+  name: string;
+  email: string;
+  phone?: string;
+  message: string;
+  status?: 'pending' | 'processed' | 'ignored';
+  createdAt?: string;
+  updatedAt?: string;
+}

@@ -17,7 +17,7 @@ import Logout from "../pages/auth/Logout";
 
 import AdminUserManagement from "../pages/admin/AdminUserManagement";
 import AdminHotelList from "../pages/admin/AdminHotelList";
-import HotelDetail from "../pages/admin/HotelDetail";
+
 
 import ForgotPass from "../pages/auth/ForgotPass";
 import VerifyEmail from "../pages/auth/VerifyEmail";
@@ -32,6 +32,7 @@ import ManagerDashboard from "../pages/admin/ManagerDashboard";
 import HotelInfoForm from "../pages/admin/HotelInfoForm";
 import RoomTable from "../pages/admin/rooms/RoomTable";
 import BookingManagement from "../pages/admin/BookingManagement";
+import ContactManagement from "../pages/admin/ContactManagement";
 
 // Staff components
 import StaffDashboard from "../pages/staff/StaffDashboard";
@@ -148,6 +149,7 @@ export const router = createBrowserRouter([
       { path: "dashboard", element: <AdminDashboard /> },
       { path: "user-management", element: <AdminUserManagement /> },
       { path: "hotel-list", element: <AdminHotelList /> },
+      { path: "contact-management", element: <ContactManagement /> },
       { path: "projects", element: <AdminDashboard /> },
       { path: "projects/create", element: <AdminDashboard /> },
       { path: "profile", element: <AdminDashboard /> },

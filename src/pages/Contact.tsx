@@ -53,6 +53,10 @@ const Contact: React.FC = () => {
                   <Form.Label>Email</Form.Label>
                   <Form.Control type="email" placeholder="you@example.com" />
                 </Form.Group>
+                <Form.Group className="mb-3" controlId="contactPhone">
+                  <Form.Label>Phone Number</Form.Label>
+                  <Form.Control type="tel" placeholder="+84 123 456 789" />
+                </Form.Group>
                 <Form.Group className="mb-3" controlId="contactMsg">
                   <Form.Label>Message</Form.Label>
                   <Form.Control as="textarea" rows={4} placeholder="How can we help?" />
