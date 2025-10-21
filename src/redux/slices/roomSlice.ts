@@ -81,8 +81,10 @@ export const fetchRooms = createAsyncThunk<
   'room/fetchRooms',
   async (_, thunkAPI) => {
     try {
-      const response = await axios.get<Room[]>('/rooms');
-      return response.data;
+      const response = await axios.get('/rooms');
+      // Backend returns { success: true, data: Room[], ... }
+      // Extract the rooms array
+      return response.data.success ? response.data.data : [];
     } catch (error: unknown) {
       const err = error as AxiosError<{ message?: string }>;
       const msg = err?.response?.data?.message || err?.message || 'Failed to fetch rooms';
@@ -99,8 +101,9 @@ export const createRoom = createAsyncThunk<
   'room/createRoom',
   async (roomData, thunkAPI) => {
     try {
-      const response = await axios.post<Room>('/rooms', roomData);
-      return response.data;
+      const response = await axios.post('/rooms', roomData);
+      // Backend returns { success: true, data: room, ... }
+      return response.data.success ? response.data.data : null;
     } catch (error: unknown) {
       const err = error as AxiosError<{ message?: string }>;
       const msg = err?.response?.data?.message || err?.message || 'Failed to create room';

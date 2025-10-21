@@ -51,15 +51,19 @@ export const fetchRoomTypes = createAsyncThunk<
   async (_, thunkAPI) => {
     try {
       const response = await axios.get('/rooms/types');
-      const data = response.data.map((item: any) => ({
-        id: item._id,
-        name: item.name,
-        description: item.description,
-        basePrice: item.basePrice,
-        capacity: item.capacity,
-        numberOfBeds: item.numberOfBeds,
-      }));
-      return data;
+      // Backend returns { success: true, data: RoomType[], ... }
+      // Extract and transform the data array
+      if (response.data.success) {
+        return response.data.data.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          basePrice: item.basePrice,
+          capacity: item.capacity,
+          numberOfBeds: item.numberOfBeds,
+        }));
+      }
+      return [];
     } catch (error: unknown) {
       const err = error as AxiosError<{ message?: string }>;
       const msg = err?.response?.data?.message || err?.message || 'Failed to fetch room types';
@@ -77,15 +81,18 @@ export const createRoomType = createAsyncThunk<
   async (roomTypeData, thunkAPI) => {
     try {
       const response = await axios.post('/rooms/types', roomTypeData);
-      const data = {
-        id: response.data._id,
-        name: response.data.name,
-        description: response.data.description,
-        basePrice: response.data.basePrice,
-        capacity: response.data.capacity,
-        numberOfBeds: response.data.numberOfBeds,
-      };
-      return data;
+      // Backend returns { success: true, data: roomType, ... }
+      if (response.data.success) {
+        return {
+          id: response.data.data._id,
+          name: response.data.data.name,
+          description: response.data.data.description,
+          basePrice: response.data.data.basePrice,
+          capacity: response.data.data.capacity,
+          numberOfBeds: response.data.data.numberOfBeds,
+        };
+      }
+      throw new Error('Invalid response format');
     } catch (error: unknown) {
       const err = error as AxiosError<{ message?: string }>;
       const msg = err?.response?.data?.message || err?.message || 'Failed to create room type';
@@ -103,15 +110,18 @@ export const updateRoomType = createAsyncThunk<
   async ({ roomTypeId, roomTypeData }, thunkAPI) => {
     try {
       const response = await axios.put(`/rooms/types/${roomTypeId}`, roomTypeData);
-      const data = {
-        id: response.data._id,
-        name: response.data.name,
-        description: response.data.description,
-        basePrice: response.data.basePrice,
-        capacity: response.data.capacity,
-        numberOfBeds: response.data.numberOfBeds,
-      };
-      return data;
+      // Backend returns { success: true, data: roomType, ... }
+      if (response.data.success) {
+        return {
+          id: response.data.data._id,
+          name: response.data.data.name,
+          description: response.data.data.description,
+          basePrice: response.data.data.basePrice,
+          capacity: response.data.data.capacity,
+          numberOfBeds: response.data.data.numberOfBeds,
+        };
+      }
+      throw new Error('Invalid response format');
     } catch (error: unknown) {
       const err = error as AxiosError<{ message?: string }>;
       const msg = err?.response?.data?.message || err?.message || 'Failed to update room type';
