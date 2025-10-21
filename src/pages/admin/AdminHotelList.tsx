@@ -116,20 +116,17 @@ const AdminHotelList: React.FC = () => {
   );
 
   // Find current manager cho hotel được chọn
-  const currentManager = selectedHotel ? managers.find(m => m.hotelId === selectedHotel.id) : undefined;
+  
 
   // Get available managers cho hotel được chọn
-  const availableManagers = selectedHotel ? managers.filter(m => !m.hotelId || m.hotelId === selectedHotel.id) : [];
+  
 
   const handleHotelSelect = (hotelId: number) => {
     setSelectedHotelId(hotelId);
     setSelectedManager("");
   };
 
-  const handleManagerChange = (newManagerId: number | "") => {
-    setSelectedManager(newManagerId);
-    setConfirmDialogOpen(true);
-  };
+ 
 
   const confirmManagerChange = () => {
     if (!selectedHotel) return;
