@@ -51,11 +51,21 @@ const STATUS_FLOW = {
   ignored: ["processed"],
 };
 
+const SUBJECT_CONFIG = {
+  'room-price': { label: 'Phòng & Giá', color: 'primary' as const },
+  reservation: { label: 'Đặt phòng', color: 'secondary' as const },
+  services: { label: 'Dịch vụ', color: 'info' as const },
+  events: { label: 'Sự kiện', color: 'warning' as const },
+  complaint: { label: 'Khiếu nại', color: 'error' as const },
+  other: { label: 'Khác', color: 'default' as const },
+};
+
 export default function ContactManagement() {
   const dispatch = useDispatch<AppDispatch>();
   const { contacts, loading } = useSelector((state: RootState) => state.contacts);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [subjectFilter, setSubjectFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [actionDialog, setActionDialog] = useState(false);
@@ -78,11 +88,12 @@ export default function ContactManagement() {
         contact.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (contact.phone && contact.phone.includes(searchTerm));
 
+      const matchesSubject = subjectFilter === "all" || contact.subject === subjectFilter;
       const matchesStatus = statusFilter === "all" || contact.status === statusFilter;
 
-      return matchesSearch && matchesStatus;
+      return matchesSearch && matchesSubject && matchesStatus;
     });
-  }, [contacts, searchTerm, statusFilter]);
+  }, [contacts, searchTerm, subjectFilter, statusFilter]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredContacts.length / rowsPerPage);
@@ -174,7 +185,25 @@ export default function ContactManagement() {
                 startAdornment: <Search sx={{ mr: 1, color: "text.secondary" }} />,
               }}
             />
-            <FormControl size="small" sx={{ minWidth: 200 }}>
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>Chủ đề</InputLabel>
+              <Select
+                value={subjectFilter}
+                onChange={(e) => {
+                  setSubjectFilter(e.target.value);
+                  setPage(1); // Reset to first page when filtering
+                }}
+                label="Chủ đề"
+              >
+                <MenuItem value="all">Tất cả</MenuItem>
+                {Object.entries(SUBJECT_CONFIG).map(([key, config]) => (
+                  <MenuItem key={key} value={key}>
+                    {config.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 150 }}>
               <InputLabel>Trạng thái</InputLabel>
               <Select
                 value={statusFilter}
@@ -201,10 +230,11 @@ export default function ContactManagement() {
         <Table sx={{ tableLayout: 'fixed' }}>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ width: '20%' }}>Tên</TableCell>
-              <TableCell sx={{ width: '25%' }}>Email</TableCell>
-              <TableCell sx={{ width: '15%' }}>Số điện thoại</TableCell>
-              <TableCell sx={{ width: '15%' }}>Trạng thái</TableCell>
+              <TableCell sx={{ width: '15%' }}>Tên</TableCell>
+              <TableCell sx={{ width: '20%' }}>Email</TableCell>
+              <TableCell sx={{ width: '10%' }}>Số điện thoại</TableCell>
+              <TableCell sx={{ width: '10%' }}>Chủ đề</TableCell>
+              <TableCell sx={{ width: '10%' }}>Trạng thái</TableCell>
               <TableCell align="center" sx={{ minWidth: 200, width: 200 }}>Hành động</TableCell>
             </TableRow>
           </TableHead>
@@ -228,6 +258,14 @@ export default function ContactManagement() {
                     <Typography variant="body2">
                       {contact.phone || "N/A"}
                     </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={SUBJECT_CONFIG[contact.subject || 'other']?.label || 'Khác'}
+                      color={SUBJECT_CONFIG[contact.subject || 'other']?.color || 'default'}
+                      size="small"
+                      sx={{ fontSize: '0.7rem', height: 20 }}
+                    />
                   </TableCell>
                   <TableCell>
                     <Chip
@@ -280,7 +318,7 @@ export default function ContactManagement() {
             })}
             {paginatedContacts.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={6} align="center">
                   <Typography color="text.secondary">
                     Không có dữ liệu
                   </Typography>
@@ -383,6 +421,14 @@ export default function ContactManagement() {
               <Box sx={{ mb: 3 }}>
                 <Typography variant="body2" color="text.secondary">Số điện thoại:</Typography>
                 <Typography variant="body1">{selectedContact.phone || "Chưa cung cấp"}</Typography>
+              </Box>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="body2" color="text.secondary">Chủ đề:</Typography>
+                <Chip
+                  label={SUBJECT_CONFIG[selectedContact.subject || 'other']?.label || 'Khác'}
+                  color={SUBJECT_CONFIG[selectedContact.subject || 'other']?.color || 'default'}
+                  size="small"
+                />
               </Box>
               <Box sx={{ mb: 3 }}>
                 <Typography variant="body2" color="text.secondary">Trạng thái:</Typography>

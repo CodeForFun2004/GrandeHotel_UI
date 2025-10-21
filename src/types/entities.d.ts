@@ -108,6 +108,7 @@ export interface Contact {
   email: string;
   phone?: string;
   message: string;
+  subject?: 'room-price' | 'services' | 'events' | 'complaint' | 'reservation' | 'other';
   status?: 'pending' | 'processed' | 'ignored';
   createdAt?: string;
   updatedAt?: string;
