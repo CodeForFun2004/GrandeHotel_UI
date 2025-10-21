@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 // Tạo 1 action đơn giản trong authSlice: authLoginSuccess(payload)
 import { authLoginSuccess } from '../redux/slices/authSlice';
+import { RoleBasedRedirect } from '../routes/RoleBasedRoute';
 
 export default function AuthCallback() {
   const dispatch = useDispatch();
@@ -20,13 +21,24 @@ export default function AuthCallback() {
       if (raw) {
         const { accessToken, refreshToken, user } = JSON.parse(decodeURIComponent(raw));
 
+        console.log('🔍 Google OAuth Callback Data:', { accessToken, refreshToken, user });
+
+        // Đảm bảo user có role, nếu không có thì set default là customer
+        const userWithRole = {
+          ...user,
+          role: user.role || 'customer' // Fallback to customer if role is missing
+        };
+
+        console.log('🔍 User with role:', userWithRole);
+
         // Lưu tạm vào localStorage để tái sử dụng chung với flow hiện tại
         // (Bạn đã có /refresh và logout dựa vào token body → vẫn chạy ok)
         localStorage.setItem('accessToken', accessToken);
         localStorage.setItem('refreshToken', refreshToken);
 
         // Đưa user vào Redux để HomePage hiển thị ngay
-        dispatch(authLoginSuccess({ user, accessToken, refreshToken }));
+        // Backend phải đảm bảo user.role = "customer" cho Google OAuth
+        dispatch(authLoginSuccess({ user: userWithRole, accessToken, refreshToken }));
         
         setIsProcessing(false);
       } else {
@@ -56,6 +68,6 @@ export default function AuthCallback() {
     return <div style={{ padding: 24 }}>Đang đăng nhập bằng Google...</div>;
   }
 
-  // Google login luôn redirect về trang chủ
-  return <Navigate to="/" replace />;
+  // Google login sử dụng RoleBasedRedirect để redirect theo role
+  return <RoleBasedRedirect />;
 }
