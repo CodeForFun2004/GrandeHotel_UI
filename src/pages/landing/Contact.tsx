@@ -1,29 +1,12 @@
-import React, { useState } from "react";
-import { useDispatch } from "react-redux";
-import type { AppDispatch } from "../../redux/store";
-import type { Contact } from "../../types/entities";
-import { toast } from "react-toastify";
-
-// API import để tạo contact (nếu backend đã ready)
-import * as contactApi from "../../api/contact";
+import React from "react";
+import { Link } from "react-router-dom";
 
 type Props = {
   showHero?: boolean;
 };
 
-const LandingContact: React.FC<Props> = ({ showHero = true }) => {
-  const dispatch = useDispatch<AppDispatch>();
-  const mapQuery = "FPT University Da Nang";
-
-  // Form state
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    subject: "",
-    message: "",
-  });
-  const [isLoading, setIsLoading] = useState(false);
+const Contact: React.FC<Props> = ({ showHero = true }) => {
+  const mapQuery = "198 West 21th Street, Suite 721, New York, NY 10016";
 
   const styles = {
     page: {
@@ -35,35 +18,58 @@ const LandingContact: React.FC<Props> = ({ showHero = true }) => {
       minHeight: "100vh",
     },
 
-    /* HERO */
+    /* HERO — đồng bộ với AboutUs */
     hero: {
       position: "relative" as const,
+      width: "100%",
+      height: 420,
       backgroundImage: "url('/src/assets/images/bg_2.jpg')",
       backgroundSize: "cover",
-      backgroundPosition: "center",
-      padding: "140px 0 120px",
-      textAlign: "center" as const,
+      backgroundPosition: "center center",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      flexDirection: "column" as const,
       color: "#fff",
+      textAlign: "center" as const,
     },
-    overlay: { position: "absolute" as const, inset: 0, background: "rgba(0,0,0,.5)" },
-    heroInner: { position: "relative" as const, zIndex: 1 },
+    overlay: {
+      content: '""',
+      position: "absolute" as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: "rgba(0,0,0,0.45)",
+    },
+    heroInner: { position: "relative" as const, zIndex: 2 },
+
     breadcrumb: {
-      display: "inline-block",
-      background: "rgba(255,255,255,.15)",
-      padding: "6px 14px",
-      borderRadius: 999,
-      fontSize: 13,
-      marginBottom: 14,
-      letterSpacing: ".2px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      background: "rgba(255,255,255,0.12)",
+      backdropFilter: "blur(6px)",
+      padding: "6px 20px",
+      borderRadius: 30,
+      color: "#fff",
+      fontSize: 15,
+      fontWeight: 500,
+      boxShadow: "0 0 8px rgba(0,0,0,0.2)",
+      marginBottom: 12,
     },
-    breadcrumbLink: { color: "#fff", textDecoration: "none" },
-    breadcrumbSep: { margin: "0 8px", opacity: .8 },
+    breadcrumbLink: {
+      color: "#fff",
+      textDecoration: "none",
+      fontWeight: 500,
+      transition: "color 0.2s ease",
+    },
+    breadcrumbSep: { opacity: 0.85 },
     heroTitle: {
+      fontSize: 58,
+      fontWeight: 600,
       margin: 0,
-      fontSize: 48,
-      fontWeight: 700,
-      letterSpacing: "2px",
-      textTransform: "uppercase" as const,
     },
 
     /* BODY */
@@ -76,7 +82,6 @@ const LandingContact: React.FC<Props> = ({ showHero = true }) => {
       marginBottom: 26,
     },
 
-    // 4 info cards
     infoGrid: {
       display: "grid",
       gridTemplateColumns: "repeat(4, 1fr)",
@@ -96,7 +101,6 @@ const LandingContact: React.FC<Props> = ({ showHero = true }) => {
     infoLabel: { color: "#888", marginRight: 8 },
     infoValue: { color: "#222", fontWeight: 600 },
 
-    // bottom: map left + form right
     bottomGrid: {
       display: "grid",
       gridTemplateColumns: "1fr 1fr",
@@ -104,11 +108,10 @@ const LandingContact: React.FC<Props> = ({ showHero = true }) => {
       alignItems: "start",
     },
 
-    /* CÁCH A — map chiếm đủ khung bằng absolute */
     mapWrap: {
       position: "relative" as const,
       background: "#e9ecef",
-      height: 420,           // chỉnh cao map ở đây
+      height: 420,
       borderRadius: 6,
       overflow: "hidden",
       border: "1px solid #eee",
@@ -138,17 +141,6 @@ const LandingContact: React.FC<Props> = ({ showHero = true }) => {
       marginBottom: 16,
       transition: "border-color .2s",
     } as React.CSSProperties,
-    select: {
-      width: "100%",
-      padding: "12px 14px",
-      border: "1px solid #dfe3e8",
-      borderRadius: 4,
-      fontSize: 15,
-      outline: "none",
-      marginBottom: 16,
-      transition: "border-color .2s",
-      backgroundColor: "#fff",
-    } as React.CSSProperties,
     textarea: {
       width: "100%",
       padding: "12px 14px",
@@ -163,82 +155,33 @@ const LandingContact: React.FC<Props> = ({ showHero = true }) => {
     },
     submit: {
       display: "inline-block",
-      background: isLoading ? "#999" : "#b6895b",
+      background: "#b6895b",
       color: "#fff",
       border: "none",
       padding: "12px 26px",
       borderRadius: 4,
       fontWeight: 600,
-      cursor: isLoading ? "not-allowed" : "pointer",
+      cursor: "pointer",
       transition: "background .25s, transform .05s",
     } as React.CSSProperties,
   };
 
-  // Handle input changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-
-    try {
-      // Validate form
-      if (!formData.name || !formData.email || !formData.message) {
-        toast.error("Vui lòng điền đầy đủ thông tin bắt buộc!");
-        return;
-      }
-
-      // Call API to create contact
-      const payload = {
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        phone: formData.phone.trim(),
-        subject: formData.subject as Contact['subject'] || undefined,
-        message: formData.message.trim(),
-      };
-
-      await contactApi.createContact(payload);
-
-      toast.success("Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi sớm nhất có thể.");
-
-      // Reset form
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        subject: "",
-        message: "",
-      });
-
-    } catch (error: any) {
-      console.error('Error creating contact:', error);
-      toast.error(error.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại!");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const onFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+  const onFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     (e.currentTarget.style.borderColor = "#b6895b");
-  const onBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+  const onBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     (e.currentTarget.style.borderColor = "#dfe3e8");
 
   return (
     <div style={styles.page}>
-      {/* HERO */}
+      {/* ---------- HERO ---------- */}
       {showHero && (
         <header style={styles.hero}>
           <div style={styles.overlay} />
           <div style={styles.heroInner}>
             <div style={styles.breadcrumb as React.CSSProperties}>
-              <a href="/" style={styles.breadcrumbLink}>Home</a>
+              <Link to="/" style={styles.breadcrumbLink}>
+                Home
+              </Link>
               <span style={styles.breadcrumbSep}>›</span>
               <span>Contact</span>
             </div>
@@ -247,18 +190,19 @@ const LandingContact: React.FC<Props> = ({ showHero = true }) => {
         </header>
       )}
 
-      {/* BODY */}
+      {/* ---------- BODY ---------- */}
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>Contact Information</h2>
 
-        {/* 4 info cards */}
         <div style={styles.infoGrid as React.CSSProperties}>
           <div style={styles.infoCard}>
             <div>
-              <div><span style={styles.infoLabel}>Address:</span></div>
+              <div>
+                <span style={styles.infoLabel}>Address:</span>
+              </div>
               <div style={{ whiteSpace: "pre-line" as const }}>
                 <span style={styles.infoValue}>
-                  FPT University{"\n"}Khu công nghệ FPT, Ngũ Hành Sơn, Đà Nẵng
+                  198 West 21th Street, Suite 721 New York{"\n"}NY 10016
                 </span>
               </div>
             </div>
@@ -267,8 +211,15 @@ const LandingContact: React.FC<Props> = ({ showHero = true }) => {
           <div style={styles.infoCard}>
             <div>
               <span style={styles.infoLabel}>Phone:</span>
-              <a href="tel:+1235235598" style={{ ...styles.infoValue, color: "#b6895b", textDecoration: "none" }}>
-                + 84 974122333
+              <a
+                href="tel:+1235235598"
+                style={{
+                  ...styles.infoValue,
+                  color: "#b6895b",
+                  textDecoration: "none",
+                }}
+              >
+                + 1235 2355 98
               </a>
             </div>
           </div>
@@ -276,23 +227,37 @@ const LandingContact: React.FC<Props> = ({ showHero = true }) => {
           <div style={styles.infoCard}>
             <div>
               <span style={styles.infoLabel}>Email:</span>
-              <a href="mailto:info@yoursite.com" style={{ ...styles.infoValue, color: "#b6895b", textDecoration: "none" }}>
-                dinhquochuy.2004hl@gmail.com
+              <a
+                href="mailto:info@yoursite.com"
+                style={{
+                  ...styles.infoValue,
+                  color: "#b6895b",
+                  textDecoration: "none",
+                }}
+              >
+                info@yoursite.com
               </a>
             </div>
           </div>
 
           <div style={styles.infoCard}>
             <div>
-              <span style={styles.infoLabel}>Website</span>{" "}
-              <a href="#" style={{ ...styles.infoValue, color: "#b6895b", textDecoration: "none" }}>
-                grandehotel.com.vn
+              <span style={styles.infoLabel}>Website:</span>{" "}
+              <a
+                href="#"
+                style={{
+                  ...styles.infoValue,
+                  color: "#b6895b",
+                  textDecoration: "none",
+                }}
+              >
+                yoursite.com
               </a>
             </div>
           </div>
         </div>
 
-        {/* Bottom: Map + Form */}
+        {/* MAP + FORM */}
         <div
           style={{
             ...(styles.bottomGrid as React.CSSProperties),
@@ -301,27 +266,28 @@ const LandingContact: React.FC<Props> = ({ showHero = true }) => {
               : {}),
           }}
         >
-          {/* MAP — CÁCH A đã áp dụng */}
           <div style={styles.mapWrap}>
             <iframe
               style={styles.iframe}
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
-              src={`https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&output=embed`}
+              src={`https://www.google.com/maps?q=${encodeURIComponent(
+                mapQuery
+              )}&output=embed`}
               title="map"
             />
           </div>
 
-          {/* FORM */}
           <div style={styles.formWrap}>
-            <form onSubmit={handleSubmit}>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+              }}
+            >
               <input
                 style={styles.input}
                 type="text"
-                name="name"
-                placeholder="Tên của bạn"
-                value={formData.name}
-                onChange={handleChange}
+                placeholder="Your Name"
                 required
                 onFocus={onFocus}
                 onBlur={onBlur}
@@ -329,59 +295,42 @@ const LandingContact: React.FC<Props> = ({ showHero = true }) => {
               <input
                 style={styles.input}
                 type="email"
-                name="email"
-                placeholder="Email của bạn"
-                value={formData.email}
-                onChange={handleChange}
+                placeholder="Your Email"
                 required
                 onFocus={onFocus}
                 onBlur={onBlur}
               />
               <input
                 style={styles.input}
-                type="tel"
-                name="phone"
-                placeholder="Số điện thoại (tùy chọn)"
-                value={formData.phone}
-                onChange={handleChange}
+                type="text"
+                placeholder="Subject"
+                required
                 onFocus={onFocus}
                 onBlur={onBlur}
               />
-              <select
-                style={styles.select}
-                name="subject"
-                value={formData.subject}
-                onChange={handleChange}
-                onFocus={onFocus}
-                onBlur={onBlur}
-              >
-                <option value="">Chọn chủ đề</option>
-                <option value="room-price">Phòng & Giá</option>
-                <option value="reservation">Đặt phòng</option>
-                <option value="services">Dịch vụ</option>
-                <option value="events">Sự kiện</option>
-                <option value="complaint">Khiếu nại</option>
-                <option value="other">Khác</option>
-              </select>
               <textarea
                 style={styles.textarea}
-                name="message"
-                placeholder="Nội dung tin nhắn"
-                value={formData.message}
-                onChange={handleChange}
+                placeholder="Message"
                 required
                 onFocus={onFocus}
                 onBlur={onBlur}
               />
               <input
                 type="submit"
-                value={isLoading ? "Đang gửi..." : "Gửi tin nhắn"}
+                value="Send Message"
                 style={styles.submit}
-                disabled={isLoading}
-                onMouseOver={(e) => !isLoading && (e.currentTarget.style.background = "#9b7544")}
-                onMouseOut={(e) => !isLoading && (e.currentTarget.style.background = "#b6895b")}
-                onMouseDown={(e) => !isLoading && (e.currentTarget.style.transform = "scale(.98)")}
-                onMouseUp={(e) => !isLoading && (e.currentTarget.style.transform = "scale(1)")}
+                onMouseOver={(e) =>
+                  (e.currentTarget.style.background = "#9b7544")
+                }
+                onMouseOut={(e) =>
+                  (e.currentTarget.style.background = "#b6895b")
+                }
+                onMouseDown={(e) =>
+                  (e.currentTarget.style.transform = "scale(.98)")
+                }
+                onMouseUp={(e) =>
+                  (e.currentTarget.style.transform = "scale(1)")
+                }
               />
             </form>
           </div>
@@ -391,4 +340,4 @@ const LandingContact: React.FC<Props> = ({ showHero = true }) => {
   );
 };
 
-export default LandingContact;
+export default Contact;
