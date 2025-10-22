@@ -659,7 +659,7 @@ const LoginPage: React.FC = () => {
                   </Btn>
 
                   <Small>
-                    New to Grand Hotel?{" "}
+                    New to Grande Hotel?{" "}
                     <LinkBtn onClick={handleCreateClick}>
                       Create Account
                     </LinkBtn>

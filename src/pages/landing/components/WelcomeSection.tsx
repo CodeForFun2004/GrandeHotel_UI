@@ -33,7 +33,7 @@ export default function WelcomeSection({
 
           <Col md={7}>
             <div className="heading pt-md-5 ps-md-5 mb-4">
-              <span className="subheading">Welcome to Deluxe Hotel</span>
+              <span className="subheading">Welcome to Grande Hotel</span>
               <h2 className="title">Welcome To Our Hotel</h2>
             </div>
 

@@ -457,7 +457,7 @@ const VerifyEmail: React.FC = () => {
       <Section>
         <Background appearing={appearing} slidingOut={slidingOut} />
         <HeroContent>
-          <div className="title">Welcome to Grand Hotel</div>
+          <div className="title">Welcome to Grande Hotel</div>
           <p className="sub">Fast booking • Member perks • Seamless stays</p>
         </HeroContent>
 

@@ -13,7 +13,7 @@ const AMENITIES = [
 ];
 
 const initialHotel = {
-  name: "Grand Hotel",
+  name: "Grande Hotel",
   address: "203 Fake St. Mountain View, San Francisco, CA",
   phone: "+1 222 333 444",
   email: "info@grandhotel.com",
