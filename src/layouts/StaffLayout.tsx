@@ -81,14 +81,6 @@ const NAV: NavGroup[] = [
     ],
   },
   {
-    label: "Finance",
-    items: [
-      { title: "Folio & Payments", icon: <ReceiptLongIcon />, path: STAFF_PATHS.FOLIO },
-      { title: "Refunds", icon: <ReplayIcon />, path: STAFF_PATHS.REFUNDS },
-      { title: "Reports", icon: <AssessmentIcon />, path: STAFF_PATHS.REPORTS },
-    ],
-  },
-  {
     label: "Admin",
     items: [
       { title: "Tasks", icon: <ChecklistIcon />, path: STAFF_PATHS.TASKS },
