@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Container, Row, Col, Form, Button } from "react-bootstrap";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Container, Row, Col, Form, Button, Alert } from "react-bootstrap";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { 
@@ -12,25 +13,66 @@ import {
 import "./BookingForm.css";
 
 export default function BookingForm() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [destination, setDestination] = useState<string>("");
   const [checkin, setCheckin] = useState<Date | null>(null);
   const [checkout, setCheckout] = useState<Date | null>(null);
   const [roomCount, setRoomCount] = useState<number>(1);
   const [voucher, setVoucher] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
 
-  // Danh sách khách sạn Mường Thanh
-  const hotels = [
-    "Mường Thanh Luxury Hạ Long Centre",
-    "Mường Thanh Grand Hà Nội",
-    "Mường Thanh Grand Hà Nội Centre", 
-    "Mường Thanh Holiday Suối Mơ",
-    "Mường Thanh Grand Xa La",
-    "Mường Thanh Cửa Đông"
+  const cities = [
+    'Hanoi',
+    'Ho Chi Minh',
+    'Da Nang',
+    'Nha Trang',
+    'Can Tho',
+    'Hai Phong',
   ];
+
+  // Sync state from URL query whenever it changes
+  useEffect(() => {
+    const q = new URLSearchParams(location.search);
+    const city = q.get('city') || '';
+    const ci = q.get('checkInDate');
+    const co = q.get('checkOutDate');
+    const rooms = q.get('rooms');
+    setDestination(city);
+    setCheckin(ci ? new Date(ci) : null);
+    setCheckout(co ? new Date(co) : null);
+    setRoomCount(rooms ? Math.max(1, Number(rooms)) : 1);
+  }, [location.search]);
+
+  // Keep city options inclusive of value from query if not in list
+  const cityOptions = useMemo(() => {
+    if (destination && !cities.includes(destination)) {
+      return [destination, ...cities];
+    }
+    return cities;
+  }, [destination]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log({ destination, checkin, checkout, roomCount, voucher });
+    // Basic client-side validation to avoid backend 400
+    setError(null);
+    if (!destination) {
+      setError('Vui lòng chọn thành phố/điểm đến.');
+      return;
+    }
+    if (!checkin || !checkout) {
+      setError('Vui lòng chọn ngày nhận và ngày trả phòng.');
+      return;
+    }
+    // Navigate to Rooms page with query params
+    const params = new URLSearchParams();
+    if (destination) params.set('city', destination);
+    if (checkin) params.set('checkInDate', checkin.toISOString());
+    if (checkout) params.set('checkOutDate', checkout.toISOString());
+    if (roomCount) params.set('rooms', String(roomCount));
+    if (voucher) params.set('voucher', voucher);
+
+    navigate(`/hotels?${params.toString()}`);
   };
 
   const handleRoomIncrement = () => {
@@ -47,6 +89,7 @@ export default function BookingForm() {
     <section className="deluxe-booking">
       <Container>
         <Form className="booking-form" onSubmit={submit}>
+          {error && <Alert variant="danger">{error}</Alert>}
           <Row className="g-3 g-lg-3 align-items-stretch booking-row-bottom">
             {/* Địa điểm khách sạn */}
             <Col xs={12} sm={6} md={3} lg={3}>
@@ -61,10 +104,8 @@ export default function BookingForm() {
                       className="control-lg form-select destination-input"
                     >
                       <option value="">Nhập Khách sạn / Điểm đến</option>
-                      {hotels.map((hotel, index) => (
-                        <option key={index} value={hotel}>
-                          {hotel}
-                        </option>
+                      {cityOptions.map((c) => (
+                        <option key={c} value={c}>{c}</option>
                       ))}
                     </Form.Select>
                   </div>
@@ -94,7 +135,7 @@ export default function BookingForm() {
                       minDate={new Date()}
                       className="control-lg form-control date-input"
                       popperPlacement="bottom-start"
-                      monthsShown={2}
+                      monthsShown={1}
                     />
                   </div>
                 </div>

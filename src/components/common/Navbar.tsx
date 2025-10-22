@@ -7,7 +7,7 @@ export default function AppNavBar() {
     <Navbar expand="lg" variant="dark" className="deluxe-navbar" fixed="top">
       <Container>
         <Navbar.Brand as={NavLink} to="/" className="brand">
-          DELUXE
+          GRAND DELUXE
         </Navbar.Brand>
 
         <Navbar.Toggle aria-controls="deluxe-nav" />
@@ -15,7 +15,7 @@ export default function AppNavBar() {
         <Navbar.Collapse id="deluxe-nav" className="justify-content-end">
           <Nav className="gap-2">
             <Nav.Link as={NavLink} to="/" end>Home</Nav.Link>
-            <Nav.Link as={NavLink} to="/rooms">Rooms</Nav.Link>
+            <Nav.Link as={NavLink} to="/hotels">Hotels</Nav.Link>
             <Nav.Link as={NavLink} to="/restaurant">Restaurant</Nav.Link>
             <Nav.Link as={NavLink} to="/about">About</Nav.Link>
             <Nav.Link as={NavLink} to="/blog">Blog</Nav.Link>

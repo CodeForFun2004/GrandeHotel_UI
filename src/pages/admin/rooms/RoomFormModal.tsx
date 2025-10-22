@@ -12,6 +12,7 @@ export type Room = {
   capacity: number;
   pricePerNight: number;
   status: "Active" | "Inactive" | "Maintenance";
+  hotelId?: number;
 };
 
 type Props = {

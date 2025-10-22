@@ -18,9 +18,11 @@
     "@mui/icons-material": "^7.3.4",
     "@mui/material": "^7.3.4",
     "@reduxjs/toolkit": "^2.9.0",
+    "@types/dompurify": "^3.0.5",
     "axios": "^1.12.2",
     "bootstrap": "^5.3.8",
     "date-fns": "^4.1.0",
+    "dompurify": "^3.3.0",
     "react": "^19.1.1",
     "react-bootstrap": "^2.10.10",
     "react-datepicker": "^8.7.0",
@@ -29,6 +31,7 @@
     "react-router-bootstrap": "^0.26.3",
     "react-router-dom": "^7.9.1",
     "react-toastify": "^11.0.5",
+    "recharts": "^3.2.1",
     "styled-components": "^6.1.19"
   },
   "devDependencies": {

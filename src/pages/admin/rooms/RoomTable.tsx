@@ -59,6 +59,7 @@ export default function RoomTable() {
   const dispatch = useAppDispatch();
   const { rooms, loading, error, creating, updating, deleting } = useAppSelector((state) => state.room);
   const { roomTypes } = useAppSelector((state) => state.roomType);
+
   const [keyword, setKeyword] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");
@@ -98,14 +99,16 @@ export default function RoomTable() {
     }
 
     return rooms.filter((r) => {
+
       const matchesKw = [r.roomNumber, r.roomType?.name, r.hotel?.name].some((v) =>
         v?.toLowerCase().includes(keyword.toLowerCase())
       );
       const matchesType = typeFilter === "All" || r.roomType?.name === typeFilter;
       const matchesStatus = statusFilter === "All" || mapBackendStatusToFrontend(r.status) === statusFilter;
       return matchesKw && matchesType && matchesStatus;
+
     });
-  }, [rooms, keyword, typeFilter, statusFilter]);
+  }, [rooms, keyword, typeFilter, statusFilter, hotelId]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageData = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -147,6 +150,7 @@ export default function RoomTable() {
     } catch (error) {
       console.error('Room creation/update error:', error);
       toast.error("Có lỗi xảy ra");
+
     }
   };
 
@@ -211,13 +215,16 @@ export default function RoomTable() {
               </FormControl>
             </Box>
             <Box>
+
               <Button variant="contained" onClick={openCreate} fullWidth disabled={creating}>Thêm phòng</Button>
+
             </Box>
           </Box>
         </CardContent>
       </Card>
 
       <TableContainer sx={{ mt: 2 }}>
+
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
             <CircularProgress />
@@ -226,6 +233,7 @@ export default function RoomTable() {
         ) : (
           <Table>
             <TableHead>
+
               <TableRow>
                 <TableCell>Mã</TableCell>
                 <TableCell>Tên</TableCell>

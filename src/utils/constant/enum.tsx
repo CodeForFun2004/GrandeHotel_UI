@@ -13,6 +13,7 @@ export const ADMIN_PATHS = {
   DASHBOARD: '/admin/dashboard',
   USER_MANAGEMENT: '/admin/user-management',
   HOTEL_LIST: '/admin/hotel-list',
+  CONTACT_MANAGEMENT: '/admin/contact-management',
   PROJECTS: '/admin/projects',
   PROJECTS_CREATE: '/admin/projects/create',
   PROFILE: '/admin/profile'
@@ -30,8 +31,17 @@ export const MANAGER_PATHS = {
 
 export const STAFF_PATHS = {
   DASHBOARD: '/staff/dashboard',
+  CHECKIN: '/staff/checkin',
+  CHECKOUT: '/staff/checkout',
   ROOMS: '/staff/rooms',
+  ROOM_DETAIL: '/staff/rooms/:roomId',
   BOOKINGS: '/staff/bookings',
+  CALENDAR: '/staff/calendar',
   CUSTOMERS: '/staff/customers',
+  CHAT: '/staff/chat',
+  FOLIO: '/staff/folio',
+  REFUNDS: '/staff/refunds',
+  REPORTS: '/staff/reports',
+  TASKS: '/staff/tasks',
   PROFILE: '/staff/profile'
 } as const;

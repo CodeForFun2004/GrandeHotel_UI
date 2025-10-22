@@ -30,17 +30,17 @@ import { useDispatch } from "react-redux";
 import { logout } from "../redux/slices/authSlice";
 import { toast } from "react-toastify";
 import { ADMIN_PATHS } from "../utils/constant/enum";
+import { Feedback } from "@mui/icons-material";
 
 const drawerWidth = 280;
 const collapsedDrawerWidth = 80;
 
 const adminNavigationItems = [
   { title: "Dashboard", icon: <BarChartIcon />, path: ADMIN_PATHS.DASHBOARD },
-  { title: "User Management", icon: <GroupIcon />, path: ADMIN_PATHS.USER_MANAGEMENT },
-  { title: "Hotel List", icon: <HotelIcon />, path: ADMIN_PATHS.HOTEL_LIST },
-  { title: "Projects", icon: <AssignmentIcon />, path: ADMIN_PATHS.PROJECTS },
-  { title: "Profile", icon: <PersonIcon />, path: ADMIN_PATHS.PROFILE },
-  { title: "Logout", icon: <LogoutIcon />, path: "/logout" },
+  { title: "Quản lý người dùng", icon: <GroupIcon />, path: ADMIN_PATHS.USER_MANAGEMENT },
+  { title: "Danh sách Khách sạn", icon: <HotelIcon />, path: ADMIN_PATHS.HOTEL_LIST },
+  { title: "Quản lý liên hệ", icon: <Feedback/>, path: ADMIN_PATHS.CONTACT_MANAGEMENT},
+  { title: "Đăng xuất", icon: <LogoutIcon />, path: "/logout" },
 ];
 
 const theme = createTheme({

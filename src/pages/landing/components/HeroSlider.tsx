@@ -23,7 +23,7 @@ const slides: Slide[] = [
 
 export default function HeroSlider() {
   return (
-    <section className="hero-slider">
+    <section id="hero" className="hero-slider">
       <Carousel controls={false} indicators={false} fade interval={3000}>
         {slides.map((s, i) => (
           <Carousel.Item key={i}>
