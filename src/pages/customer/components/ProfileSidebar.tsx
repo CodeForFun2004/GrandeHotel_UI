@@ -1,4 +1,5 @@
 import React from "react";
+import { Link, useLocation } from "react-router-dom";
 
 // Icons
 const Ic = {
@@ -136,6 +137,8 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
   name,
   role,
 }) => {
+  const location = useLocation();
+  const isActive = (path: string) => location.pathname === path;
   const Item = (
     icon: React.ReactNode,
     label: string,
@@ -196,10 +199,14 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
         </div>
       </div>
 
-      {Item(Ic.user, "Personal Data", true)}
+      <Link to="/profile" style={{ textDecoration: 'none' }}>
+        {Item(Ic.user, "Personal Data", isActive('/profile'))}
+      </Link>
       {Item(Ic.card, "Payment Account")}
       {Item(Ic.bag, "Trips", false, true)}
-      {Item(Ic.heart, "Wish Lists")}
+      <Link to="/profile/wishlists" style={{ textDecoration: 'none' }}>
+        {Item(Ic.heart, "Wish Lists", isActive('/profile/wishlists'))}
+      </Link>
       {Item(Ic.headset, "Support")}
       {Item(Ic.chat, "Reviews")}
       <div

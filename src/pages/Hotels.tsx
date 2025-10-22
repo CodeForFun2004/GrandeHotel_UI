@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import heroBg from "../assets/images/login.avif";
 import "./Hotels.css";
@@ -6,6 +6,9 @@ import type { Hotel } from "../types/entities";
 import * as hotelApi from "../api/hotel";
 import HotelCard from "../components/common/HotelCard";
 import BookingForm from "./landing/components/BookingForm";
+import * as favoriteApi from "../api/favorite";
+import { useSelector } from "react-redux";
+import type { RootState } from "../redux/store";
 
 function useQuery() {
   return new URLSearchParams(useLocation().search);
@@ -22,6 +25,12 @@ const Rooms: React.FC = () => {
   const [page, setPage] = useState<number>(1);
   const [limit] = useState<number>(12);
   const [total, setTotal] = useState<number>(0);
+  const user = useSelector((s: RootState) => s.auth.user);
+  const userId = useMemo(() => {
+    const id = (user as any)?._id ?? user?.id;
+    return typeof id === 'string' ? id : '';
+  }, [user]);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function load() {
@@ -57,6 +66,50 @@ const Rooms: React.FC = () => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [city, useLocation().search]);
+
+  // Load user's favorites once hotels are available and user is logged in
+  useEffect(() => {
+    let mounted = true;
+    async function loadFav() {
+      if (!userId) { setFavoriteIds(new Set()); return; }
+      try {
+        const res = await favoriteApi.getFavoritesByUser(userId);
+        const ids = new Set<string>((res.hotels || []).map((h: any) => (h._id ?? h.id)).filter(Boolean));
+        if (mounted) setFavoriteIds(ids);
+      } catch {
+        // silent fail; favorites not essential for main flow
+      }
+    }
+    loadFav();
+    return () => { mounted = false; };
+  }, [userId]);
+
+  const handleToggleFavorite = async (hotelId: string, next: boolean) => {
+    if (!userId) {
+      alert('Vui lòng đăng nhập để sử dụng mục yêu thích.');
+      return;
+    }
+    // Optimistic update
+    setFavoriteIds((prev) => {
+      const copy = new Set(prev);
+      if (next) copy.add(hotelId); else copy.delete(hotelId);
+      return copy;
+    });
+    try {
+      if (next) await favoriteApi.addFavorite(userId, hotelId);
+      else await favoriteApi.removeFavorite(userId, hotelId);
+    } catch (e) {
+      // rollback on error
+      setFavoriteIds((prev) => {
+        const copy = new Set(prev);
+        if (next) copy.delete(hotelId); else copy.add(hotelId);
+        return copy;
+      });
+      // Optional: surface error
+      console.error('Favorite toggle failed', e);
+      alert('Không thể cập nhật yêu thích. Vui lòng thử lại.');
+    }
+  };
 
   return (
     <>
@@ -106,7 +159,12 @@ const Rooms: React.FC = () => {
               </div>
               <div className="col-md-9">
                     {hotels.map((h) => (
-                      <HotelCard key={h._id} hotel={h} />
+                      <HotelCard
+                        key={h._id}
+                        hotel={h}
+                        isFavorited={favoriteIds.has((h._id as string) ?? '')}
+                        onToggleFavorite={handleToggleFavorite}
+                      />
                     ))}
 
                     {/* Pagination controls */}
