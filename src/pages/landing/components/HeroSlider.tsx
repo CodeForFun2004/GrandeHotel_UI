@@ -11,7 +11,7 @@ type Slide = {
 const slides: Slide[] = [
   {
     image: "/src/assets/images/bg_1.jpg",
-    title: "Welcome To Deluxe",
+    title: "Welcome To Grande",
     subtitle: "Hotels & Resorts",
   },
   {
