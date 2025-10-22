@@ -6,7 +6,7 @@ import { PrivateRoute } from "./PrivateRoute";
 import { RoleBasedRoute, RoleBasedRedirect } from "./RoleBasedRoute";
 import LandingLayout from "../layouts/LandingLayout";
 import AboutUs from "../pages/landing/AboutUs";
-import Contact from "../pages/landing/Contact";
+import LandingContact from "../pages/landing/Contact";
 
 import AdminLayout from "../layouts/AdminLayout";
 import ManagerLayout from "../layouts/ManagerLayout";
@@ -17,7 +17,7 @@ import Logout from "../pages/auth/Logout";
 
 import AdminUserManagement from "../pages/admin/AdminUserManagement";
 import AdminHotelList from "../pages/admin/AdminHotelList";
-import HotelDetail from "../pages/admin/HotelDetail";
+
 
 import ForgotPass from "../pages/auth/ForgotPass";
 import VerifyEmail from "../pages/auth/VerifyEmail";
@@ -32,6 +32,7 @@ import ManagerDashboard from "../pages/admin/ManagerDashboard";
 import HotelInfoForm from "../pages/admin/HotelInfoForm";
 import RoomTable from "../pages/admin/rooms/RoomTable";
 import BookingManagement from "../pages/admin/BookingManagement";
+import ContactManagement from "../pages/admin/ContactManagement";
 
 // Staff components
 import StaffDashboard from "../pages/staff/StaffDashboard";
@@ -119,7 +120,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <LandingPage /> },
       { path: "about", element: <AboutUs /> },
-      { path: "contact", element: <Contact /> },
+      { path: "contact", element: <LandingContact /> },
       { path: routes.PROFILE_PATH, element: <Profile /> },
       { path: routes.HOTELS_PATH, element: <Hotels /> },
       { path: routes.ROOMS_PATH, element: <Rooms /> },
@@ -148,6 +149,7 @@ export const router = createBrowserRouter([
       { path: "dashboard", element: <AdminDashboard /> },
       { path: "user-management", element: <AdminUserManagement /> },
       { path: "hotel-list", element: <AdminHotelList /> },
+      { path: "contact-management", element: <ContactManagement /> },
       { path: "projects", element: <AdminDashboard /> },
       { path: "projects/create", element: <AdminDashboard /> },
       { path: "profile", element: <AdminDashboard /> },

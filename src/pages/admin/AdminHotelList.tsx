@@ -116,20 +116,17 @@ const AdminHotelList: React.FC = () => {
   );
 
   // Find current manager cho hotel được chọn
-  const currentManager = selectedHotel ? managers.find(m => m.hotelId === selectedHotel.id) : undefined;
+  
 
   // Get available managers cho hotel được chọn
-  const availableManagers = selectedHotel ? managers.filter(m => !m.hotelId || m.hotelId === selectedHotel.id) : [];
+  
 
   const handleHotelSelect = (hotelId: number) => {
     setSelectedHotelId(hotelId);
     setSelectedManager("");
   };
 
-  const handleManagerChange = (newManagerId: number | "") => {
-    setSelectedManager(newManagerId);
-    setConfirmDialogOpen(true);
-  };
+ 
 
   const confirmManagerChange = () => {
     if (!selectedHotel) return;
@@ -346,69 +343,7 @@ const AdminHotelList: React.FC = () => {
                     </Box>
                     
                     {/* Manager Assignment Section */}
-                    <Box sx={{ minWidth: 250, flex: 1, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                      <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="primary.main">
-                        Quản lý khách sạn
-                      </Typography>
-                      {currentManager ? (
-                        <Box display="flex" alignItems="center" gap={2} mb={2}>
-                          <Avatar sx={{ bgcolor: 'warning.main', width: 40, height: 40 }}>
-                            <Business />
-                          </Avatar>
-                          <Box>
-                            <Typography variant="subtitle1" fontWeight="bold">
-                              {currentManager.name}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {currentManager.email}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      ) : (
-                        <Typography variant="body1" color="text.secondary" gutterBottom>
-                          Chưa chỉ định quản lý cho khách sạn này
-                        </Typography>
-                      )}
-                      <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-                        <InputLabel>Thay đổi quản lý</InputLabel>
-                        <Select
-                          value=""
-                          label="Thay đổi quản lý"
-                          onChange={(e) => handleManagerChange(e.target.value === "" ? "" : Number(e.target.value))}
-                        >
-                          <MenuItem value="">
-                            <Box sx={{ opacity: 0.7 }}>
-                              -- Chọn quản lý --
-                            </Box>
-                          </MenuItem>
-                          {availableManagers.map((manager) => (
-                            <MenuItem
-                              key={manager.id}
-                              value={manager.id}
-                              disabled={manager.hotelId === selectedHotel.id}
-                            >
-                              <Box display="flex" alignItems="center" gap={1}>
-                                <Person fontSize="small" />
-                                <Box>
-                                  <Typography variant="body2">{manager.name}</Typography>
-                                  <Typography variant="caption" color="text.secondary">
-                                    {manager.email}
-                                  </Typography>
-                                </Box>
-                                {manager.hotelId === selectedHotel.id && (
-                                  <Chip label="Hiện tại" size="small" color="primary" sx={{ ml: 1 }} />
-                                )}
-                              </Box>
-                            </MenuItem>
-                          ))}
-                          <MenuItem value="">
-                            <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                              Huỷ chỉ định quản lý
-                            </Typography>
-                          </MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Box>
+                  
                   </Box>
 
                   {selectedHotel.description && (

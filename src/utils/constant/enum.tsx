@@ -13,6 +13,7 @@ export const ADMIN_PATHS = {
   DASHBOARD: '/admin/dashboard',
   USER_MANAGEMENT: '/admin/user-management',
   HOTEL_LIST: '/admin/hotel-list',
+  CONTACT_MANAGEMENT: '/admin/contact-management',
   PROJECTS: '/admin/projects',
   PROJECTS_CREATE: '/admin/projects/create',
   PROFILE: '/admin/profile'
