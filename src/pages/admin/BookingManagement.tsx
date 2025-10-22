@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Card,
@@ -139,6 +140,7 @@ const STATUS_FLOW = {
 };
 
 export default function BookingManagement() {
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>(MOCK_BOOKINGS);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -204,6 +206,11 @@ export default function BookingManagement() {
     setSelectedBooking(booking);
     setActionType(action);
     setActionDialog(true);
+  };
+
+  // View booking detail
+  const viewBookingDetail = (booking: Booking) => {
+    navigate(`/manager/bookings/${booking.id}`);
   };
 
   // Get status color
@@ -343,6 +350,7 @@ export default function BookingManagement() {
                         <IconButton 
                           size="small" 
                           color="info"
+                          onClick={() => viewBookingDetail(booking)}
                           sx={{
                             width: 32,
                             height: 32,

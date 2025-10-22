@@ -1,22 +1,18 @@
-// src/redux/store.js
+// src/redux/store.ts
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './slices/authSlice';
-import hotelReducer from './slices/hotelSlice';
+
 import roomReducer from './slices/roomSlice';
-import serviceReducer from './slices/serviceSlice';
-import reservationReducer from './slices/reservationSlice';
-import contactReducer from './slices/contactSlice';
-import dashboardReducer from './slices/dashboardSlice';
+import roomTypeReducer from './slices/roomTypeSlice';
+
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
-    hotels: hotelReducer,
-    rooms: roomReducer,
-    services: serviceReducer,
-    reservations: reservationReducer,
-    contacts: contactReducer,
-    dashboard: dashboardReducer,
+
+    room: roomReducer,
+    roomType: roomTypeReducer,
+
   },
 });
 

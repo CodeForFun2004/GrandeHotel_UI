@@ -23,6 +23,7 @@ export const MANAGER_PATHS = {
   DASHBOARD: '/manager/dashboard',
   HOTEL_INFO: '/manager/hotel-info',
   ROOMS: '/manager/rooms',
+  ROOM_TYPES: '/manager/room-types',
   BOOKINGS: '/manager/bookings',
   STAFF_MANAGEMENT: '/manager/staff',
   PROFILE: '/manager/profile'
