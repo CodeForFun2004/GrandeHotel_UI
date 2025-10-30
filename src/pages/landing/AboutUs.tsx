@@ -91,21 +91,28 @@ const AboutUs: React.FC<Props> = ({
           z-index: 2;
         }
 
+        /* ---------------- BREADCRUMB (UI giống ảnh) ---------------- */
         .breadcrumb {
-          display: flex;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
-          margin-bottom: 8px;
+          background: rgba(255, 255, 255, 0.12);
+          backdrop-filter: blur(6px);
+          padding: 6px 20px;
+          border-radius: 30px;
+          color: #fff;
+          font-size: 15px;
+          font-weight: 500;
+          box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+          margin-bottom: 12px;
         }
 
         .breadcrumb a {
           color: #fff;
           text-decoration: none;
-          font-weight: 600;
-          font-size: 15px;
-          letter-spacing: 1px;
-          transition: 0.2s;
+          font-weight: 500;
+          transition: color 0.2s ease;
         }
 
         .breadcrumb a:hover {
@@ -114,8 +121,7 @@ const AboutUs: React.FC<Props> = ({
 
         .breadcrumb span {
           color: #fff;
-          font-weight: 600;
-          font-size: 15px;
+          opacity: 0.85;
         }
 
         .about-hero-content h1 {
@@ -316,9 +322,9 @@ const AboutUs: React.FC<Props> = ({
         <section className="about-hero">
           <div className="about-hero-content">
             <div className="breadcrumb">
-              <Link to="/">HOME</Link>
-              <span>/</span>
-              <span>ABOUT</span>
+              <Link to="/">Home</Link>
+              <span>›</span>
+              <span>About</span>
             </div>
             <h1>About Us</h1>
           </div>

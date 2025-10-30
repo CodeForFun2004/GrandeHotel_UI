@@ -22,6 +22,7 @@ import AdminHotelList from "../pages/admin/AdminHotelList";
 import ForgotPass from "../pages/auth/ForgotPass";
 import VerifyEmail from "../pages/auth/VerifyEmail";
 import Profile from "../pages/customer/Profile";
+import WishLists from "../pages/customer/WishLists";
 
 import Hotels from "../pages/Hotels";
 // import RoomDetail from "../pages/RoomDetail";
@@ -69,6 +70,7 @@ export const routes = {
   REGISTER_PATH: "/auth/register",
   LOGOUT_PATH: "/logout",
   PROFILE_PATH: "/profile",
+  PROFILE_WISHLISTS_PATH: "/profile/wishlists",
   NEWSFEED_PATH: "/news-feeds",
   SHOPPING_PATH: "/shopping",
   PRODUCT_DETAIL_PATH: "/product/:id",
@@ -127,6 +129,7 @@ export const router = createBrowserRouter([
       { path: "about", element: <AboutUs /> },
       { path: "contact", element: <LandingContact /> },
       { path: routes.PROFILE_PATH, element: <Profile /> },
+  { path: routes.PROFILE_WISHLISTS_PATH, element: <WishLists /> },
       { path: routes.HOTELS_PATH, element: <Hotels /> },
       { path: routes.ROOMS_PATH, element: <Rooms /> },
       { path: routes.RESERVATION_REVIEW_PATH, element: (

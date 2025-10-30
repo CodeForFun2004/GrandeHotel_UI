@@ -9,6 +9,9 @@
 .hotel-card-inner { display:flex; align-items:stretch; }
 .hotel-image { width: 38%; min-height: 180px; background-size: cover; background-position: center; position: relative; }
 .hotel-image-overlay { position: absolute; left: 12px; bottom: 12px; background: rgba(0,0,0,0.55); color: #fff; padding: 8px 10px; border-radius: 4px; font-size: 13px; }
+.favorite-btn { position: absolute; top: 10px; right: 10px; width: 36px; height: 36px; border-radius: 50%; border: none; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.95); box-shadow: 0 2px 8px rgba(0,0,0,0.15); cursor: pointer; transition: transform 0.15s ease, background 0.2s ease; z-index: 2; }
+.favorite-btn:hover { transform: scale(1.05); background: #fff; }
+.favorite-heart { transition: color 0.2s ease; }
 .hotel-info { padding: 22px; flex: 1; }
 .hotel-name { margin:0 0 8px 0; font-size: 20px; font-weight: 700; color: #102a43; }
 .hotel-address { margin:0 0 12px 0; color: #486581; font-size: 14px; }

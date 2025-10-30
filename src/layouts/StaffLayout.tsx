@@ -36,9 +36,6 @@ import BookOnlineIcon from "@mui/icons-material/BookOnline";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import PeopleIcon from "@mui/icons-material/People";
 import HeadsetMicIcon from "@mui/icons-material/HeadsetMic";
-import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
-import ReplayIcon from "@mui/icons-material/Replay";
-import AssessmentIcon from "@mui/icons-material/Assessment";
 import ChecklistIcon from "@mui/icons-material/Checklist";
 import PersonIcon from "@mui/icons-material/Person";
 
@@ -78,14 +75,6 @@ const NAV: NavGroup[] = [
     items: [
       { title: "Customers", icon: <PeopleIcon />, path: STAFF_PATHS.CUSTOMERS },
       { title: "Chat", icon: <HeadsetMicIcon />, path: STAFF_PATHS.CHAT },
-    ],
-  },
-  {
-    label: "Finance",
-    items: [
-      { title: "Folio & Payments", icon: <ReceiptLongIcon />, path: STAFF_PATHS.FOLIO },
-      { title: "Refunds", icon: <ReplayIcon />, path: STAFF_PATHS.REFUNDS },
-      { title: "Reports", icon: <AssessmentIcon />, path: STAFF_PATHS.REPORTS },
     ],
   },
   {
@@ -170,7 +159,6 @@ export default function StaffLayout() {
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expanded, setExpanded] = useState(true);
-  const [userMenuEl, setUserMenuEl] = useState<null | HTMLElement>(null);
 
   // UI-only: sử dụng mock hotel
   const [currentHotel] = useState<Hotel | null>(CURRENT_HOTEL);
