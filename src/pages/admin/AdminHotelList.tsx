@@ -68,6 +68,8 @@ interface HotelFormData {
   email: string;
   phone: string;
   description: string;
+  images: File[];
+  existingImages: string[];
 }
 
 const AdminHotelList: React.FC = () => {
@@ -98,7 +100,9 @@ const AdminHotelList: React.FC = () => {
     address: '',
     email: '',
     phone: '',
-    description: ''
+    description: '',
+    images: [],
+    existingImages: []
   });
   const [managerForm, setManagerForm] = useState({
     selectedManagerId: ''
@@ -188,13 +192,13 @@ const AdminHotelList: React.FC = () => {
         email: hotelForm.email.trim() || undefined,
         phone: hotelForm.phone.trim() || undefined,
         description: hotelForm.description.trim() || undefined
-      });
+      }, hotelForm.images);
 
       setSnackbarMessage('Tạo khách sạn thành công');
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
       setCreateDialogOpen(false);
-      setHotelForm({ name: '', address: '', email: '', phone: '', description: '' });
+      setHotelForm({ name: '', address: '', email: '', phone: '', description: '', images: [], existingImages: [] });
       fetchHotels();
     } catch (error: any) {
       console.error('Error creating hotel:', error);
@@ -225,14 +229,14 @@ const AdminHotelList: React.FC = () => {
         email: hotelForm.email.trim() || undefined,
         phone: hotelForm.phone.trim() || undefined,
         description: hotelForm.description.trim() || undefined
-      });
+      }, hotelForm.images);
 
       setSnackbarMessage('Cập nhật khách sạn thành công');
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
       setEditDialogOpen(false);
       setSelectedHotelForMenu(null);
-      setHotelForm({ name: '', address: '', email: '', phone: '', description: '' });
+      setHotelForm({ name: '', address: '', email: '', phone: '', description: '', images: [], existingImages: [] });
       fetchHotels();
     } catch (error: any) {
       console.error('Error updating hotel:', error);
@@ -335,14 +339,18 @@ const AdminHotelList: React.FC = () => {
       address: hotel.address || '',
       email: hotel.email || '',
       phone: hotel.phone || '',
-      description: hotel.description || ''
+      description: hotel.description || '',
+      images: [],
+      existingImages: hotel.images || []
     });
     console.log('Hotel form set to:', { // Debug log
       name: hotel.name || '',
       address: hotel.address || '',
       email: hotel.email || '',
       phone: hotel.phone || '',
-      description: hotel.description || ''
+      description: hotel.description || '',
+      images: [],
+      existingImages: hotel.images || []
     });
     setEditDialogOpen(true);
   };
@@ -623,7 +631,7 @@ const AdminHotelList: React.FC = () => {
                             Quản lý
                           </Typography>
                           {currentManager ? (
-                            <Box display="flex" alignItems="center" gap={2}>
+                            <Box alignItems="center" gap={2}>
                               <Avatar sx={{ bgcolor: 'warning.main', width: 48, height: 48 }}>
                                 <Business />
                               </Avatar>
@@ -633,7 +641,7 @@ const AdminHotelList: React.FC = () => {
                               </Box>
                             </Box>
                           ) : (
-                            <Box display="flex" alignItems="center" gap={2}>
+                            <Box alignItems="center" gap={2}>
                               <Avatar sx={{ bgcolor: 'warning.main', width: 48, height: 48 }}>
                                 <PersonRemove />
                               </Avatar>
@@ -788,6 +796,118 @@ const AdminHotelList: React.FC = () => {
                   multiline
                   rows={3}
                 />
+
+                {/* Image Upload Section */}
+                <Box>
+                  <Typography variant="subtitle1" sx={{ mb: 1 }}>Hình ảnh khách sạn</Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+                    {/* Existing Images Preview */}
+                    {hotelForm.existingImages.map((imageUrl, index) => (
+                      <Box key={`existing-${index}`} sx={{ position: 'relative' }}>
+                        <img
+                          src={imageUrl}
+                          alt={`Existing ${index + 1}`}
+                          style={{
+                            width: 100,
+                            height: 100,
+                            objectFit: 'cover',
+                            borderRadius: 8,
+                            border: '2px solid #e0e0e0'
+                          }}
+                        />
+                        <IconButton
+                          size="small"
+                          sx={{
+                            position: 'absolute',
+                            top: -8,
+                            right: -8,
+                            bgcolor: 'error.main',
+                            color: 'white',
+                            '&:hover': { bgcolor: 'error.dark' }
+                          }}
+                          onClick={() => {
+                            setHotelForm(prev => ({
+                              ...prev,
+                              existingImages: prev.existingImages.filter((_, i) => i !== index)
+                            }));
+                          }}
+                        >
+                          <Delete sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Box>
+                    ))}
+
+                    {/* New Images Preview */}
+                    {hotelForm.images.map((file, index) => (
+                      <Box key={`new-${index}`} sx={{ position: 'relative' }}>
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={`New ${index + 1}`}
+                          style={{
+                            width: 100,
+                            height: 100,
+                            objectFit: 'cover',
+                            borderRadius: 8,
+                            border: '2px solid #e0e0e0'
+                          }}
+                        />
+                        <IconButton
+                          size="small"
+                          sx={{
+                            position: 'absolute',
+                            top: -8,
+                            right: -8,
+                            bgcolor: 'error.main',
+                            color: 'white',
+                            '&:hover': { bgcolor: 'error.dark' }
+                          }}
+                          onClick={() => {
+                            setHotelForm(prev => ({
+                              ...prev,
+                              images: prev.images.filter((_, i) => i !== index)
+                            }));
+                          }}
+                        >
+                          <Delete sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Box>
+                    ))}
+
+                    {/* Upload Button */}
+                    <Box
+                      component="label"
+                      sx={{
+                        width: 100,
+                        height: 100,
+                        border: '2px dashed #ccc',
+                        borderRadius: 2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        '&:hover': { borderColor: 'primary.main' }
+                      }}
+                    >
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        hidden
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          setHotelForm(prev => ({
+                            ...prev,
+                            images: [...prev.images, ...files]
+                          }));
+                        }}
+                      />
+                      <Add sx={{ color: 'action.disabled' }} />
+                    </Box>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Chọn nhiều hình ảnh (tối đa 10 ảnh, mỗi ảnh dưới 5MB)
+                  </Typography>
+                </Box>
               </Box>
             </DialogContent>
             <DialogActions>
@@ -867,6 +987,118 @@ const AdminHotelList: React.FC = () => {
                   multiline
                   rows={3}
                 />
+
+                {/* Image Upload Section */}
+                <Box>
+                  <Typography variant="subtitle1" sx={{ mb: 1 }}>Hình ảnh khách sạn</Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+                    {/* Existing Images Preview */}
+                    {hotelForm.existingImages.map((imageUrl, index) => (
+                      <Box key={`existing-${index}`} sx={{ position: 'relative' }}>
+                        <img
+                          src={imageUrl}
+                          alt={`Existing ${index + 1}`}
+                          style={{
+                            width: 100,
+                            height: 100,
+                            objectFit: 'cover',
+                            borderRadius: 8,
+                            border: '2px solid #e0e0e0'
+                          }}
+                        />
+                        <IconButton
+                          size="small"
+                          sx={{
+                            position: 'absolute',
+                            top: -8,
+                            right: -8,
+                            bgcolor: 'error.main',
+                            color: 'white',
+                            '&:hover': { bgcolor: 'error.dark' }
+                          }}
+                          onClick={() => {
+                            setHotelForm(prev => ({
+                              ...prev,
+                              existingImages: prev.existingImages.filter((_, i) => i !== index)
+                            }));
+                          }}
+                        >
+                          <Delete sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Box>
+                    ))}
+
+                    {/* New Images Preview */}
+                    {hotelForm.images.map((file, index) => (
+                      <Box key={`new-${index}`} sx={{ position: 'relative' }}>
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={`New ${index + 1}`}
+                          style={{
+                            width: 100,
+                            height: 100,
+                            objectFit: 'cover',
+                            borderRadius: 8,
+                            border: '2px solid #e0e0e0'
+                          }}
+                        />
+                        <IconButton
+                          size="small"
+                          sx={{
+                            position: 'absolute',
+                            top: -8,
+                            right: -8,
+                            bgcolor: 'error.main',
+                            color: 'white',
+                            '&:hover': { bgcolor: 'error.dark' }
+                          }}
+                          onClick={() => {
+                            setHotelForm(prev => ({
+                              ...prev,
+                              images: prev.images.filter((_, i) => i !== index)
+                            }));
+                          }}
+                        >
+                          <Delete sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Box>
+                    ))}
+
+                    {/* Upload Button */}
+                    <Box
+                      component="label"
+                      sx={{
+                        width: 100,
+                        height: 100,
+                        border: '2px dashed #ccc',
+                        borderRadius: 2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        '&:hover': { borderColor: 'primary.main' }
+                      }}
+                    >
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        hidden
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          setHotelForm(prev => ({
+                            ...prev,
+                            images: [...prev.images, ...files]
+                          }));
+                        }}
+                      />
+                      <Add sx={{ color: 'action.disabled' }} />
+                    </Box>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Chọn nhiều hình ảnh (tối đa 10 ảnh, mỗi ảnh dưới 5MB)
+                  </Typography>
+                </Box>
               </Box>
             </DialogContent>
             <DialogActions>

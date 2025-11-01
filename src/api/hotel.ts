@@ -69,13 +69,53 @@ export const getAdminHotelById = async (id: string) => {
   return res.data;
 };
 
-export const createAdminHotel = async (payload: Partial<Hotel>) => {
-  const res = await instance.post<Hotel>('/admin/hotels', payload);
+export const createAdminHotel = async (payload: Partial<Hotel>, images?: File[]) => {
+  const formData = new FormData();
+
+  // Add hotel data
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      formData.append(key, value.toString());
+    }
+  });
+
+  // Add images
+  if (images && images.length > 0) {
+    images.forEach((image, index) => {
+      formData.append('images', image);
+    });
+  }
+
+  const res = await instance.post<Hotel>('/admin/hotels', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return res.data;
 };
 
-export const updateAdminHotel = async (id: string, payload: Partial<Hotel>) => {
-  const res = await instance.put<Hotel>(`/admin/hotels/${id}`, payload);
+export const updateAdminHotel = async (id: string, payload: Partial<Hotel>, images?: File[]) => {
+  const formData = new FormData();
+
+  // Add hotel data
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      formData.append(key, value.toString());
+    }
+  });
+
+  // Add images
+  if (images && images.length > 0) {
+    images.forEach((image, index) => {
+      formData.append('images', image);
+    });
+  }
+
+  const res = await instance.put<Hotel>(`/admin/hotels/${id}`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return res.data;
 };
 
