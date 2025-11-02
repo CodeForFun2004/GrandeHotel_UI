@@ -207,7 +207,9 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
       <Link to="/profile/wishlists" style={{ textDecoration: 'none' }}>
         {Item(Ic.heart, "Wish Lists", isActive('/profile/wishlists'))}
       </Link>
-      {Item(Ic.headset, "Support")}
+      <Link to="/profile/support" style={{ textDecoration: 'none' }}>
+        {Item(Ic.headset, "Support", isActive('/profile/support'))}
+      </Link>
       {Item(Ic.chat, "Reviews")}
       <div
         style={{ height: 1, background: "#f3f4f6", margin: "8px 4px 6px" }}
