@@ -132,6 +132,7 @@ export const router = createBrowserRouter([
       { path: "contact", element: <LandingContact /> },
       { path: routes.PROFILE_PATH, element: <Profile /> },
   { path: routes.PROFILE_WISHLISTS_PATH, element: <WishLists /> },
+  { path: routes.PROFILE_SUPPORT_PATH, element: <CustomerChat /> },
       { path: routes.HOTELS_PATH, element: <Hotels /> },
       { path: routes.ROOMS_PATH, element: <Rooms /> },
       { path: routes.RESERVATION_REVIEW_PATH, element: (

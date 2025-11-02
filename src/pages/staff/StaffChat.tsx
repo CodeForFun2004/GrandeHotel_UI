@@ -79,6 +79,7 @@ const StaffChat: React.FC = () => {
   const [tab, setTab] = React.useState<"all" | "unread" | "active">("all");
   const [threads, setThreads] = React.useState<Conversation[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [lastUpdate, setLastUpdate] = React.useState<Date>(new Date());
 
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const active = React.useMemo(() => threads.find((t) => t.threadId === activeId) || null, [threads, activeId]);
@@ -180,14 +181,88 @@ const StaffChat: React.FC = () => {
     fetchConversation();
   }, [activeId]);
 
+  // Real-time polling for new messages
+  React.useEffect(() => {
+    if (!user?.hotelId || threads.length === 0) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        // Check for updated conversations
+        const updatedConversations = await getStaffConversations({
+          hotelId: user.hotelId as string,
+          query,
+          tab
+        });
+
+        // Check if there are any changes
+        const hasChanges = updatedConversations.some((updatedConv) => {
+          const existingConv = threads.find(c => c.threadId === updatedConv.threadId);
+          if (!existingConv) return true; // New conversation
+
+          // Check if last message changed
+          const existingLastMsg = existingConv.messages[0];
+          const updatedLastMsg = updatedConv.messages[0];
+          if (!existingLastMsg && updatedLastMsg) return true;
+          if (existingLastMsg && !updatedLastMsg) return false;
+          if (existingLastMsg && updatedLastMsg) {
+            return existingLastMsg.id !== updatedLastMsg.id ||
+                   existingLastMsg.time !== updatedLastMsg.time;
+          }
+          return false;
+        });
+
+        if (hasChanges) {
+          console.log("New messages detected for staff, updating conversations");
+          setThreads(updatedConversations);
+          setLastUpdate(new Date());
+
+          // If we have an active conversation, check if it needs updating
+          if (activeId) {
+            const activeConv = updatedConversations.find(c => c.threadId === activeId);
+            if (activeConv) {
+              // Check if the active conversation has new messages
+              const currentMessageCount = active?.messages.length || 0;
+              const updatedMessageCount = activeConv.messages.length;
+
+              // If the basic conversation list shows more messages than we have loaded,
+              // or if the last message is different, reload the full conversation
+              if (updatedMessageCount > currentMessageCount ||
+                  (active && activeConv.messages[0] &&
+                   active.messages[active.messages.length - 1]?.id !== activeConv.messages[0].id)) {
+                console.log("Active conversation has new messages, reloading for staff");
+                const fullConv = await getStaffConversation(activeId);
+                setThreads((prev) =>
+                  prev.map((t) => (t.threadId === activeId ? fullConv : t))
+                );
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error polling for new messages in staff chat:", error);
+      }
+    }, 1000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [user?.hotelId, threads, activeId, active, query, tab]);
+
   return (
     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "360px 1fr" }, gap: 2 }}>
       {/* LEFT: thread list */}
       <Card sx={{ height: { md: "calc(100vh - 120px)" }, overflow: "hidden", display: "flex", flexDirection: "column" }}>
         <CardContent sx={{ pb: 1.5 }}>
-          <Typography variant="h6" fontWeight={800} sx={{ color: "#b8192b", mb: 1 }}>
-            Chat
-          </Typography>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+            <Typography variant="h6" fontWeight={800} sx={{ color: "#b8192b" }}>
+              Chat
+            </Typography>
+            <Chip
+              size="small"
+              variant="outlined"
+              icon={<Person />}
+              label={`Cập nhật: ${fmtTimeShort(lastUpdate.toISOString())}`}
+              sx={{ fontSize: '0.7rem' }}
+            />
+          </Stack>
           <TextField
             value={query}
             onChange={(e) => setQuery(e.target.value)}
