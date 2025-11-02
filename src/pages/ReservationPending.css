@@ -1,0 +1,257 @@
+.reservation-pending-page {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+  padding-bottom: 60px;
+}
+
+.reservation-pending-page .hero-wrap {
+  position: relative;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  padding: 60px 0 40px;
+  margin-bottom: 40px;
+}
+
+.reservation-pending-page .hero-wrap .overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1;
+}
+
+.reservation-pending-page .hero-wrap .container {
+  position: relative;
+  z-index: 2;
+}
+
+.pending-header {
+  text-align: center;
+  color: white;
+}
+
+.pending-header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.pending-header p {
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+.pending-section {
+  padding: 0;
+}
+
+.status-card {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.status-card .card-body {
+  padding: 40px;
+}
+
+.status-display {
+  text-align: center;
+  padding: 40px 20px;
+  margin-bottom: 40px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+  border-radius: 12px;
+}
+
+.status-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+
+.status-text {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.status-description {
+  font-size: 16px;
+  color: #64748b;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.reservation-details {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.details-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+}
+
+.details-title svg {
+  font-size: 24px;
+  margin-right: 10px;
+  color: #667eea;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detail-label {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.detail-value {
+  font-size: 16px;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.room-list-section {
+  margin-top: 24px;
+}
+
+.room-list-section h5 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 16px;
+}
+
+.room-item-card {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.room-item-card strong {
+  color: #1e293b;
+  font-size: 15px;
+}
+
+.room-item-card .text-muted {
+  font-size: 13px;
+  color: #64748b !important;
+}
+
+.total-section {
+  background-color: #f0f4ff;
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 24px;
+}
+
+.total-section h5 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.total-section h4 {
+  font-size: 26px;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.action-buttons {
+  margin-top: 32px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.action-buttons button {
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.btn-payment {
+  background-color: #667eea !important;
+  border-color: #667eea !important;
+}
+
+.btn-payment:hover {
+  background-color: #5568d3 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 60px 20px;
+}
+
+.loading-container p {
+  margin-top: 16px;
+  font-size: 16px;
+  color: #64748b;
+}
+
+.error-card {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 768px) {
+  .status-card .card-body {
+    padding: 24px;
+  }
+
+  .status-display {
+    padding: 30px 16px;
+  }
+
+  .status-icon {
+    font-size: 48px;
+  }
+
+  .status-text {
+    font-size: 22px;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .action-buttons button {
+    width: 100%;
+  }
+}

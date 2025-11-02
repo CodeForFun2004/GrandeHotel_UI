@@ -1,0 +1,258 @@
+.reservation-form-page {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+  padding-bottom: 60px;
+}
+
+.reservation-form-page .hero-wrap {
+  position: relative;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  padding: 60px 0 40px;
+  margin-bottom: 40px;
+}
+
+.reservation-form-page .hero-wrap .overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1;
+}
+
+.reservation-form-page .hero-wrap .container {
+  position: relative;
+  z-index: 2;
+}
+
+.reservation-form-header {
+  text-align: center;
+  color: white;
+}
+
+.reservation-form-header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.reservation-form-header p {
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+.reservation-form-section {
+  padding: 0;
+}
+
+.reservation-form-card {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.reservation-form-card .card-body {
+  padding: 40px;
+}
+
+.reservation-info-section {
+  background-color: #f8f9fa;
+  padding: 24px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.section-title svg {
+  font-size: 22px;
+  margin-right: 8px;
+  color: #667eea;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.info-item:last-child {
+  border-bottom: none;
+}
+
+.info-item .label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.info-item .value {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.room-detail-item {
+  background-color: #ffffff;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+.room-detail-item .room-info {
+  flex: 1;
+}
+
+.room-detail-item .room-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 6px;
+}
+
+.room-detail-item .room-guests {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.room-detail-item .room-price {
+  font-size: 18px;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.payment-options {
+  margin-bottom: 30px;
+}
+
+.payment-options .form-check {
+  background-color: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.payment-options .form-check:hover {
+  border-color: #667eea;
+  background-color: #f8f9ff;
+}
+
+.payment-options .form-check-input:checked ~ .form-check-label {
+  color: #667eea;
+}
+
+.payment-options .form-check-input:checked + label .payment-option {
+  background-color: #f8f9ff;
+}
+
+.payment-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.payment-option .payment-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.payment-option .payment-amount {
+  font-size: 20px;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.payment-option .payment-note {
+  font-size: 14px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.total-section {
+  background-color: #f0f4ff;
+  padding: 24px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+}
+
+.total-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.total-label {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.total-amount {
+  font-size: 28px;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.total-note {
+  font-size: 14px;
+  color: #64748b;
+  margin-top: 12px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.form-actions button {
+  flex: 1;
+  padding: 14px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.btn-confirm {
+  background-color: #667eea !important;
+  border-color: #667eea !important;
+}
+
+.btn-confirm:hover {
+  background-color: #5568d3 !important;
+  border-color: #5568d3 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+@media (max-width: 768px) {
+  .reservation-form-card .card-body {
+    padding: 24px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .reservation-form-header h1 {
+    font-size: 24px;
+  }
+}

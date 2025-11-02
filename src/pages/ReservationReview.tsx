@@ -79,17 +79,33 @@ const ReservationReview: React.FC = () => {
     if (!draft) return;
     setLoading(true); setError(null);
     try {
+      // Get customerId from localStorage
+      let customerId = 'guest';
+      try {
+        const rawUser = localStorage.getItem('user');
+        if (rawUser) {
+          const user = JSON.parse(rawUser);
+          customerId = user?._id || user?.id || 'guest';
+        }
+      } catch {
+        console.error('Failed to get user from localStorage');
+      }
+
       const payload = {
         hotelId: draft.hotelId,
-        customerId: 'guest', // TODO: wire to auth user if available
+        customerId: customerId,
         checkInDate: draft.checkInDate,
         checkOutDate: draft.checkOutDate,
         numberOfGuests: (draft.selected || []).reduce((acc: number, s: any) => acc + s.adults + s.children + s.infants, 0),
         rooms: (draft.selected || []).map((s: any) => ({ roomTypeId: s.roomTypeId, quantity: s.quantity, adults: s.adults, children: s.children, infants: s.infants })),
       };
       const res = await reservationApi.createReservation(payload);
-      sessionStorage.removeItem('reservationDraft');
-      navigate(`/booking-complete?reservation=${res?.reservation?._id || ''}`);
+      
+      // Keep draft in sessionStorage for pending page
+      sessionStorage.setItem('reservationDraft', JSON.stringify(draft));
+      
+      // Navigate to pending page to wait for approval
+      navigate(`/reservation/pending?reservation=${res?.reservation?._id || ''}`);
     } catch (e: any) {
       setError(e?.message || 'Xác nhận đặt phòng thất bại');
     } finally {
