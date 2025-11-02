@@ -6,7 +6,7 @@ import { PrivateRoute } from "./PrivateRoute";
 import { RoleBasedRoute, RoleBasedRedirect } from "./RoleBasedRoute";
 import LandingLayout from "../layouts/LandingLayout";
 import AboutUs from "../pages/landing/AboutUs";
-import Contact from "../pages/landing/Contact";
+import LandingContact from "../pages/landing/Contact";
 
 import AdminLayout from "../layouts/AdminLayout";
 import ManagerLayout from "../layouts/ManagerLayout";
@@ -17,21 +17,34 @@ import Logout from "../pages/auth/Logout";
 
 import AdminUserManagement from "../pages/admin/AdminUserManagement";
 import AdminHotelList from "../pages/admin/AdminHotelList";
-import HotelDetail from "../pages/admin/HotelDetail";
+
 
 import ForgotPass from "../pages/auth/ForgotPass";
 import VerifyEmail from "../pages/auth/VerifyEmail";
 import Profile from "../pages/customer/Profile";
+import WishLists from "../pages/customer/WishLists";
+import CustomerChat from "../pages/customer/CustomerChat";
 
 import Hotels from "../pages/Hotels";
 // import RoomDetail from "../pages/RoomDetail";
 import Rooms from "../pages/Room.tsx";
 import ReservationReview from "../pages/ReservationReview";
+import ReservationForm from "../pages/ReservationForm";
+import ReservationPending from "../pages/ReservationPending";
+import ReservationQRPayment from "../pages/ReservationQRPayment";
+import ReservationPaymentConfirmation from "../pages/ReservationPaymentConfirmation";
+import ReservationBill from "../pages/ReservationBill";
 
 import ManagerDashboard from "../pages/admin/ManagerDashboard";
 import HotelInfoForm from "../pages/admin/HotelInfoForm";
 import RoomTable from "../pages/admin/rooms/RoomTable";
+import RoomTypeTable from "../pages/admin/rooms/RoomTypeTable";
 import BookingManagement from "../pages/admin/BookingManagement";
+
+import BookingDetail from "../pages/admin/BookingDetail";
+
+import ContactManagement from "../pages/admin/ContactManagement";
+
 
 // Staff components
 import StaffDashboard from "../pages/staff/StaffDashboard";
@@ -63,6 +76,8 @@ export const routes = {
   REGISTER_PATH: "/auth/register",
   LOGOUT_PATH: "/logout",
   PROFILE_PATH: "/profile",
+  PROFILE_WISHLISTS_PATH: "/profile/wishlists",
+  PROFILE_SUPPORT_PATH: "/profile/support",
   NEWSFEED_PATH: "/news-feeds",
   SHOPPING_PATH: "/shopping",
   PRODUCT_DETAIL_PATH: "/product/:id",
@@ -76,7 +91,11 @@ export const routes = {
   HOTELS_PATH: "/hotels",
   ROOMS_PATH: "/rooms",
   RESERVATION_REVIEW_PATH: "/reservation/review",
-  RESERVATION_PAYMENT_PATH: "/reservation/transaction",
+  RESERVATION_FORM_PATH: "/reservation/form",
+  RESERVATION_PENDING_PATH: "/reservation/pending",
+  RESERVATION_QR_PAYMENT_PATH: "/reservation/qr-payment",
+  RESERVATION_PAYMENT_CONFIRMATION_PATH: "/reservation/payment-confirmation",
+  RESERVATION_BILL_PATH: "/reservation/bill",
 
   // Role-based paths
   ADMIN_DASHBOARD_PATH: ADMIN_PATHS.DASHBOARD,
@@ -119,13 +138,39 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <LandingPage /> },
       { path: "about", element: <AboutUs /> },
-      { path: "contact", element: <Contact /> },
+      { path: "contact", element: <LandingContact /> },
       { path: routes.PROFILE_PATH, element: <Profile /> },
+  { path: routes.PROFILE_WISHLISTS_PATH, element: <WishLists /> },
       { path: routes.HOTELS_PATH, element: <Hotels /> },
       { path: routes.ROOMS_PATH, element: <Rooms /> },
       { path: routes.RESERVATION_REVIEW_PATH, element: (
         <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
           <ReservationReview />
+        </RoleBasedRoute>
+      ) },
+      { path: routes.RESERVATION_FORM_PATH, element: (
+        <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
+          <ReservationForm />
+        </RoleBasedRoute>
+      ) },
+      { path: routes.RESERVATION_PENDING_PATH, element: (
+        <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
+          <ReservationPending />
+        </RoleBasedRoute>
+      ) },
+      { path: routes.RESERVATION_QR_PAYMENT_PATH, element: (
+        <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
+          <ReservationQRPayment />
+        </RoleBasedRoute>
+      ) },
+      { path: routes.RESERVATION_PAYMENT_CONFIRMATION_PATH, element: (
+        <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
+          <ReservationPaymentConfirmation />
+        </RoleBasedRoute>
+      ) },
+      { path: routes.RESERVATION_BILL_PATH, element: (
+        <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
+          <ReservationBill />
         </RoleBasedRoute>
       ) },
       // { path: routes.ROOM_DETAIL_PATH, element: <RoomDetail /> },
@@ -148,6 +193,7 @@ export const router = createBrowserRouter([
       { path: "dashboard", element: <AdminDashboard /> },
       { path: "user-management", element: <AdminUserManagement /> },
       { path: "hotel-list", element: <AdminHotelList /> },
+      { path: "contact-management", element: <ContactManagement /> },
       { path: "projects", element: <AdminDashboard /> },
       { path: "projects/create", element: <AdminDashboard /> },
       { path: "profile", element: <AdminDashboard /> },
@@ -169,7 +215,9 @@ export const router = createBrowserRouter([
       { path: "dashboard", element: <ManagerDashboard /> },
       { path: "hotel-info", element: <HotelInfoForm /> },
       { path: "rooms", element: <RoomTable /> },
+      { path: "room-types", element: <RoomTypeTable /> },
       { path: "bookings", element: <BookingManagement /> },
+      { path: "bookings/:id", element: <BookingDetail /> },
       { path: "staff", element: <ManagerDashboard /> },
       { path: "profile", element: <ManagerDashboard /> },
     ],

@@ -2,13 +2,17 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import './HotelCard.css';
 import type { Hotel } from '../../types/entities';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faHeart } from '@fortawesome/free-solid-svg-icons';
 
 type Props = {
   hotel: Hotel;
   priceLabel?: string;
+  isFavorited?: boolean;
+  onToggleFavorite?: (hotelId: string, next: boolean) => void;
 };
 
-const HotelCard: React.FC<Props> = ({ hotel, priceLabel }) => {
+const HotelCard: React.FC<Props> = ({ hotel, priceLabel, isFavorited, onToggleFavorite }) => {
   const img = hotel.images && hotel.images.length ? hotel.images[0] : '/placeholder-hotel.jpg';
 
   // Normalize price value which might be Number, string, or BSON Decimal128-like object
@@ -54,6 +58,24 @@ const HotelCard: React.FC<Props> = ({ hotel, priceLabel }) => {
     <div className="hotel-card-wrap">
       <div className="hotel-card-inner">
         <div className="hotel-image" style={{ backgroundImage: `url(${img})` }}>
+          <button
+            className={`favorite-btn ${isFavorited ? 'is-favorited' : ''}`}
+            aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+            title={isFavorited ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const hotelId = (hotel._id as string) ?? '';
+              if (!hotelId) return;
+              onToggleFavorite?.(hotelId, !isFavorited);
+            }}
+          >
+            <FontAwesomeIcon
+              icon={faHeart}
+              className="favorite-heart"
+              style={{ color: isFavorited ? '#e0245e' : '#c4c7cc', width: 22, height: 22 }}
+            />
+          </button>
           <div className="hotel-image-overlay">Xem thêm ảnh</div>
         </div>
         <div className="hotel-info">

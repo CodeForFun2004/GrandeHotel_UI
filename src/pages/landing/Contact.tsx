@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 
 type Props = {
   showHero?: boolean;
@@ -17,35 +18,58 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
       minHeight: "100vh",
     },
 
-    /* HERO */
+    /* HERO — đồng bộ với AboutUs */
     hero: {
       position: "relative" as const,
+      width: "100%",
+      height: 420,
       backgroundImage: "url('/src/assets/images/bg_2.jpg')",
       backgroundSize: "cover",
-      backgroundPosition: "center",
-      padding: "140px 0 120px",
-      textAlign: "center" as const,
+      backgroundPosition: "center center",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      flexDirection: "column" as const,
       color: "#fff",
+      textAlign: "center" as const,
     },
-    overlay: { position: "absolute" as const, inset: 0, background: "rgba(0,0,0,.5)" },
-    heroInner: { position: "relative" as const, zIndex: 1 },
+    overlay: {
+      content: '""',
+      position: "absolute" as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: "rgba(0,0,0,0.45)",
+    },
+    heroInner: { position: "relative" as const, zIndex: 2 },
+
     breadcrumb: {
-      display: "inline-block",
-      background: "rgba(255,255,255,.15)",
-      padding: "6px 14px",
-      borderRadius: 999,
-      fontSize: 13,
-      marginBottom: 14,
-      letterSpacing: ".2px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      background: "rgba(255,255,255,0.12)",
+      backdropFilter: "blur(6px)",
+      padding: "6px 20px",
+      borderRadius: 30,
+      color: "#fff",
+      fontSize: 15,
+      fontWeight: 500,
+      boxShadow: "0 0 8px rgba(0,0,0,0.2)",
+      marginBottom: 12,
     },
-    breadcrumbLink: { color: "#fff", textDecoration: "none" },
-    breadcrumbSep: { margin: "0 8px", opacity: .8 },
+    breadcrumbLink: {
+      color: "#fff",
+      textDecoration: "none",
+      fontWeight: 500,
+      transition: "color 0.2s ease",
+    },
+    breadcrumbSep: { opacity: 0.85 },
     heroTitle: {
+      fontSize: 58,
+      fontWeight: 600,
       margin: 0,
-      fontSize: 48,
-      fontWeight: 700,
-      letterSpacing: "2px",
-      textTransform: "uppercase" as const,
     },
 
     /* BODY */
@@ -58,7 +82,6 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
       marginBottom: 26,
     },
 
-    // 4 info cards
     infoGrid: {
       display: "grid",
       gridTemplateColumns: "repeat(4, 1fr)",
@@ -78,7 +101,6 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
     infoLabel: { color: "#888", marginRight: 8 },
     infoValue: { color: "#222", fontWeight: 600 },
 
-    // bottom: map left + form right
     bottomGrid: {
       display: "grid",
       gridTemplateColumns: "1fr 1fr",
@@ -86,11 +108,10 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
       alignItems: "start",
     },
 
-    /* CÁCH A — map chiếm đủ khung bằng absolute */
     mapWrap: {
       position: "relative" as const,
       background: "#e9ecef",
-      height: 420,           // chỉnh cao map ở đây
+      height: 420,
       borderRadius: 6,
       overflow: "hidden",
       border: "1px solid #eee",
@@ -152,13 +173,15 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
 
   return (
     <div style={styles.page}>
-      {/* HERO */}
+      {/* ---------- HERO ---------- */}
       {showHero && (
         <header style={styles.hero}>
           <div style={styles.overlay} />
           <div style={styles.heroInner}>
             <div style={styles.breadcrumb as React.CSSProperties}>
-              <a href="/" style={styles.breadcrumbLink}>Home</a>
+              <Link to="/" style={styles.breadcrumbLink}>
+                Home
+              </Link>
               <span style={styles.breadcrumbSep}>›</span>
               <span>Contact</span>
             </div>
@@ -167,15 +190,16 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
         </header>
       )}
 
-      {/* BODY */}
+      {/* ---------- BODY ---------- */}
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>Contact Information</h2>
 
-        {/* 4 info cards */}
         <div style={styles.infoGrid as React.CSSProperties}>
           <div style={styles.infoCard}>
             <div>
-              <div><span style={styles.infoLabel}>Address:</span></div>
+              <div>
+                <span style={styles.infoLabel}>Address:</span>
+              </div>
               <div style={{ whiteSpace: "pre-line" as const }}>
                 <span style={styles.infoValue}>
                   198 West 21th Street, Suite 721 New York{"\n"}NY 10016
@@ -187,7 +211,14 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
           <div style={styles.infoCard}>
             <div>
               <span style={styles.infoLabel}>Phone:</span>
-              <a href="tel:+1235235598" style={{ ...styles.infoValue, color: "#b6895b", textDecoration: "none" }}>
+              <a
+                href="tel:+1235235598"
+                style={{
+                  ...styles.infoValue,
+                  color: "#b6895b",
+                  textDecoration: "none",
+                }}
+              >
                 + 1235 2355 98
               </a>
             </div>
@@ -196,7 +227,14 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
           <div style={styles.infoCard}>
             <div>
               <span style={styles.infoLabel}>Email:</span>
-              <a href="mailto:info@yoursite.com" style={{ ...styles.infoValue, color: "#b6895b", textDecoration: "none" }}>
+              <a
+                href="mailto:info@yoursite.com"
+                style={{
+                  ...styles.infoValue,
+                  color: "#b6895b",
+                  textDecoration: "none",
+                }}
+              >
                 info@yoursite.com
               </a>
             </div>
@@ -204,15 +242,22 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
 
           <div style={styles.infoCard}>
             <div>
-              <span style={styles.infoLabel}>Website</span>{" "}
-              <a href="#" style={{ ...styles.infoValue, color: "#b6895b", textDecoration: "none" }}>
+              <span style={styles.infoLabel}>Website:</span>{" "}
+              <a
+                href="#"
+                style={{
+                  ...styles.infoValue,
+                  color: "#b6895b",
+                  textDecoration: "none",
+                }}
+              >
                 yoursite.com
               </a>
             </div>
           </div>
         </div>
 
-        {/* Bottom: Map + Form */}
+        {/* MAP + FORM */}
         <div
           style={{
             ...(styles.bottomGrid as React.CSSProperties),
@@ -221,23 +266,22 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
               : {}),
           }}
         >
-          {/* MAP — CÁCH A đã áp dụng */}
           <div style={styles.mapWrap}>
             <iframe
               style={styles.iframe}
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
-              src={`https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&output=embed`}
+              src={`https://www.google.com/maps?q=${encodeURIComponent(
+                mapQuery
+              )}&output=embed`}
               title="map"
             />
           </div>
 
-          {/* FORM */}
           <div style={styles.formWrap}>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                // TODO: gọi API gửi mail/message
               }}
             >
               <input
@@ -275,10 +319,18 @@ const Contact: React.FC<Props> = ({ showHero = true }) => {
                 type="submit"
                 value="Send Message"
                 style={styles.submit}
-                onMouseOver={(e) => (e.currentTarget.style.background = "#9b7544")}
-                onMouseOut={(e) => (e.currentTarget.style.background = "#b6895b")}
-                onMouseDown={(e) => (e.currentTarget.style.transform = "scale(.98)")}
-                onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                onMouseOver={(e) =>
+                  (e.currentTarget.style.background = "#9b7544")
+                }
+                onMouseOut={(e) =>
+                  (e.currentTarget.style.background = "#b6895b")
+                }
+                onMouseDown={(e) =>
+                  (e.currentTarget.style.transform = "scale(.98)")
+                }
+                onMouseUp={(e) =>
+                  (e.currentTarget.style.transform = "scale(1)")
+                }
               />
             </form>
           </div>

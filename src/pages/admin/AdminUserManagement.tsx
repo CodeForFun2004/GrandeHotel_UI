@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Button,
   Table,
@@ -29,9 +29,11 @@ import {
   DialogActions,
   Tabs,
   Tab,
-  Grid,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  Alert,
+  Snackbar,
+  CircularProgress
 } from "@mui/material";
 import {
   Person,
@@ -42,23 +44,24 @@ import {
   Business,
   People,
   Hotel,
-  CardMembership,
   Security,
   History,
   Notifications,
   GetApp,
-  Group,
   Assignment,
   Star,
-  AccessTime
+  AccessTime,
+  ErrorOutline,
+  Refresh
 } from "@mui/icons-material";
+import { getAllUsers, suspendUser, unsuspendUser, filterUsersByRole, type User as APIUser } from '../../api/user';
 
 // Enhanced user type
 type User = {
   id: number;
   name: string;
   email: string;
-  role: 'customer' | 'employee' | 'manager' | 'admin';
+  role: 'customer' | 'staff' | 'hotel-manager' | 'admin';
   status: 'active' | 'banned' | 'pending';
   banned: boolean;
   hotelId?: number;
@@ -69,122 +72,36 @@ type User = {
   loyaltyPoints?: number;
 };
 
-const initialUsers: User[] = [
-  {
-    id: 1,
-    name: "Alice Smith",
-    email: "alice@example.com",
-    role: 'customer',
-    status: 'active',
-    banned: false,
-    hotelId: 1,
-    hotelName: 'Grande Hotel Saigon',
-    joinDate: '2023-01-15',
-    lastLogin: '2025-10-16',
-    bookingsCount: 12,
-    loyaltyPoints: 1200
-  },
-  {
-    id: 2,
-    name: "Bob Johnson",
-    email: "bob@example.com",
-    role: 'customer',
-    status: 'banned',
-    banned: true,
-    hotelId: 2,
-    hotelName: 'Grande Hotel Hanoi',
-    joinDate: '2023-03-20',
-    lastLogin: '2025-09-15',
-    bookingsCount: 8,
-    loyaltyPoints: 800
-  },
-  {
-    id: 3,
-    name: "Charlie Lee",
-    email: "charlie@example.com",
-    role: 'employee',
-    status: 'active',
-    banned: false,
-    hotelId: 1,
-    hotelName: 'Grande Hotel Saigon',
-    joinDate: '2023-06-10',
-    lastLogin: '2025-10-16',
-    bookingsCount: 0,
-    loyaltyPoints: 0
-  },
-  {
-    id: 4,
-    name: "David Manager",
-    email: "david@grandehotel.vn",
-    role: 'manager',
-    status: 'active',
-    banned: false,
-    hotelId: 3,
-    hotelName: 'Grande Hotel Da Nang',
-    joinDate: '2022-11-01',
-    lastLogin: '2025-10-16',
-    bookingsCount: 0,
-    loyaltyPoints: 0
-  },
-  {
-    id: 5,
-    name: "Eva Nguyen",
-    email: "eva.staff@grandehotel.vn",
-    role: 'employee',
-    status: 'active',
-    banned: false,
-    hotelId: 4,
-    hotelName: 'Grande Hotel Nha Trang',
-    joinDate: '2024-01-20',
-    lastLogin: '2025-10-16',
-    bookingsCount: 0,
-    loyaltyPoints: 0
-  },
-  {
-    id: 6,
-    name: "Frank Wilson",
-    email: "fr-wilson@outlook.com",
-    role: 'customer',
-    status: 'active',
-    banned: false,
-    hotelId: 5,
-    hotelName: 'Grande Hotel Airport',
-    joinDate: '2024-03-15',
-    lastLogin: '2025-10-10',
-    bookingsCount: 3,
-    loyaltyPoints: 300
-  },
-  {
-    id: 7,
-    name: "Grace Admin",
-    email: "admin@grandehotel.vn",
-    role: 'admin',
-    status: 'active',
-    banned: false,
-    joinDate: '2021-01-01',
-    lastLogin: '2025-10-16',
-    bookingsCount: 0,
-    loyaltyPoints: 0
-  },
-];
+
 
 const AdminUserManagement: React.FC = () => {
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  // API data state
+  const [allUsers, setAllUsers] = useState<APIUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // UI state
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [hotelFilter, setHotelFilter] = useState<string>("all");
-  const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [bulkMode, setBulkMode] = useState(false);
   const [showStats, setShowStats] = useState(true);
 
   // Menu state cho user actions
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [detailUser, setDetailUser] = useState<User | null>(null);
+  const [detailUser, setDetailUser] = useState<APIUser | null>(null);
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>, userId: number) => {
+  // Snackbar state for notifications
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>, userId: string) => {
     setAnchorEl(event.currentTarget);
     setSelectedUserId(userId);
   };
@@ -194,29 +111,45 @@ const AdminUserManagement: React.FC = () => {
     setSelectedUserId(null);
   };
 
-  const handleBanToggle = (id: number) => {
-    setUsers((prev) =>
-      prev.map((user) =>
-        user.id === id ? {
-          ...user,
-          banned: !user.banned,
-          status: !user.banned ? 'banned' : 'active'
-        } : user
-      )
-    );
+  const handleBanToggle = async (userId: string) => {
+    try {
+      setActionLoading(true);
+      const user = allUsers.find(u => u._id === userId || u.id === userId);
+
+      if (user?.isBanned) {
+        await unsuspendUser(userId);
+        setSnackbarMessage('Đã mở khóa người dùng');
+        setSnackbarSeverity('success');
+      } else {
+        await suspendUser(userId, { isBanned: true, banReason: 'Admin suspension' });
+        setSnackbarMessage('Đã khóa người dùng');
+        setSnackbarSeverity('success');
+      }
+
+      // Refresh data
+      fetchUsers();
+
+      setSnackbarOpen(true);
+    } catch (error) {
+      setSnackbarMessage('Có lỗi xảy ra');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleViewDetails = (user: User) => {
+  const handleViewDetails = (user: APIUser) => {
     setDetailUser(user);
     setDetailModalOpen(true);
     handleMenuClose();
   };
 
-  const handleSelectUser = (userId: number) => {
+  const handleSelectUser = (userId: string) => {
     setSelectedUsers(prev =>
-      prev.includes(userId)
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
+      prev.includes(userId.toString())
+        ? prev.filter(id => id !== userId.toString())
+        : [...prev, userId.toString()]
     );
   };
 
@@ -224,59 +157,118 @@ const AdminUserManagement: React.FC = () => {
     if (selectedUsers.length === filteredUsers.length) {
       setSelectedUsers([]);
     } else {
-      setSelectedUsers(filteredUsers.map(user => user.id));
+      setSelectedUsers(filteredUsers.map(user => (user._id || user.id).toString()));
     }
   };
 
-  const handleBulkBan = () => {
-    setUsers(prev => prev.map(user =>
-      selectedUsers.includes(user.id)
-        ? { ...user, banned: true, status: 'banned' as const }
-        : user
-    ));
-    setSelectedUsers([]);
+  const handleBulkBan = async () => {
+    try {
+      setActionLoading(true);
+
+      // TODO: Implement bulk ban API call
+      for (const userId of selectedUsers) {
+        await suspendUser(userId, { isBanned: true, banReason: 'Bulk admin suspension' });
+      }
+
+      setSnackbarMessage(`Đã khóa ${selectedUsers.length} người dùng`);
+      setSnackbarSeverity('success');
+      setSelectedUsers([]);
+
+      // Refresh data
+      fetchUsers();
+      setSnackbarOpen(true);
+    } catch (error) {
+      setSnackbarMessage('Có lỗi xảy ra khi khóa người dùng');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleBulkUnban = () => {
-    setUsers(prev => prev.map(user =>
-      selectedUsers.includes(user.id)
-        ? { ...user, banned: false, status: 'active' as const }
-        : user
-    ));
-    setSelectedUsers([]);
+  const handleBulkUnban = async () => {
+    try {
+      setActionLoading(true);
+
+      // TODO: Implement bulk unban API call
+      for (const userId of selectedUsers) {
+        await unsuspendUser(userId);
+      }
+
+      setSnackbarMessage(`Đã mở khóa ${selectedUsers.length} người dùng`);
+      setSnackbarSeverity('success');
+      setSelectedUsers([]);
+
+      // Refresh data
+      fetchUsers();
+      setSnackbarOpen(true);
+    } catch (error) {
+      setSnackbarMessage('Có lỗi xảy ra khi mở khóa người dùng');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setActionLoading(false);
+    }
   };
+
+  // Fetch users function
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const usersData = await getAllUsers();
+      setAllUsers(Array.isArray(usersData) ? usersData : []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setError('Có lỗi xảy ra khi tải danh sách người dùng');
+      setAllUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   // Stats calculation
   const stats = useMemo(() => {
-    const total = users.length;
-    const customers = users.filter(u => u.role === 'customer').length;
-    const employees = users.filter(u => u.role === 'employee').length;
-    const managers = users.filter(u => u.role === 'manager').length;
-    const admins = users.filter(u => u.role === 'admin').length;
-    const active = users.filter(u => u.status === 'active').length;
-    const banned = users.filter(u => u.status === 'banned').length;
+    const total = allUsers.length;
+    const customers = allUsers.filter(u => u.role === 'customer').length;
+    const staffShippers = allUsers.filter(u => u.role === 'staff' || u.role === 'shipper').length;
+    const admins = allUsers.filter(u => u.role === 'admin').length;
+    const active = allUsers.filter(u => !u.isBanned).length;
+    const banned = allUsers.filter(u => u.isBanned).length;
 
     return {
       total,
       customers,
-      employees,
-      managers,
+      employees: staffShippers, // map staff/shipper to employee for UI
+      managers: 0, // backend doesn't have manager role
       admins,
       active,
       banned
     };
-  }, [users]);
+  }, [allUsers]);
 
-  const filteredUsers = users.filter(user => {
-    const roleMatch = roleFilter === "all" || user.role === roleFilter;
-    const statusMatch = statusFilter === "all" || user.status === statusFilter;
-    const hotelMatch = hotelFilter === "all" ||
-      (user.hotelId ? user.hotelId.toString() === hotelFilter : hotelFilter === "none");
+  const filteredUsers = allUsers.filter(user => {
+    const roleMatch = roleFilter === "all" ||
+      (roleFilter === "staff" && (user.role === 'staff' || user.role === 'shipper')) ||
+      (roleFilter === "customer" && user.role === 'customer') ||
+      (roleFilter === "admin" && user.role === 'admin') ||
+      (roleFilter === "hotel-manager" && user.role === 'hotel-manager'); // no manager in current backend
+
+    const statusMatch = statusFilter === "all" ||
+      (statusFilter === "active" && !user.isBanned) ||
+      (statusFilter === "banned" && user.isBanned);
+
     const searchMatch = search === "" ||
-      user.name.toLowerCase().includes(search.toLowerCase()) ||
-      user.email.toLowerCase().includes(search.toLowerCase());
+      user.fullname?.toLowerCase().includes(search.toLowerCase()) ||
+      user.email?.toLowerCase().includes(search.toLowerCase()) ||
+      user.username?.toLowerCase().includes(search.toLowerCase());
 
-    return roleMatch && statusMatch && hotelMatch && searchMatch;
+    return roleMatch && statusMatch && searchMatch;
   });
 
   const getRoleIcon = (role: string) => {
@@ -448,139 +440,167 @@ const AdminUserManagement: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Users Table */}
-      <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: 3 }}>
-        <Table>
-          <TableHead sx={{ background: "#f5f7fa" }}>
-            <TableRow>
-              {bulkMode && (
-                <TableCell padding="checkbox">
-                  <Checkbox
-                    checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
-                    indeterminate={selectedUsers.length > 0 && selectedUsers.length < filteredUsers.length}
-                    onChange={handleSelectAll}
-                  />
-                </TableCell>
-              )}
-              <TableCell>Người dùng</TableCell>
-              <TableCell>Role</TableCell>
-              <TableCell>Khách sạn</TableCell>
-              <TableCell>Đăng nhập cuối</TableCell>
-              <TableCell>Trạng thái</TableCell>
-              <TableCell>Hành động</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredUsers.length === 0 ? (
+      {/* Loading/Error State */}
+      {loading ? (
+        <Box display="flex" justifyContent="center" alignItems="center" sx={{ py: 8 }}>
+          <CircularProgress size={60} />
+          <Typography variant="h6" sx={{ ml: 2 }}>Đang tải danh sách người dùng...</Typography>
+        </Box>
+      ) : error ? (
+        <Box display="flex" flexDirection="column" alignItems="center" sx={{ py: 8 }}>
+          <ErrorOutline sx={{ fontSize: 60, color: 'error.main', mb: 2 }} />
+          <Typography variant="h6" color="error" gutterBottom>
+            Có lỗi xảy ra khi tải dữ liệu
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            {error}
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<Refresh />}
+            onClick={fetchUsers}
+          >
+            Thử lại
+          </Button>
+        </Box>
+      ) : (
+        /* Users Table */
+        <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: 3 }}>
+          <Table>
+            <TableHead sx={{ background: "#f5f7fa" }}>
               <TableRow>
-                <TableCell colSpan={bulkMode ? 8 : 7} align="center" sx={{ color: 'text.secondary', py: 4 }}>
-                  <Box display="flex" flexDirection="column" alignItems="center" gap={1}>
-                    <Search sx={{ fontSize: 48, color: 'text.disabled' }} />
-                    <Typography variant="h6">Không tìm thấy người dùng nào</Typography>
-                    <Typography variant="body2">Thử thay đổi bộ lọc tìm kiếm</Typography>
-                  </Box>
-                </TableCell>
+                {bulkMode && (
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
+                      indeterminate={selectedUsers.length > 0 && selectedUsers.length < filteredUsers.length}
+                      onChange={handleSelectAll}
+                    />
+                  </TableCell>
+                )}
+                <TableCell>Người dùng</TableCell>
+                <TableCell>Role</TableCell>
+                <TableCell>Khách sạn</TableCell>
+                <TableCell>Đăng nhập cuối</TableCell>
+                <TableCell>Trạng thái</TableCell>
+                <TableCell>Hành động</TableCell>
               </TableRow>
-            ) : (
-              filteredUsers.map((user) => (
-                <TableRow key={user.id} hover sx={{ transition: '0.2s', '&:hover': { background: '#f0f4ff' } }}>
-                  {bulkMode && (
-                    <TableCell padding="checkbox">
-                      <Checkbox
-                        checked={selectedUsers.includes(user.id)}
-                        onChange={() => handleSelectUser(user.id)}
-                      />
-                    </TableCell>
-                  )}
-                  <TableCell>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Avatar sx={{
-                        bgcolor: getRoleColor(user.role),
-                        width: 40,
-                        height: 40,
-                        opacity: user.banned ? 0.5 : 1
-                      }}>
-                        {getRoleIcon(user.role)}
-                      </Avatar>
-                      <Box>
-                        <Typography fontWeight={600}>{user.name}</Typography>
-                        <Typography variant="body2" color="text.secondary">{user.email}</Typography>
-                        {user.bookingsCount !== undefined && user.bookingsCount > 0 && (
-                          <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 500 }}>
-                            {user.bookingsCount} bookings
-                          </Typography>
-                        )}
-                      </Box>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={
-                        user.role === 'customer' ? 'Khách hàng' :
-                        user.role === 'employee' ? 'Nhân viên' :
-                        user.role === 'manager' ? 'Quản lý' : 'Admin'
-                      }
-                      variant="outlined"
-                      sx={{
-                        color: getRoleColor(user.role),
-                        borderColor: getRoleColor(user.role),
-                        fontWeight: 600,
-                        textTransform: 'capitalize'
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Hotel sx={{ fontSize: 16, color: 'text.secondary' }} />
-                      <Typography variant="body2">
-                        {user.hotelName || 'Chưa chỉ định'}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <AccessTime sx={{ fontSize: 16, color: 'text.secondary' }} />
-                      <Typography variant="body2">
-                        {user.lastLogin || 'Chưa đăng nhập'}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      icon={user.status === 'active' ? <CheckCircle /> : user.status === 'banned' ? <Block /> : <Star />}
-                      label={getStatusColor(user.status).label}
-                      color={getStatusColor(user.status).color as any}
-                      variant="outlined"
-                      sx={{ fontWeight: 600 }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Box display="flex" gap={1}>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => handleMenuOpen(e, user.id)}
-                        sx={{ color: 'text.secondary' }}
-                      >
-                        <MoreVert />
-                      </IconButton>
-                      <Button
-                        size="small"
-                        variant={user.banned ? "contained" : "outlined"}
-                        color={user.banned ? "success" : "error"}
-                        onClick={() => handleBanToggle(user.id)}
-                        sx={{ minWidth: 70 }}
-                      >
-                        {user.banned ? "Mở khóa" : "Khóa"}
-                      </Button>
+            </TableHead>
+            <TableBody>
+              {filteredUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={bulkMode ? 8 : 7} align="center" sx={{ color: 'text.secondary', py: 4 }}>
+                    <Box display="flex" flexDirection="column" alignItems="center" gap={1}>
+                      <Search sx={{ fontSize: 48, color: 'text.disabled' }} />
+                      <Typography variant="h6">Không tìm thấy người dùng nào</Typography>
+                      <Typography variant="body2">Thử thay đổi bộ lọc tìm kiếm</Typography>
                     </Box>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+              ) : (
+                filteredUsers.map((user) => (
+                  <TableRow key={user._id || user.id} hover sx={{ transition: '0.2s', '&:hover': { background: '#f0f4ff' } }}>
+                    {bulkMode && (
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          checked={selectedUsers.includes((user._id || user.id).toString())}
+                          onChange={() => handleSelectUser((user._id || user.id).toString())}
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Avatar sx={{
+                          bgcolor: getRoleColor(user.role === 'staff' || user.role === 'shipper' ? 'employee' : user.role),
+                          width: 40,
+                          height: 40,
+                          opacity: user.isBanned ? 0.5 : 1
+                        }}>
+                          {getRoleIcon(user.role === 'staff' || user.role === 'shipper' ? 'employee' : user.role)}
+                        </Avatar>
+                        <Box>
+                          <Typography fontWeight={600}>{user.fullname || user.username}</Typography>
+                          <Typography variant="body2" color="text.secondary">{user.email}</Typography>
+                          {user.role === 'customer' && (
+                            <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 500 }}>
+                              Khách hàng thân thiết
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={
+                          user.role === 'customer' ? 'Khách hàng' :
+                          user.role === 'staff' ? 'Nhân viên' :
+                          user.role === 'shipper' ? 'Nhân viên' :
+                          user.role === 'admin' ? 'Admin' : user.role
+                        }
+                        variant="outlined"
+                        sx={{
+                          color: getRoleColor(user.role === 'staff' || user.role === 'shipper' ? 'employee' : user.role),
+                          borderColor: getRoleColor(user.role === 'staff' || user.role === 'shipper' ? 'employee' : user.role),
+                          fontWeight: 600,
+                          textTransform: 'capitalize'
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Hotel sx={{ fontSize: 16, color: 'text.secondary' }} />
+                        <Typography variant="body2">
+                          {user.address || 'Chưa chỉ định'}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <AccessTime sx={{ fontSize: 16, color: 'text.secondary' }} />
+                        <Typography variant="body2">
+                          {user.createdAt ? new Date(user.createdAt).toLocaleDateString('vi-VN') : 'Chưa đăng nhập'}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        icon={user.isBanned ? <Block /> : <CheckCircle />}
+                        label={user.isBanned ? 'Bị khóa' : 'Hoạt động'}
+                        color={user.isBanned ? 'error' : 'success'}
+                        variant="outlined"
+                        sx={{ fontWeight: 600 }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Box display="flex" gap={1}>
+                        <IconButton
+                          size="small"
+                          disabled={actionLoading}
+                          onClick={(e) => handleMenuOpen(e, (user._id || user.id).toString())}
+                          sx={{ color: 'text.secondary' }}
+                        >
+                          <MoreVert />
+                        </IconButton>
+                        <Button
+                          size="small"
+                          variant={user.isBanned ? "contained" : "outlined"}
+                          color={user.isBanned ? "success" : "error"}
+                          disabled={actionLoading}
+                          onClick={() => handleBanToggle((user._id || user.id).toString())}
+                          sx={{ minWidth: 70 }}
+                        >
+                          {user.isBanned ? "Mở khóa" : "Khóa"}
+                        </Button>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
       {/* Actions Menu */}
       <Menu
@@ -589,7 +609,7 @@ const AdminUserManagement: React.FC = () => {
         onClose={handleMenuClose}
       >
         {selectedUserId && (() => {
-          const user = users.find(u => u.id === selectedUserId);
+          const user = allUsers.find(u => (u._id || u.id) === selectedUserId);
           if (!user) return null;
 
           return [
@@ -606,7 +626,7 @@ const AdminUserManagement: React.FC = () => {
             user.role === 'customer' && (
               <MenuItem key="loyalty" onClick={handleMenuClose}>
                 <Star sx={{ mr: 1 }} />
-                Điểm tích lũy: {user.loyaltyPoints}
+                Điểm tích lũy
               </MenuItem>
             ),
             user.role !== 'admin' && (
@@ -630,11 +650,11 @@ const AdminUserManagement: React.FC = () => {
           <>
             <DialogTitle>
               <Box display="flex" alignItems="center" gap={2}>
-                <Avatar sx={{ bgcolor: getRoleColor(detailUser.role), width: 60, height: 60 }}>
-                  {getRoleIcon(detailUser.role)}
+                <Avatar sx={{ bgcolor: getRoleColor(detailUser.role === 'staff' || detailUser.role === 'shipper' ? 'employee' : detailUser.role), width: 60, height: 60 }}>
+                  {getRoleIcon(detailUser.role === 'staff' || detailUser.role === 'shipper' ? 'employee' : detailUser.role)}
                 </Avatar>
                 <Box>
-                  <Typography variant="h5" fontWeight="bold">{detailUser.name}</Typography>
+                  <Typography variant="h5" fontWeight="bold">{detailUser.fullname || detailUser.username}</Typography>
                   <Typography variant="body1" color="text.secondary">{detailUser.email}</Typography>
                 </Box>
               </Box>
@@ -654,8 +674,13 @@ const AdminUserManagement: React.FC = () => {
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="body2" color="text.secondary">Role</Typography>
                     <Chip
-                      label={detailUser.role === 'customer' ? 'Khách hàng' : detailUser.role === 'employee' ? 'Nhân viên' : 'Quản lý'}
-                      color={getRoleColor(detailUser.role) as any}
+                      label={
+                        detailUser.role === 'customer' ? 'Khách hàng' :
+                        detailUser.role === 'staff' ? 'Nhân viên' :
+                        detailUser.role === 'shipper' ? 'Nhân viên' :
+                        detailUser.role === 'admin' ? 'Admin' : detailUser.role
+                      }
+                      color={getRoleColor(detailUser.role === 'staff' || detailUser.role === 'shipper' ? 'employee' : detailUser.role) as any}
                       size="small"
                       sx={{ mt: 0.5 }}
                     />
@@ -663,15 +688,19 @@ const AdminUserManagement: React.FC = () => {
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="body2" color="text.secondary">Trạng thái</Typography>
                     <Chip
-                      label={getStatusColor(detailUser.status).label}
-                      color={getStatusColor(detailUser.status).color as any}
+                      label={detailUser.isBanned ? 'Bị khóa' : 'Hoạt động'}
+                      color={detailUser.isBanned ? 'error' : 'success'}
                       size="small"
                       sx={{ mt: 0.5 }}
                     />
                   </Box>
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">Khách sạn</Typography>
-                    <Typography variant="body1">{detailUser.hotelName || 'Chưa chỉ định'}</Typography>
+                    <Typography variant="body2" color="text.secondary">Địa chỉ</Typography>
+                    <Typography variant="body1">{detailUser.address || 'Chưa cập nhật'}</Typography>
+                  </Box>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary">Phone</Typography>
+                    <Typography variant="body1">{detailUser.phone || 'Chưa cập nhật'}</Typography>
                   </Box>
                 </Box>
                 <Box>
@@ -680,24 +709,28 @@ const AdminUserManagement: React.FC = () => {
                   </Typography>
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="body2" color="text.secondary">Ngày tham gia</Typography>
-                    <Typography variant="body1">{detailUser.joinDate}</Typography>
+                    <Typography variant="body1">
+                      {detailUser.createdAt ? new Date(detailUser.createdAt).toLocaleDateString('vi-VN') : 'Chưa xác định'}
+                    </Typography>
                   </Box>
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">Đăng nhập cuối</Typography>
-                    <Typography variant="body1">{detailUser.lastLogin || 'Chưa đăng nhập'}</Typography>
+                    <Typography variant="body2" color="text.secondary">Cập nhật cuối</Typography>
+                    <Typography variant="body1">
+                      {detailUser.updatedAt ? new Date(detailUser.updatedAt).toLocaleDateString('vi-VN') : 'Chưa xác định'}
+                    </Typography>
                   </Box>
-                  {detailUser.bookingsCount !== undefined && detailUser.bookingsCount > 0 && (
+                  {detailUser.role === 'customer' && (
                     <Box sx={{ mb: 2 }}>
-                      <Typography variant="body2" color="text.secondary">Số lần đặt phòng</Typography>
-                      <Typography variant="body1">{detailUser.bookingsCount} lần</Typography>
+                      <Typography variant="body2" color="text.secondary">Khách hàng thân thiết</Typography>
+                      <Typography variant="body1">✓</Typography>
                     </Box>
                   )}
-                  {detailUser.loyaltyPoints !== undefined && detailUser.loyaltyPoints > 0 && (
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="body2" color="text.secondary">Điểm tích lũy</Typography>
-                      <Typography variant="body1">{detailUser.loyaltyPoints} điểm</Typography>
-                    </Box>
-                  )}
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary">Trạng thái tài khoản</Typography>
+                    <Typography variant="body1" color={detailUser.isBanned ? 'error.main' : 'success.main'}>
+                      {detailUser.isBanned ? 'Đã bị khóa' : 'Đang hoạt động'}
+                    </Typography>
+                  </Box>
                 </Box>
               </Box>
             </DialogContent>
@@ -707,6 +740,22 @@ const AdminUserManagement: React.FC = () => {
           </>
         )}
       </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity={snackbarSeverity}
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

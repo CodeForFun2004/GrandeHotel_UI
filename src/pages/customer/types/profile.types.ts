@@ -35,7 +35,7 @@ export interface Account {
   AvatarURL?: string;
 }
 
-export type Tab = "profile" | "change";
+export type Tab = "profile" | "change" | "support";
 
 export interface PasswordState {
   cur: string;

@@ -50,6 +50,10 @@ export interface Hotel {
   city?: string;
   country?: string;
   description?: string;
+  email?: string;
+  phone?: string;
+  manager?: User | string;
+  status?: 'available' | 'full' | 'closed';
   images?: string[];
   rating?: number; // average rating
   services?: Array<Service | string>;
@@ -60,6 +64,28 @@ export interface Hotel {
   // optional fields returned by search API
   minPricePerNight?: number;
   images?: string[];
+}
+
+export interface User {
+  _id?: string;
+  id?: string;
+  username: string;
+  fullname: string;
+  email: string;
+  phone?: string;
+  role: 'customer' | 'admin' | 'staff' | 'hotel-manager';
+  avatar?: string;
+  address?: string;
+  gender?: 'male' | 'female' | 'other';
+  birthday?: string;
+  country?: string;
+  status?: string;
+  hotelId?: string;
+  isBanned?: boolean;
+  banReason?: string;
+  banExpires?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ReservationDetail {
@@ -97,6 +123,19 @@ export interface Reservation {
     | 'completed';
   paymentStatus?: 'unpaid' | 'paid' | 'refunded' | 'partial';
   notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Contact {
+  _id?: string;
+  id?: string;
+  name: string;
+  email: string;
+  phone?: string;
+  message: string;
+  subject?: 'room-price' | 'services' | 'events' | 'complaint' | 'reservation' | 'other';
+  status?: 'pending' | 'processed' | 'ignored';
   createdAt?: string;
   updatedAt?: string;
 }

@@ -53,6 +53,22 @@ const Contact: React.FC = () => {
                   <Form.Label>Email</Form.Label>
                   <Form.Control type="email" placeholder="you@example.com" />
                 </Form.Group>
+                <Form.Group className="mb-3" controlId="contactPhone">
+                  <Form.Label>Phone Number</Form.Label>
+                  <Form.Control type="tel" placeholder="+84 123 456 789" />
+                </Form.Group>
+                <Form.Group className="mb-3" controlId="contactSubject">
+                  <Form.Label>Subject</Form.Label>
+                  <Form.Select>
+                    <option value="">Select a subject</option>
+                    <option value="room-price">Room & Pricing</option>
+                    <option value="reservation">Reservation</option>
+                    <option value="services">Services</option>
+                    <option value="events">Events</option>
+                    <option value="complaint">Complaint</option>
+                    <option value="other">Other</option>
+                  </Form.Select>
+                </Form.Group>
                 <Form.Group className="mb-3" controlId="contactMsg">
                   <Form.Label>Message</Form.Label>
                   <Form.Control as="textarea" rows={4} placeholder="How can we help?" />

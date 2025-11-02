@@ -40,6 +40,11 @@ export const RoleBasedRoute = ({ children, allowedRoles }: RoleBasedRouteProps) 
 // Helper component để redirect user đến dashboard phù hợp với role
 export const RoleBasedRedirect = () => {
   const user = useSelector((state: RootState) => state.auth.user);
+
+  console.log('🔍 RoleBasedRedirect - Current User:', user);
+  console.log('🔍 User role:', user?.role);
+  console.log('🔍 User username:', user?.username);
+  
   
   if (!user || !user.role) {
     return <Navigate to="/auth/login" replace />;
