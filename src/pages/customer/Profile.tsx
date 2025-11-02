@@ -1,6 +1,7 @@
 // src/pages/customer/Profile.tsx
 import React, { useMemo, useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
+import { useLocation } from "react-router-dom";
 import type { RootState, AppDispatch } from "../../redux/store";
 import { setCredentials } from "../../redux/slices/authSlice";
 import { toast } from "react-toastify";
@@ -11,6 +12,7 @@ import ProfileSidebar from "./components/ProfileSidebar";
 import ProfileHeader from "./components/ProfileHeader";
 import ProfileForm from "./components/ProfileForm";
 import ChangePasswordForm from "./components/ChangePasswordForm";
+import CustomerChat from "./CustomerChat";
 
 // Types and constants
 import type { User, Tab, PasswordState, ShowPasswordState } from "./types/profile.types";
@@ -41,6 +43,7 @@ const Profile: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const auth = useSelector((s: RootState) => s.auth);
   const currentUser = auth.user as User | null;
+  const location = useLocation();
 
   const [data, setData] = useState<User>(currentUser || {
     username: "",
@@ -58,6 +61,15 @@ const Profile: React.FC = () => {
   const [tab, setTab] = useState<Tab>("profile");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Set tab based on current route
+  useEffect(() => {
+    if (location.pathname === "/profile/support") {
+      setTab("support");
+    } else if (location.pathname === "/profile") {
+      setTab("profile");
+    }
+  }, [location.pathname]);
 
   // Helper function to format birthday for HTML date input
   const formatBirthdayForInput = (birthday: string | undefined): string => {
@@ -241,46 +253,50 @@ const Profile: React.FC = () => {
             onStartEdit={startEdit}
           />
 
-          {/* Tabs */}
-          <div
-            style={{
-              marginTop: 10,
-              display: "flex",
-              gap: 8,
-              alignItems: "center",
-            }}
-          >
-            <button
-              onClick={() => setTab("profile")}
+          {/* Tabs - only show for profile and change tabs */}
+          {(tab === "profile" || tab === "change") && (
+            <div
               style={{
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                color: tab === "profile" ? "#111827" : "#6b7280",
-                fontWeight: tab === "profile" ? 700 : 500,
-                textDecoration: tab === "profile" ? "underline" : "none",
+                marginTop: 10,
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
               }}
             >
-              Profile
-            </button>
-            <span style={{ color: "#9ca3af" }}>|</span>
-            <button
-              onClick={() => setTab("change")}
-              style={{
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                color: tab === "change" ? "#111827" : "#6b7280",
-                fontWeight: tab === "change" ? 700 : 500,
-                textDecoration: tab === "change" ? "underline" : "none",
-              }}
-            >
-              Change Password
-            </button>
-          </div>
+              <button
+                onClick={() => setTab("profile")}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: tab === "profile" ? "#111827" : "#6b7280",
+                  fontWeight: tab === "profile" ? 700 : 500,
+                  textDecoration: tab === "profile" ? "underline" : "none",
+                }}
+              >
+                Profile
+              </button>
+              <span style={{ color: "#9ca3af" }}>|</span>
+              <button
+                onClick={() => setTab("change")}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: tab === "change" ? "#111827" : "#6b7280",
+                  fontWeight: tab === "change" ? 700 : 500,
+                  textDecoration: tab === "change" ? "underline" : "none",
+                }}
+              >
+                Change Password
+              </button>
+            </div>
+          )}
 
           {/* CONTENT BY TAB */}
-          {tab === "profile" ? (
+          {tab === "support" ? (
+            <CustomerChat />
+          ) : tab === "profile" ? (
             <ProfileForm
               data={data}
               editing={editing}

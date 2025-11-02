@@ -23,6 +23,7 @@ import ForgotPass from "../pages/auth/ForgotPass";
 import VerifyEmail from "../pages/auth/VerifyEmail";
 import Profile from "../pages/customer/Profile";
 import WishLists from "../pages/customer/WishLists";
+import CustomerChat from "../pages/customer/CustomerChat";
 
 import Hotels from "../pages/Hotels";
 // import RoomDetail from "../pages/RoomDetail";
@@ -76,6 +77,7 @@ export const routes = {
   LOGOUT_PATH: "/logout",
   PROFILE_PATH: "/profile",
   PROFILE_WISHLISTS_PATH: "/profile/wishlists",
+  PROFILE_SUPPORT_PATH: "/profile/support",
   NEWSFEED_PATH: "/news-feeds",
   SHOPPING_PATH: "/shopping",
   PRODUCT_DETAIL_PATH: "/product/:id",
