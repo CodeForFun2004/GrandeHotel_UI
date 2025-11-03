@@ -122,6 +122,7 @@ export interface CheckoutFindRoomResponse {
 
 export interface InHouseStayItem {
   stayId: string;
+  roomId: string;
   guestName: string;
   phone: string;
   email: string;
@@ -138,6 +139,7 @@ export interface ListInHouseResponse { inHouse: InHouseStayItem[] }
 
 export interface CreateCheckoutPaymentBody {
   paymentMethod?: 'cash' | 'card' | 'qr';
+  roomId?: string;
 }
 
 export interface CreateCheckoutPaymentResponse {
@@ -167,6 +169,7 @@ export interface ConfirmCheckoutBody {
   status?: 'Success' | 'Failed';
   amountPaid?: number;
   paymentMethod?: 'cash' | 'card' | 'qr';
+  roomId?: string;
 }
 
 export interface ConfirmCheckoutResponse {
