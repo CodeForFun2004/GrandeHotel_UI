@@ -9,18 +9,12 @@ import {
   InputAdornment,
   IconButton,
   Chip,
-  Divider,
   Button,
-  List,
-  ListItemButton,
-  ListItemText,
   Avatar,
   Alert,
 } from "@mui/material";
 import {
   Send,
-  InsertEmoticon,
-  Person,
   BookOnline,
   Support,
   Chat,
@@ -34,11 +28,10 @@ import {
   getCustomerConversations,
   getCustomerConversation,
   sendCustomerMessage,
-  type Conversation,
 } from "../../api/chat";
 import ProfileSidebar from "./components/ProfileSidebar";
 import { DEFAULT_AVATAR } from "./constants/profile.constants";
-import { useChat } from "../../hooks/useChat";
+import { useChat, type Conversation as ChatConversation } from "../../hooks/useChat";
 
 /* =========================
    Helpers
@@ -59,13 +52,118 @@ const statusChip = (s: string) =>
 
 const fullName = (c: Conversation['customer']) => c ? `${c.FirstName} ${c.LastName}`.trim() : 'Khách sạn';
 
-/* =========================
-   Global CSS
-   ========================= */
 const GlobalFix: React.FC = () => (
   <style>{`
-    :root { --grey:#6b7280; --border:#e7dfe4; --split:#f3f4f6; --text:#1f2937; }
-    .ph::placeholder { color:#9ca3af; opacity:.9; }
+    :root { 
+      --grey: #6b7280; 
+      --border: #e7dfe4; 
+      --split: #f3f4f6; 
+      --text: #1f2937;
+      --primary: #3b82f6;
+    }
+    .chat-container {
+      display: flex;
+      height: calc(100vh - 200px);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #f1f5f9;
+    }
+    .conversation-list {
+      width: 300px;
+      background: white;
+      border-right: 1px solid #f1f5f9;
+      display: flex;
+      flex-direction: column;
+    }
+    .conversation-header {
+      padding: 16px;
+      border-bottom: 1px solid #f1f5f9;
+      background: #f8fafc;
+    }
+    .conversation-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f1f5f9;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .conversation-item:hover {
+      background: #f8fafc;
+    }
+    .conversation-item.active {
+      background: #eff6ff;
+      border-left: 3px solid var(--primary);
+    }
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: white;
+    }
+    .chat-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #f1f5f9;
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: #f8fafc;
+    }
+    .message {
+      margin-bottom: 16px;
+      display: flex;
+    }
+    .message.sent {
+      justify-content: flex-end;
+    }
+    .message.received {
+      justify-content: flex-start;
+    }
+    .message-bubble {
+      max-width: 70%;
+      padding: 8px 12px;
+      border-radius: 18px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .message.sent .message-bubble {
+      background: var(--primary);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    .message.received .message-bubble {
+      background: white;
+      color: var(--text);
+      border: 1px solid #e5e7eb;
+      border-bottom-left-radius: 4px;
+    }
+    .message-time {
+      font-size: 11px;
+      opacity: 0.7;
+      margin-top: 4px;
+      text-align: right;
+    }
+    .chat-input-container {
+      padding: 16px 20px;
+      border-top: 1px solid #f1f5f9;
+      background: white;
+    }
+    .chat-input {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .chat-input .MuiOutlinedInput-root {
+      border-radius: 20px;
+    }
+    .ph::placeholder { 
+      color: #9ca3af; 
+      opacity: .9; 
+    }
   `}</style>
 );
 
@@ -84,14 +182,11 @@ const CustomerChat: React.FC = () => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [fullConversation, setFullConversation] = React.useState<Conversation | null>(null);
-  const [lastUpdate, setLastUpdate] = React.useState<Date>(new Date());
 
   const active = React.useMemo(() => {
-    // If we have a full conversation loaded, use that
     if (fullConversation && fullConversation.threadId === activeId) {
       return fullConversation;
     }
-    // Otherwise use the basic conversation from the list
     return conversations.find((t) => t.threadId === activeId) || null;
   }, [conversations, activeId, fullConversation]);
 
@@ -103,18 +198,12 @@ const CustomerChat: React.FC = () => {
     connectionStatus,
     error: socketError,
     sendMessage: sendRealTimeMessage,
-    handleTyping: handleRealTimeTyping,
     loadMessages,
   } = useChat({ threadId: activeId || undefined, autoConnect: true });
 
-  // composer
   const [text, setText] = React.useState("");
-  const [typing, setTyping] = React.useState(false);
-
-  // Auto-scroll refs
   const messagesContainerRef = React.useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = React.useCallback(() => {
     if (messagesContainerRef.current) {
       const container = messagesContainerRef.current;
@@ -122,9 +211,7 @@ const CustomerChat: React.FC = () => {
     }
   }, []);
 
-  // Scroll when messages change
   React.useEffect(() => {
-    // Use setTimeout to ensure DOM has updated
     const timeoutId = setTimeout(() => {
       scrollToBottom();
     }, 100);
@@ -135,8 +222,16 @@ const CustomerChat: React.FC = () => {
     try {
       const fullConv = await getCustomerConversation(threadId);
       setFullConversation(fullConv);
-      // Load messages into the real-time hook (only pass messages array)
-      loadMessages({ ...fullConv, messages: fullConv.messages });
+      // Convert messages to the expected format for socket service
+      const messages = fullConv.messages?.map(msg => ({
+        id: msg.id,
+        text: msg.text,
+        time: msg.time,
+        from: msg.from,
+        threadId: fullConv.threadId
+      })) || [];
+      // Load messages directly using the hook's internal state setter
+      loadMessages({ ...fullConv, messages });
     } catch (error) {
       console.error("Failed to load full conversation:", error);
     }
@@ -144,13 +239,11 @@ const CustomerChat: React.FC = () => {
 
   const selectConversation = (threadId: string) => {
     setActiveId(threadId);
-    // Load full conversation with all messages
     loadFullConversation(threadId);
   };
 
   const sendMessage = () => {
     if (!active || !text.trim()) return;
-    // Use real-time messaging
     sendRealTimeMessage(text.trim());
     setText("");
   };
@@ -160,34 +253,25 @@ const CustomerChat: React.FC = () => {
     navigate("/customer/bookings", { state: { q: active.booking.Reservation_ID } });
   };
 
-  // Load customer conversations
   React.useEffect(() => {
     const loadConversations = async () => {
       if (!userId) {
-        console.log("No user ID, skipping load. User object:", user);
         setLoading(false);
         return;
       }
 
-      console.log("Loading conversations for user:", userId);
       setLoading(true);
       setError(null);
 
       try {
-        // Get customer's conversations using the new API
         const customerConversations = await getCustomerConversations();
-        console.log("Loaded customer conversations:", customerConversations);
-
         setConversations(customerConversations);
 
-        // Set first conversation as active if available
         if (customerConversations.length > 0) {
           const firstThreadId = customerConversations[0].threadId;
           setActiveId(firstThreadId);
-          // Load full conversation for the first one
           loadFullConversation(firstThreadId);
         }
-
       } catch (error) {
         console.error("Failed to load conversations:", error);
         setError("Không thể tải cuộc trò chuyện. Vui lòng thử lại sau.");
@@ -201,31 +285,87 @@ const CustomerChat: React.FC = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "400px" }}>
-        <Typography>Đang tải cuộc trò chuyện...</Typography>
-      </Box>
+      <div className="profile-page" style={{ background: '#fff', minHeight: '100vh' }}>
+        <GlobalFix />
+        <div style={{ height: 80, background: '#000' }} />
+        <div style={{
+          width: '100%',
+          padding: 24,
+          display: 'grid',
+          gridTemplateColumns: '25% 75%',
+          gap: 24,
+          boxSizing: 'border-box',
+        }}>
+          <ProfileSidebar avatarUrl={avatarUrl} name={fullName} role={role} />
+          <Box sx={{ 
+            background: '#fff', 
+            border: '1px solid #f1f5f9', 
+            borderRadius: 16, 
+            p: 24,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <Typography>Đang tải cuộc trò chuyện...</Typography>
+          </Box>
+        </div>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Alert severity="error" sx={{ mb: 2 }}>
-        {error}
-      </Alert>
+      <div className="profile-page" style={{ background: '#fff', minHeight: '100vh' }}>
+        <GlobalFix />
+        <div style={{ height: 80, background: '#000' }} />
+        <div style={{
+          width: '100%',
+          padding: 24,
+          display: 'grid',
+          gridTemplateColumns: '25% 75%',
+          gap: 24,
+          boxSizing: 'border-box',
+        }}>
+          <ProfileSidebar avatarUrl={avatarUrl} name={fullName} role={role} />
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        </div>
+      </div>
     );
   }
 
   if (conversations.length === 0) {
     return (
-      <Box sx={{ textAlign: "center", py: 4 }}>
-        <Chat sx={{ fontSize: 64, color: "#ccc", mb: 2 }} />
-        <Typography variant="h6" color="text.secondary">
-          Chưa có cuộc trò chuyện nào
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Khi bạn có đặt phòng, bạn sẽ có thể chat với nhân viên hỗ trợ.
-        </Typography>
-      </Box>
+      <div className="profile-page" style={{ background: '#fff', minHeight: '100vh' }}>
+        <GlobalFix />
+        <div style={{ height: 80, background: '#000' }} />
+        <div style={{
+          width: '100%',
+          padding: 24,
+          display: 'grid',
+          gridTemplateColumns: '25% 75%',
+          gap: 24,
+          boxSizing: 'border-box',
+        }}>
+          <ProfileSidebar avatarUrl={avatarUrl} name={fullName} role={role} />
+          <Box sx={{ 
+            background: '#fff', 
+            border: '1px solid #f1f5f9', 
+            borderRadius: 16, 
+            p: 24,
+            textAlign: 'center'
+          }}>
+            <Chat sx={{ fontSize: 64, color: "#ccc", mb: 2 }} />
+            <Typography variant="h6" color="text.secondary">
+              Chưa có cuộc trò chuyện nào
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Khi bạn có đặt phòng, bạn sẽ có thể chat với nhân viên hỗ trợ.
+            </Typography>
+          </Box>
+        </div>
+      </div>
     );
   }
 
@@ -234,263 +374,202 @@ const CustomerChat: React.FC = () => {
       <GlobalFix />
       <div style={{ height: 80, background: '#000' }} />
 
-      <div
-        style={{
-          width: '100%',
-          padding: 24,
-          display: 'grid',
-          gridTemplateColumns: '25% 75%',
-          gap: 24,
-          boxSizing: 'border-box',
-        }}
-      >
+      <div style={{
+        width: '100%',
+        padding: 24,
+        display: 'grid',
+        gridTemplateColumns: '25% 75%',
+        gap: 24,
+        boxSizing: 'border-box',
+      }}>
         <ProfileSidebar avatarUrl={avatarUrl} name={fullName} role={role} />
 
-        <section
-          style={{
-            background: '#fff',
-            border: '1px solid #f1f5f9',
-            borderRadius: 16,
-            padding: 24,
-          }}
-        >
-          <h3 style={{ marginBottom: 16 }}>Hỗ trợ Khách hàng</h3>
-          {!userId && <p>Vui lòng đăng nhập để xem cuộc trò chuyện hỗ trợ.</p>}
+        <section style={{
+          background: '#fff',
+          border: '1px solid #f1f5f9',
+          borderRadius: 16,
+          padding: 0,
+          overflow: 'hidden',
+        }}>
+          <h3 style={{ margin: 0, padding: '20px 24px', borderBottom: '1px solid #f1f5f9' }}>
+            Hỗ trợ Khách hàng
+          </h3>
+
+          {!userId && (
+            <Box sx={{ p: 24 }}>
+              <Typography>Vui lòng đăng nhập để xem cuộc trò chuyện hỗ trợ.</Typography>
+            </Box>
+          )}
+
           {userId && (
-            <>
-              {loading && <p>Đang tải cuộc trò chuyện...</p>}
-              {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-              {!loading && !error && conversations.length === 0 && (
-                <Box sx={{ textAlign: "center", py: 4 }}>
-                  <Chat sx={{ fontSize: 64, color: "#ccc", mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary">
-                    Chưa có cuộc trò chuyện nào
+            <div className="chat-container">
+              {/* Conversations List */}
+              <div className="conversation-list">
+                <div className="conversation-header">
+                  <Typography variant="h6" fontSize="16px" fontWeight={600}>
+                    Cuộc trò chuyện
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Khi bạn có đặt phòng, bạn sẽ có thể chat với nhân viên hỗ trợ.
-                  </Typography>
-                </Box>
-              )}
-
-              {!loading && !error && conversations.length > 0 && (
-                <Box sx={{ height: "calc(100vh - 200px)", display: "flex", flexDirection: "column" }}>
-                  {/* Conversation selector */}
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="h6" fontWeight={600} sx={{ mb: 2, color: "#b8192b" }}>
-                      Chọn cuộc trò chuyện
-                    </Typography>
-                    <Stack direction="row" spacing={1} sx={{ overflowX: "auto", pb: 1 }}>
-                      {conversations.map((conv) => (
-                        <Card
-                          key={conv.threadId}
-                          sx={{
-                            minWidth: 200,
-                            cursor: "pointer",
-                            border: conv.threadId === activeId ? "2px solid #b8192b" : "1px solid #e0e0e0",
-                            backgroundColor: conv.threadId === activeId ? "rgba(184,25,43,0.05)" : "white",
-                          }}
-                          onClick={() => selectConversation(conv.threadId)}
-                        >
-                          <CardContent sx={{ p: 2 }}>
-                            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                              <Chat sx={{ color: "#b8192b" }} />
-                              <Box>
-                                <Typography variant="subtitle2" fontWeight={600}>
-                                  {conv.hotel?.Name || `Đặt phòng #${conv.booking?.Reservation_ID?.slice(-6)}`}
-                                </Typography>
-                                {conv.hotel?.Address && (
-                                  <Typography variant="caption" color="text.secondary">
-                                    {conv.hotel.Address}
-                                  </Typography>
-                                )}
-                              </Box>
-                            </Stack>
-                            {conv.booking && (
-                              <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
-                                <Chip
-                                  size="small"
-                                  label={`${conv.booking.CheckIn} - ${conv.booking.CheckOut}`}
-                                  variant="outlined"
-                                />
-                                {statusChip(conv.booking.Status)}
-                              </Stack>
-                            )}
-                            <Typography variant="caption" color="text.secondary">
-                              {fmtTimeShort(conv.lastMessageAt)}
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                  {conversations.map((conv) => (
+                    <div
+                      key={conv.threadId}
+                      className={`conversation-item ${conv.threadId === activeId ? 'active' : ''}`}
+                      onClick={() => selectConversation(conv.threadId)}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <Avatar sx={{ width: 40, height: 40, bgcolor: '#3b82f6' }}>
+                          <Chat sx={{ fontSize: 18 }} />
+                        </Avatar>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="subtitle2" fontWeight={600} noWrap>
+                            {conv.hotel?.Name || `Đặt phòng #${conv.booking?.Reservation_ID?.slice(-6)}`}
+                          </Typography>
+                          {conv.hotel?.Address && (
+                            <Typography variant="caption" color="text.secondary" noWrap>
+                              {conv.hotel.Address}
                             </Typography>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </Stack>
-                  </Box>
-
-                  {/* Chat area */}
-                  <Card sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                    {/* Header */}
-                    <CardContent sx={{ pb: 1.5 }}>
-                      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <Avatar sx={{ bgcolor: "#b8192b" }}>
-                            <Support />
-                          </Avatar>
-                          <Box>
-                            <Typography variant="h6" fontWeight={800}>
-                              Hỗ trợ Khách sạn
-                            </Typography>
-                            <Stack direction="row" spacing={1} flexWrap="wrap">
-                              <Chip size="small" variant="outlined" icon={<Support />} label="Hỗ trợ 24/7" />
+                          )}
+                          {conv.booking && (
+                            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                               <Chip
                                 size="small"
+                                label={`${conv.booking.CheckIn} - ${conv.booking.CheckOut}`}
                                 variant="outlined"
-                                icon={<Chat />}
-                                label={`Cập nhật: ${fmtTimeShort(lastUpdate.toISOString())}`}
                                 sx={{ fontSize: '0.7rem' }}
                               />
-                              {active?.booking && (
-                                <>
-                                  <Chip size="small" variant="outlined" icon={<BookOnline />} label={`#${active.booking.Reservation_ID}`} />
-                                  {statusChip(active.booking.Status)}
-                                </>
-                              )}
-                            </Stack>
-                          </Box>
-                        </Stack>
+                              {statusChip(conv.booking.Status)}
+                            </div>
+                          )}
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '11px' }}>
+                            {fmtTimeShort(conv.lastMessageAt)}
+                          </Typography>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-                        {/* Connection Status */}
-                        <Chip
-                          size="small"
-                          icon={isConnected ? <Wifi /> : <WifiOff />}
-                          label={connectionStatus === 'connected' ? 'Online' : connectionStatus === 'connecting' ? 'Connecting...' : 'Offline'}
-                          color={isConnected ? 'success' : 'error'}
+              {/* Chat Area */}
+              <div className="chat-area">
+                {active ? (
+                  <>
+                    {/* Chat Header */}
+                    <div className="chat-header">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <Avatar sx={{ width: 40, height: 40, bgcolor: '#3b82f6' }}>
+                          <Support sx={{ fontSize: 20 }} />
+                        </Avatar>
+                        <div>
+                          <Typography variant="subtitle1" fontWeight={600}>
+                            Hỗ trợ Khách sạn
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {isConnected ? (
+                              <span style={{ color: '#10b981' }}>● Online</span>
+                            ) : (
+                              <span style={{ color: '#ef4444' }}>● Offline</span>
+                            )}
+                          </Typography>
+                        </div>
+                      </div>
+                      {active?.booking?.Reservation_ID && (
+                        <Button
                           variant="outlined"
-                        />
-                      </Stack>
-
-                      {/* Error Display */}
-                      {socketError && (
-                        <Alert severity="error" sx={{ mb: 1 }}>
-                          {socketError}
-                        </Alert>
+                          size="small"
+                          startIcon={<BookOnline />}
+                          onClick={openBooking}
+                        >
+                          Xem Đặt phòng
+                        </Button>
                       )}
-                    </CardContent>
-
-                    <Divider />
+                    </div>
 
                     {/* Messages */}
-                    <Box ref={messagesContainerRef} sx={{ flex: 1, overflowY: "auto", p: 2, backgroundColor: "#fafafa" }}>
-                      {active ? (
-                        <Stack spacing={1.2}>
-                          {realTimeMessages.map((m) => {
-                            const mine = m.from === "customer";
-                            return (
-                              <Box key={m.id} sx={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
-                                <Box
-                                  sx={{
-                                    maxWidth: "70%",
-                                    px: 1.5,
-                                    py: 1,
-                                    borderRadius: 1.5,
-                                    bgcolor: mine ? "rgba(184,25,43,0.10)" : "#fff",
-                                    border: mine ? "1px solid rgba(184,25,43,0.25)" : "1px solid rgba(0,0,0,0.08)",
-                                  }}
-                                >
-                                  <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                                    {m.text}
-                                  </Typography>
-                                  <Typography variant="caption" color="text.secondary">
-                                    {fmtTimeShort(m.time)}
-                                  </Typography>
-                                </Box>
-                              </Box>
-                            );
-                          })}
-                          {realTimeTyping && (
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
-                              <Avatar sx={{ width: 24, height: 24 }}>
-                                <Support />
-                              </Avatar>
-                              <Typography variant="caption">Đang trả lời…</Typography>
-                            </Box>
-                          )}
-                        </Stack>
-                      ) : null}
-                    </Box>
+                    <div className="chat-messages" ref={messagesContainerRef}>
+                      {realTimeMessages.map((m) => {
+                        const mine = m.from === "customer";
+                        return (
+                          <div key={m.id} className={`message ${mine ? 'sent' : 'received'}`}>
+                            <div className="message-bubble">
+                              <Typography variant="body2">{m.text}</Typography>
+                              <div className="message-time">
+                                {fmtTimeShort(m.time)}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {realTimeTyping && (
+                        <div className="message received">
+                          <div className="message-bubble">
+                            <Typography variant="body2" sx={{ fontStyle: 'italic', opacity: 0.7 }}>
+                              Đang trả lời...
+                            </Typography>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
-                    {/* Footer composer */}
-                    <Box sx={{ p: 1.5 }}>
-                      <Stack direction="row" spacing={1} alignItems="center">
+                    {/* Chat Input */}
+                    <div className="chat-input-container">
+                      <div className="chat-input">
                         <TextField
-                          placeholder="Nhập tin nhắn hỗ trợ…"
-                          size="small"
                           fullWidth
+                          size="small"
+                          placeholder="Nhập tin nhắn..."
                           value={text}
                           onChange={(e) => setText(e.target.value)}
-                          onFocus={() => setTyping(true)}
-                          onBlur={() => setTyping(false)}
-                          InputProps={{
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <IconButton size="small">
-                                  <InsertEmoticon />
-                                </IconButton>
-                              </InputAdornment>
-                            ),
-                            endAdornment: (
-                              <InputAdornment position="end">
-                                <IconButton size="small" color="primary" onClick={sendMessage} disabled={!text.trim()}>
-                                  <Send />
-                                </IconButton>
-                              </InputAdornment>
-                            ),
+                          onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                          className="ph"
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              '& fieldset': {
+                                borderColor: '#e5e7eb',
+                              },
+                              '&:hover fieldset': {
+                                borderColor: '#3b82f6',
+                              },
+                              '&.Mui-focused fieldset': {
+                                borderColor: '#3b82f6',
+                              },
+                            },
                           }}
                         />
-                      </Stack>
-
-                      {/* Quick help options */}
-                      <Stack direction="row" spacing={1} mt={1} flexWrap="wrap">
-                        <Chip
-                          size="small"
-                          label="Thời gian check-in/check-out"
-                          onClick={() => setText("Cho tôi hỏi về thời gian check-in và check-out của khách sạn?")}
-                          variant="outlined"
-                        />
-                        <Chip
-                          size="small"
-                          label="Hủy đặt phòng"
-                          onClick={() => setText("Tôi muốn hủy đặt phòng, cần làm thế nào?")}
-                          variant="outlined"
-                        />
-                        <Chip
-                          size="small"
-                          label="Thay đổi đặt phòng"
-                          onClick={() => setText("Tôi muốn thay đổi thông tin đặt phòng")}
-                          variant="outlined"
-                        />
-                        <Chip
-                          size="small"
-                          label="Thông tin hóa đơn"
-                          onClick={() => setText("Tôi cần thông tin về hóa đơn và thanh toán")}
-                          variant="outlined"
-                        />
-                      </Stack>
-
-                      {active?.booking?.Reservation_ID && (
-                        <Stack direction="row" spacing={1} mt={1} justifyContent="flex-end">
-                          <Button
-                            variant="contained"
-                            startIcon={<BookOnline />}
-                            sx={{ backgroundColor: "#b8192b" }}
-                            onClick={openBooking}
-                          >
-                            Xem Đặt phòng
-                          </Button>
-                        </Stack>
-                      )}
-                    </Box>
-                  </Card>
-                </Box>
-              )}
-            </>
+                        <IconButton
+                          onClick={sendMessage}
+                          disabled={!text.trim()}
+                          sx={{
+                            bgcolor: text.trim() ? '#3b82f6' : '#e5e7eb',
+                            color: text.trim() ? 'white' : '#9ca3af',
+                            '&:hover': {
+                              bgcolor: text.trim() ? '#2563eb' : '#e5e7eb',
+                            },
+                          }}
+                        >
+                          <Send />
+                        </IconButton>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <Box sx={{ 
+                    flex: 1, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    flexDirection: 'column',
+                    gap: 2
+                  }}>
+                    <Chat sx={{ fontSize: 64, color: "#ccc" }} />
+                    <Typography variant="h6" color="text.secondary">
+                      Chọn một cuộc trò chuyện
+                    </Typography>
+                  </Box>
+                )}
+              </div>
+            </div>
           )}
         </section>
       </div>
