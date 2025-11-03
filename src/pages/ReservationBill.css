@@ -310,6 +310,116 @@
   margin-top: 16px;
 }
 
+/* Photo Face Upload Styles */
+.photoface-upload {
+  background-color: #f8f9fa;
+  padding: 32px;
+  border-radius: 8px;
+  margin-top: 32px;
+}
+
+.upload-description {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.upload-description em {
+  color: #10b981;
+  font-weight: 500;
+}
+
+.upload-container {
+  background-color: #ffffff;
+  padding: 24px;
+  border-radius: 8px;
+  border: 2px dashed #e2e8f0;
+}
+
+.upload-area {
+  text-align: center;
+}
+
+.file-input {
+  display: none;
+}
+
+.file-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+}
+
+.file-label:hover {
+  background-color: #f8f9fa;
+}
+
+.upload-icon {
+  font-size: 48px !important;
+  color: #667eea;
+  margin-bottom: 16px;
+}
+
+.upload-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.upload-hint {
+  font-size: 13px;
+  color: #64748b;
+  display: block;
+}
+
+.preview-container {
+  margin-top: 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.preview-image {
+  max-width: 300px;
+  max-height: 300px;
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+  object-fit: cover;
+}
+
+.upload-btn {
+  min-width: 150px;
+  font-weight: 600;
+}
+
+.upload-success-message {
+  text-align: center;
+  padding: 32px;
+}
+
+.success-icon {
+  font-size: 64px !important;
+  color: #10b981;
+  margin-bottom: 16px;
+}
+
+.upload-success-message p {
+  font-size: 16px;
+  color: #1e293b;
+  font-weight: 500;
+  margin: 0;
+}
+
 .bill-actions {
   display: flex;
   gap: 12px;
