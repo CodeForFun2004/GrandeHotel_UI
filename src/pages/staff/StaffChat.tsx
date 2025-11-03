@@ -22,6 +22,7 @@ import {
   Tabs,
   Tab,
   Tooltip,
+  Alert,
 } from "@mui/material";
 import {
   Search,
@@ -37,6 +38,8 @@ import {
   Email,
   History,
   BookOnline,
+  Wifi,
+  WifiOff,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -49,6 +52,7 @@ import {
   toggleStaffPin,
   type Conversation,
 } from "../../api/chat";
+import { useChat } from "../../hooks/useChat";
 
 /* =========================
    Helpers
@@ -84,6 +88,18 @@ const StaffChat: React.FC = () => {
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const active = React.useMemo(() => threads.find((t) => t.threadId === activeId) || null, [threads, activeId]);
 
+  // Real-time chat hook
+  const {
+    messages: realTimeMessages,
+    isTyping: realTimeTyping,
+    isConnected,
+    connectionStatus,
+    error: socketError,
+    sendMessage: sendRealTimeMessage,
+    handleTyping: handleRealTimeTyping,
+    loadMessages,
+  } = useChat({ threadId: activeId || undefined, autoConnect: true });
+
   // search + filter
   const filtered = React.useMemo(() => {
     const kw = query.trim().toLowerCase();
@@ -108,19 +124,31 @@ const StaffChat: React.FC = () => {
   const [text, setText] = React.useState("");
   const [typing, setTyping] = React.useState(false);
 
-  const sendMessage = async () => {
-    if (!active || !text.trim()) return;
-    try {
-      await sendStaffMessage(active.threadId, { text: text.trim() });
-      // Refetch conversation to update messages
-      const updated = await getStaffConversation(active.threadId);
-      setThreads((prev) =>
-        prev.map((t) => (t.threadId === active.threadId ? updated : t))
-      );
-      setText("");
-    } catch (error) {
-      console.error("Failed to send message:", error);
+  // Auto-scroll refs
+  const messagesContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new messages arrive
+  const scrollToBottom = React.useCallback(() => {
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      container.scrollTop = container.scrollHeight;
     }
+  }, []);
+
+  // Scroll when messages change
+  React.useEffect(() => {
+    // Use setTimeout to ensure DOM has updated
+    const timeoutId = setTimeout(() => {
+      scrollToBottom();
+    }, 100);
+    return () => clearTimeout(timeoutId);
+  }, [realTimeMessages, scrollToBottom]);
+
+  const sendMessage = () => {
+    if (!active || !text.trim()) return;
+    // Use real-time messaging
+    sendRealTimeMessage(text.trim());
+    setText("");
   };
 
   const markAllRead = async (threadId: string) => {
@@ -163,15 +191,14 @@ const StaffChat: React.FC = () => {
     fetchConversations();
   }, [query, tab]);
 
-  // Fetch full messages when selecting a thread
+  // Fetch full messages when selecting a thread and load into real-time hook
   React.useEffect(() => {
     if (!activeId) return;
     const fetchConversation = async () => {
       try {
         const data = await getStaffConversation(activeId);
-        setThreads((prev) =>
-          prev.map((t) => (t.threadId === activeId ? data : t))
-        );
+        // Load messages into the real-time hook (only pass messages array)
+        loadMessages({ ...data, messages: data.messages });
         // Mark as read
         await markAllRead(activeId);
       } catch (error) {
@@ -179,72 +206,7 @@ const StaffChat: React.FC = () => {
       }
     };
     fetchConversation();
-  }, [activeId]);
-
-  // Real-time polling for new messages
-  React.useEffect(() => {
-    if (!user?.hotelId || threads.length === 0) return;
-
-    const pollInterval = setInterval(async () => {
-      try {
-        // Check for updated conversations
-        const updatedConversations = await getStaffConversations({
-          hotelId: user.hotelId as string,
-          query,
-          tab
-        });
-
-        // Check if there are any changes
-        const hasChanges = updatedConversations.some((updatedConv) => {
-          const existingConv = threads.find(c => c.threadId === updatedConv.threadId);
-          if (!existingConv) return true; // New conversation
-
-          // Check if last message changed
-          const existingLastMsg = existingConv.messages[0];
-          const updatedLastMsg = updatedConv.messages[0];
-          if (!existingLastMsg && updatedLastMsg) return true;
-          if (existingLastMsg && !updatedLastMsg) return false;
-          if (existingLastMsg && updatedLastMsg) {
-            return existingLastMsg.id !== updatedLastMsg.id ||
-                   existingLastMsg.time !== updatedLastMsg.time;
-          }
-          return false;
-        });
-
-        if (hasChanges) {
-          console.log("New messages detected for staff, updating conversations");
-          setThreads(updatedConversations);
-          setLastUpdate(new Date());
-
-          // If we have an active conversation, check if it needs updating
-          if (activeId) {
-            const activeConv = updatedConversations.find(c => c.threadId === activeId);
-            if (activeConv) {
-              // Check if the active conversation has new messages
-              const currentMessageCount = active?.messages.length || 0;
-              const updatedMessageCount = activeConv.messages.length;
-
-              // If the basic conversation list shows more messages than we have loaded,
-              // or if the last message is different, reload the full conversation
-              if (updatedMessageCount > currentMessageCount ||
-                  (active && activeConv.messages[0] &&
-                   active.messages[active.messages.length - 1]?.id !== activeConv.messages[0].id)) {
-                console.log("Active conversation has new messages, reloading for staff");
-                const fullConv = await getStaffConversation(activeId);
-                setThreads((prev) =>
-                  prev.map((t) => (t.threadId === activeId ? fullConv : t))
-                );
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error polling for new messages in staff chat:", error);
-      }
-    }, 1000); // Poll every 5 seconds
-
-    return () => clearInterval(pollInterval);
-  }, [user?.hotelId, threads, activeId, active, query, tab]);
+  }, [activeId, loadMessages]);
 
   return (
     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "360px 1fr" }, gap: 2 }}>
@@ -353,69 +315,87 @@ const StaffChat: React.FC = () => {
       <Card sx={{ height: { md: "calc(100vh - 120px)" }, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {/* Header */}
         <CardContent sx={{ pb: 1.5 }}>
-          {active ? (
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Avatar sx={{ bgcolor: "#b8192b" }}>
-                <Person />
-              </Avatar>
-              <Box>
-                <Typography variant="h6" fontWeight={800}>
-                  {fullName(active.customer)}
-                </Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                  <Chip size="small" variant="outlined" icon={<Phone fontSize="small" />} label={active.customer?.PhoneNumber || ""} />
-                  <Chip size="small" variant="outlined" icon={<Email fontSize="small" />} label={active.customer?.Email || ""} />
-                  {active.booking?.Reservation_ID && (
-                    <Chip size="small" variant="outlined" icon={<BookOnline fontSize="small" />} label={`#${active.booking.Reservation_ID}`} />
-                  )}
-                </Stack>
-              </Box>
-              <Box sx={{ flex: 1 }} />
-              <Tooltip title="Tùy chọn">
-                <IconButton onClick={(e) => setAnchor(e.currentTarget)}>
-                  <MoreVert />
-                </IconButton>
-              </Tooltip>
-              <Menu open={Boolean(anchor)} anchorEl={anchor} onClose={() => setAnchor(null)}>
-                <MenuItem
-                  onClick={() => {
-                    setAnchor(null);
-                    markAllRead(active.threadId);
-                  }}
-                >
-                  Đánh dấu đã đọc
-                </MenuItem>
-                <MenuItem
-                  onClick={async () => {
-                    setAnchor(null);
-                    try {
-                      await toggleStaffPin(active.threadId, !active.pinned);
-                      setThreads((prev) =>
-                        prev.map((t) => (t.threadId === active.threadId ? { ...t, pinned: !t.pinned } : t))
-                      );
-                    } catch (error) {
-                      console.error("Failed to toggle pin:", error);
-                    }
-                  }}
-                >
-                  {active.pinned ? "Bỏ ghim" : "Ghim hội thoại"}
-                </MenuItem>
-              </Menu>
-            </Stack>
-          ) : (
-            <Typography variant="h6" color="text.secondary">
-              Chọn một hội thoại để bắt đầu.
-            </Typography>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+            {active ? (
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <Avatar sx={{ bgcolor: "#b8192b" }}>
+                  <Person />
+                </Avatar>
+                <Box>
+                  <Typography variant="h6" fontWeight={800}>
+                    {fullName(active.customer)}
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Chip size="small" variant="outlined" icon={<Phone fontSize="small" />} label={active.customer?.PhoneNumber || ""} />
+                    <Chip size="small" variant="outlined" icon={<Email fontSize="small" />} label={active.customer?.Email || ""} />
+                    {active.booking?.Reservation_ID && (
+                      <Chip size="small" variant="outlined" icon={<BookOnline fontSize="small" />} label={`#${active.booking.Reservation_ID}`} />
+                    )}
+                  </Stack>
+                </Box>
+                <Box sx={{ flex: 1 }} />
+                <Tooltip title="Tùy chọn">
+                  <IconButton onClick={(e) => setAnchor(e.currentTarget)}>
+                    <MoreVert />
+                  </IconButton>
+                </Tooltip>
+                <Menu open={Boolean(anchor)} anchorEl={anchor} onClose={() => setAnchor(null)}>
+                  <MenuItem
+                    onClick={() => {
+                      setAnchor(null);
+                      markAllRead(active.threadId);
+                    }}
+                  >
+                    Đánh dấu đã đọc
+                  </MenuItem>
+                  <MenuItem
+                    onClick={async () => {
+                      setAnchor(null);
+                      try {
+                        await toggleStaffPin(active.threadId, !active.pinned);
+                        setThreads((prev) =>
+                          prev.map((t) => (t.threadId === active.threadId ? { ...t, pinned: !t.pinned } : t))
+                        );
+                      } catch (error) {
+                        console.error("Failed to toggle pin:", error);
+                      }
+                    }}
+                  >
+                    {active.pinned ? "Bỏ ghim" : "Ghim hội thoại"}
+                  </MenuItem>
+                </Menu>
+              </Stack>
+            ) : (
+              <Typography variant="h6" color="text.secondary">
+                Chọn một hội thoại để bắt đầu.
+              </Typography>
+            )}
+
+            {/* Connection Status */}
+            <Chip
+              size="small"
+              icon={isConnected ? <Wifi /> : <WifiOff />}
+              label={connectionStatus === 'connected' ? 'Online' : connectionStatus === 'connecting' ? 'Connecting...' : 'Offline'}
+              color={isConnected ? 'success' : 'error'}
+              variant="outlined"
+            />
+          </Stack>
+
+          {/* Error Display */}
+          {socketError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {socketError}
+            </Alert>
           )}
         </CardContent>
 
         <Divider />
 
         {/* Messages */}
-        <Box sx={{ flex: 1, overflowY: "auto", p: 2, backgroundColor: "#fafafa" }}>
+        <Box ref={messagesContainerRef} sx={{ flex: 1, overflowY: "auto", p: 2, backgroundColor: "#fafafa" }}>
           {active ? (
             <Stack spacing={1.2}>
-              {active.messages.map((m) => {
+              {realTimeMessages.map((m) => {
                 const mine = m.from === "staff";
                 return (
                   <Box key={m.id} sx={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
@@ -439,7 +419,7 @@ const StaffChat: React.FC = () => {
                   </Box>
                 );
               })}
-              {typing && (
+              {realTimeTyping && (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
                   <Avatar sx={{ width: 24, height: 24 }}>
                     <Person fontSize="small" />

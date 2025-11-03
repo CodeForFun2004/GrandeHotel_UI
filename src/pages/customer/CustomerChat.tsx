@@ -24,6 +24,8 @@ import {
   BookOnline,
   Support,
   Chat,
+  Wifi,
+  WifiOff,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -36,6 +38,7 @@ import {
 } from "../../api/chat";
 import ProfileSidebar from "./components/ProfileSidebar";
 import { DEFAULT_AVATAR } from "./constants/profile.constants";
+import { useChat } from "../../hooks/useChat";
 
 /* =========================
    Helpers
@@ -92,14 +95,48 @@ const CustomerChat: React.FC = () => {
     return conversations.find((t) => t.threadId === activeId) || null;
   }, [conversations, activeId, fullConversation]);
 
+  // Real-time chat hook
+  const {
+    messages: realTimeMessages,
+    isTyping: realTimeTyping,
+    isConnected,
+    connectionStatus,
+    error: socketError,
+    sendMessage: sendRealTimeMessage,
+    handleTyping: handleRealTimeTyping,
+    loadMessages,
+  } = useChat({ threadId: activeId || undefined, autoConnect: true });
+
   // composer
   const [text, setText] = React.useState("");
   const [typing, setTyping] = React.useState(false);
+
+  // Auto-scroll refs
+  const messagesContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new messages arrive
+  const scrollToBottom = React.useCallback(() => {
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      container.scrollTop = container.scrollHeight;
+    }
+  }, []);
+
+  // Scroll when messages change
+  React.useEffect(() => {
+    // Use setTimeout to ensure DOM has updated
+    const timeoutId = setTimeout(() => {
+      scrollToBottom();
+    }, 100);
+    return () => clearTimeout(timeoutId);
+  }, [realTimeMessages, scrollToBottom]);
 
   const loadFullConversation = async (threadId: string) => {
     try {
       const fullConv = await getCustomerConversation(threadId);
       setFullConversation(fullConv);
+      // Load messages into the real-time hook (only pass messages array)
+      loadMessages({ ...fullConv, messages: fullConv.messages });
     } catch (error) {
       console.error("Failed to load full conversation:", error);
     }
@@ -111,22 +148,11 @@ const CustomerChat: React.FC = () => {
     loadFullConversation(threadId);
   };
 
-  const sendMessage = async () => {
+  const sendMessage = () => {
     if (!active || !text.trim()) return;
-    try {
-      await sendCustomerMessage(active.threadId, { text: text.trim() });
-      // Refetch full conversation to update messages
-      const updated = await getCustomerConversation(active.threadId);
-      setFullConversation(updated);
-      // Also update the conversations list with the latest message
-      setConversations((prev) =>
-        prev.map((t) => (t.threadId === active.threadId ? { ...t, messages: [updated.messages[updated.messages.length - 1]] } : t))
-      );
-      setText("");
-    } catch (error) {
-      console.error("Failed to send message:", error);
-      setError("Không thể gửi tin nhắn. Vui lòng thử lại.");
-    }
+    // Use real-time messaging
+    sendRealTimeMessage(text.trim());
+    setText("");
   };
 
   const openBooking = () => {
@@ -172,64 +198,6 @@ const CustomerChat: React.FC = () => {
 
     loadConversations();
   }, [userId, user]);
-
-  // Real-time polling for new messages
-  React.useEffect(() => {
-    if (!userId || conversations.length === 0) return;
-
-    const pollInterval = setInterval(async () => {
-      try {
-        // Check for updated conversations
-        const updatedConversations = await getCustomerConversations();
-
-        // Check if there are any changes
-        const hasChanges = updatedConversations.some((updatedConv) => {
-          const existingConv = conversations.find(c => c.threadId === updatedConv.threadId);
-          if (!existingConv) return true; // New conversation
-
-          // Check if last message changed
-          const existingLastMsg = existingConv.messages[0];
-          const updatedLastMsg = updatedConv.messages[0];
-          if (!existingLastMsg && updatedLastMsg) return true;
-          if (existingLastMsg && !updatedLastMsg) return false;
-          if (existingLastMsg && updatedLastMsg) {
-            return existingLastMsg.id !== updatedLastMsg.id ||
-                   existingLastMsg.time !== updatedLastMsg.time;
-          }
-          return false;
-        });
-
-        if (hasChanges) {
-          console.log("New messages detected, updating conversations");
-          setConversations(updatedConversations);
-          setLastUpdate(new Date());
-
-          // If we have an active conversation, check if it needs updating
-          if (activeId) {
-            const activeConv = updatedConversations.find(c => c.threadId === activeId);
-            if (activeConv) {
-              // Check if the active conversation has new messages
-              const currentMessageCount = fullConversation?.messages.length || 0;
-              const updatedMessageCount = activeConv.messages.length;
-
-              // If the basic conversation list shows more messages than we have loaded,
-              // or if the last message is different, reload the full conversation
-              if (updatedMessageCount > currentMessageCount ||
-                  (fullConversation && activeConv.messages[0] &&
-                   fullConversation.messages[fullConversation.messages.length - 1]?.id !== activeConv.messages[0].id)) {
-                console.log("Active conversation has new messages, reloading");
-                loadFullConversation(activeId);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error polling for new messages:", error);
-      }
-    }, 1000); // Poll every 5 seconds
-
-    return () => clearInterval(pollInterval);
-  }, [userId, conversations, activeId, fullConversation]);
 
   if (loading) {
     return (
@@ -360,42 +328,59 @@ const CustomerChat: React.FC = () => {
                   <Card sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
                     {/* Header */}
                     <CardContent sx={{ pb: 1.5 }}>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <Avatar sx={{ bgcolor: "#b8192b" }}>
-                          <Support />
-                        </Avatar>
-                        <Box>
-                          <Typography variant="h6" fontWeight={800}>
-                            Hỗ trợ Khách sạn
-                          </Typography>
-                          <Stack direction="row" spacing={1} flexWrap="wrap">
-                            <Chip size="small" variant="outlined" icon={<Support />} label="Hỗ trợ 24/7" />
-                            <Chip
-                              size="small"
-                              variant="outlined"
-                              icon={<Chat />}
-                              label={`Cập nhật: ${fmtTimeShort(lastUpdate.toISOString())}`}
-                              sx={{ fontSize: '0.7rem' }}
-                            />
-                            {active?.booking && (
-                              <>
-                                <Chip size="small" variant="outlined" icon={<BookOnline />} label={`#${active.booking.Reservation_ID}`} />
-                                {statusChip(active.booking.Status)}
-                              </>
-                            )}
-                          </Stack>
-                        </Box>
-                        <Box sx={{ flex: 1 }} />
+                      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <Avatar sx={{ bgcolor: "#b8192b" }}>
+                            <Support />
+                          </Avatar>
+                          <Box>
+                            <Typography variant="h6" fontWeight={800}>
+                              Hỗ trợ Khách sạn
+                            </Typography>
+                            <Stack direction="row" spacing={1} flexWrap="wrap">
+                              <Chip size="small" variant="outlined" icon={<Support />} label="Hỗ trợ 24/7" />
+                              <Chip
+                                size="small"
+                                variant="outlined"
+                                icon={<Chat />}
+                                label={`Cập nhật: ${fmtTimeShort(lastUpdate.toISOString())}`}
+                                sx={{ fontSize: '0.7rem' }}
+                              />
+                              {active?.booking && (
+                                <>
+                                  <Chip size="small" variant="outlined" icon={<BookOnline />} label={`#${active.booking.Reservation_ID}`} />
+                                  {statusChip(active.booking.Status)}
+                                </>
+                              )}
+                            </Stack>
+                          </Box>
+                        </Stack>
+
+                        {/* Connection Status */}
+                        <Chip
+                          size="small"
+                          icon={isConnected ? <Wifi /> : <WifiOff />}
+                          label={connectionStatus === 'connected' ? 'Online' : connectionStatus === 'connecting' ? 'Connecting...' : 'Offline'}
+                          color={isConnected ? 'success' : 'error'}
+                          variant="outlined"
+                        />
                       </Stack>
+
+                      {/* Error Display */}
+                      {socketError && (
+                        <Alert severity="error" sx={{ mb: 1 }}>
+                          {socketError}
+                        </Alert>
+                      )}
                     </CardContent>
 
                     <Divider />
 
                     {/* Messages */}
-                    <Box sx={{ flex: 1, overflowY: "auto", p: 2, backgroundColor: "#fafafa" }}>
+                    <Box ref={messagesContainerRef} sx={{ flex: 1, overflowY: "auto", p: 2, backgroundColor: "#fafafa" }}>
                       {active ? (
                         <Stack spacing={1.2}>
-                          {active.messages.map((m) => {
+                          {realTimeMessages.map((m) => {
                             const mine = m.from === "customer";
                             return (
                               <Box key={m.id} sx={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
@@ -419,7 +404,7 @@ const CustomerChat: React.FC = () => {
                               </Box>
                             );
                           })}
-                          {typing && (
+                          {realTimeTyping && (
                             <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
                               <Avatar sx={{ width: 24, height: 24 }}>
                                 <Support />
