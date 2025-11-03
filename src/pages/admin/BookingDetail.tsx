@@ -20,6 +20,13 @@ import {
   IconButton,
 } from "@mui/material";
 import {
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+} from "@mui/material";
+import {
   ArrowBack,
   Edit,
   Print,
@@ -33,6 +40,7 @@ import {
   Login,
   Logout,
 } from "@mui/icons-material";
+import { getReservationById as apiGetReservationById, approveReservation as apiApproveReservation } from "../../api/reservation";
 
 // Types
 interface Booking {
@@ -41,12 +49,13 @@ interface Booking {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
-  roomType: string;
-  roomNumber: string;
+  roomType: string; // summary of room types
+  roomTypeList?: Array<{ name: string; quantity: number }>; // detailed list for display
+  roomNumber: string; // optional display
   checkIn: string;
   checkOut: string;
   totalAmount: number;
-  status: "pending" | "approved" | "rejected" | "paid" | "checked-in" | "checked-out";
+  status: "pending" | "approved" | "rejected" | "paid" | "checked-in" | "checked-out" | "canceled";
   createdAt: string;
   paymentMethod?: string;
   specialRequests?: string;
@@ -60,36 +69,11 @@ interface Booking {
   notes?: string;
 }
 
-// Mock data - in real app, this would come from API
-const MOCK_BOOKING: Booking = {
-  id: "1",
-  bookingCode: "BK001",
-  customerName: "Nguyễn Văn A",
-  customerEmail: "nguyenvana@email.com",
-  customerPhone: "+84 123 456 789",
-  roomType: "Suite Ocean",
-  roomNumber: "A101",
-  checkIn: "2024-01-15",
-  checkOut: "2024-01-18",
-  totalAmount: 660,
-  status: "pending",
-  createdAt: "2024-01-10T10:30:00Z",
-  paymentMethod: "Credit Card",
-  specialRequests: "Late check-in after 10 PM",
-  adults: 2,
-  children: 1,
-  services: [
-    { name: "Breakfast", price: 15, quantity: 3 },
-    { name: "Spa", price: 40, quantity: 1 },
-    { name: "Airport Pickup", price: 25, quantity: 1 },
-  ],
-  notes: "Anniversary celebration",
-};
-
 const STATUS_CONFIG = {
   pending: { label: "Chờ duyệt", color: "warning" as const, icon: <CheckCircle /> },
   approved: { label: "Đã duyệt", color: "info" as const, icon: <CheckCircle /> },
   rejected: { label: "Từ chối", color: "error" as const, icon: <Cancel /> },
+  canceled: { label: "Đã hủy", color: "error" as const, icon: <Cancel /> },
   paid: { label: "Đã thanh toán", color: "success" as const, icon: <Payment /> },
   "checked-in": { label: "Đã nhận phòng", color: "primary" as const, icon: <Login /> },
   "checked-out": { label: "Đã trả phòng", color: "secondary" as const, icon: <Logout /> },
@@ -101,6 +85,7 @@ const STATUS_FLOW = {
   paid: ["checked-in"],
   "checked-in": ["checked-out"],
   rejected: [],
+  canceled: [],
   "checked-out": [],
 };
 
@@ -113,22 +98,82 @@ export default function BookingDetail() {
   const [actionType, setActionType] = useState<string>("");
 
   useEffect(() => {
-    // Simulate API call
     const fetchBooking = async () => {
-      setLoading(true);
-      // In real app, fetch from API using id
-      setTimeout(() => {
-        setBooking(MOCK_BOOKING);
-        setLoading(false);
-      }, 500);
-    };
+      try {
+        setLoading(true);
+        if (!id) return;
+        const data = await apiGetReservationById(id);
+        const r = data?.reservation;
+        const statusFromStay = r?.stayStatus === 'checked_out'
+          ? 'checked-out'
+          : r?.stayStatus === 'checked_in'
+          ? 'checked-in'
+          : undefined;
+        const paymentStatus = r?.payment?.paymentStatus;
+        const isPaid = paymentStatus === 'fully_paid';
+        const status: Booking["status"] = (statusFromStay as any) || (isPaid ? 'paid' : r?.status) || 'pending';
+        // Build room type list and summary
+        let roomTypeList: Array<{ name: string; quantity: number }> = [];
+        if (Array.isArray(r?.details)) {
+          const counts = new Map<string, number>();
+          for (const d of r.details) {
+            const name = d?.roomType?.name ?? 'Loại phòng';
+            const qty = Number(d?.quantity ?? 1);
+            counts.set(name, (counts.get(name) || 0) + qty);
+          }
+          roomTypeList = Array.from(counts.entries()).map(([name, quantity]) => ({ name, quantity }));
+        }
+        const roomTypeSummary = roomTypeList.length
+          ? roomTypeList.map(rt => `${rt.name} x${rt.quantity}`).join(', ')
+          : '';
+        const adults = Array.isArray(r?.details) ? r.details.reduce((sum: number, d: any) => sum + (d?.adults ?? 0), 0) : r?.numberOfGuests ?? 0;
+        const children = Array.isArray(r?.details) ? r.details.reduce((sum: number, d: any) => sum + (d?.children ?? 0), 0) : 0;
 
+        const mapped: Booking = {
+          id: r?._id,
+          bookingCode: (r?._id || '').slice(-6).toUpperCase(),
+          customerName: r?.customer?.fullname || r?.customer?.username || 'Khách lẻ',
+          customerEmail: r?.customer?.email || '-',
+          customerPhone: r?.customer?.phone || '-',
+          roomType: roomTypeSummary,
+          roomTypeList,
+          roomNumber: '-',
+          checkIn: r?.checkInDate ? new Date(r.checkInDate).toISOString().slice(0, 10) : '-',
+          checkOut: r?.checkOutDate ? new Date(r.checkOutDate).toISOString().slice(0, 10) : '-',
+          totalAmount: Number(r?.payment?.totalPrice || 0),
+          status,
+          createdAt: r?.createdAt || '',
+          paymentMethod: r?.payment?.paymentMethod,
+          specialRequests: '',
+          adults,
+          children,
+          services: [],
+          notes: r?.reason || '',
+        };
+        setBooking(mapped);
+      } catch (err) {
+        console.error('Failed to fetch booking detail', err);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchBooking();
   }, [id]);
 
-  const handleStatusChange = (newStatus: string) => {
-    if (booking) {
+  const handleStatusChange = async (newStatus: string) => {
+    if (!booking) return;
+    try {
+      if (newStatus === 'approved') {
+        await apiApproveReservation(booking.id, 'approve');
+      } else if (newStatus === 'rejected') {
+        await apiApproveReservation(booking.id, 'cancel', 'Rejected by manager');
+      } else {
+        // Other actions (paid, checked-in, checked-out) will be wired later
+      }
       setBooking({ ...booking, status: newStatus as Booking["status"] });
+    } catch (err) {
+      console.error('Failed to update status', err);
+    } finally {
       setActionDialog(false);
       setActionType("");
     }
@@ -169,6 +214,23 @@ export default function BookingDetail() {
     });
   };
 
+  // Parse fallback summary string like "Suite x1, Deluxe x2" -> [{name, quantity}]
+  const parseRoomTypeSummary = (summary?: string): Array<{ name: string; quantity: number }> => {
+    if (!summary) return [];
+    return summary
+      .split(",")
+      .map((p) => p.trim())
+      .map((part) => {
+        // Find last occurrence of " x<number>"
+        const match = part.match(/^(.*)\s+x(\d+)$/i);
+        if (match) {
+          return { name: match[1].trim(), quantity: Number(match[2]) };
+        }
+        return { name: part, quantity: 1 };
+      })
+      .filter((x) => x.name.length > 0);
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -206,7 +268,7 @@ export default function BookingDetail() {
 
       {/* Action Buttons */}
       <Box display="flex" gap={2} mb={3}>
-        {availableActions.map((action) => (
+  {availableActions.map((action: string) => (
           <Button
             key={action}
             variant="contained"
@@ -288,21 +350,37 @@ export default function BookingDetail() {
               <Divider sx={{ mb: 2 }} />
               
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Loại phòng
-                  </Typography>
-                  <Typography variant="body1" fontWeight="medium">
-                    {booking.roomType}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Số phòng
-                  </Typography>
-                  <Typography variant="body1" fontWeight="medium">
-                    {booking.roomNumber}
-                  </Typography>
+                {/* Room type table-like display using MUI Table for reliable layout */}
+                <Box sx={{ gridColumn: { xs: '1', sm: '1 / span 2' } }}>
+                  {(() => {
+                    const effectiveList = (booking.roomTypeList && booking.roomTypeList.length > 0)
+                      ? booking.roomTypeList
+                      : parseRoomTypeSummary(booking.roomType);
+                    return (
+                      <Table size="small" sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                        <TableHead>
+                          <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                            <TableCell sx={{ fontWeight: 600 }}>Loại phòng</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }} align="right">Số phòng</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {effectiveList.length > 0 ? (
+                            effectiveList.map((item, idx) => (
+                              <TableRow key={`rt-${idx}`}>
+                                <TableCell>{item.name}</TableCell>
+                                <TableCell align="right">{item.quantity}</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={2} align="center">-</TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    );
+                  })()}
                 </Box>
                 <Box>
                   <Typography variant="body2" color="text.secondary">
@@ -465,9 +543,7 @@ export default function BookingDetail() {
               
               <Box display="flex" justifyContent="space-between" mb={1}>
                 <Typography variant="body2">Phòng ({booking.roomType})</Typography>
-                <Typography variant="body2">
-                  ${booking.totalAmount - (booking.services?.reduce((sum, s) => sum + s.price * s.quantity, 0) || 0)}
-                </Typography>
+                <Typography variant="body2">${booking.totalAmount}</Typography>
               </Box>
               
               {booking.services?.map((service, index) => (

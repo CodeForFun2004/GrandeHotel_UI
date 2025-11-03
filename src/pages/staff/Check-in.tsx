@@ -35,7 +35,8 @@ import {
   Avatar,
   Slider,
 } from "@mui/material";
-import { useLocation } from "react-router-dom";
+// import { useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
 import PersonSearchIcon from "@mui/icons-material/PersonSearch";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
@@ -44,10 +45,11 @@ import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import NoteAltIcon from "@mui/icons-material/NoteAlt";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import UploadFileIcon from "@mui/icons-material/UploadFile";
 import TagFacesIcon from "@mui/icons-material/TagFaces";
 import BadgeIcon from "@mui/icons-material/Badge";
 import LockIcon from "@mui/icons-material/Lock";
+import { searchReservationsForCheckIn as apiSearchCheckin, confirmCheckIn as apiConfirmCheckin, getReservationForCheckIn as apiGetReservationForCheckIn, type CheckinSearchItem } from "../../api/dashboard";
+import { cancelReservation as apiCancelReservation } from "../../api/reservations";
 
 /* =======================
    UTIL
@@ -60,64 +62,8 @@ const formatVND = (n: number) =>
   });
 
 /* =======================
-   MOCK DATA (bookings)
-   ======================= */
-
-type RoomType = "Standard" | "Deluxe" | "Suite";
-
-type Booking = {
-  code: string;
-  guestName: string;
-  phone: string;
-  email: string;
-  roomType: RoomType;
-  roomNumber: string; // phòng KH đã chọn trên web
-  adults: number;
-  children: number;
-  checkIn: string; // ISO date
-  checkOut: string; // ISO date
-  pricePerNight: number; // VND
-  source: "Direct" | "OTA" | "Corporate";
-  note?: string;
-};
-
-const MOCK_BOOKINGS: Booking[] = [
-  {
-    code: "STAY001",
-    guestName: "Nguyen A",
-    phone: "0900000001",
-    email: "a@example.com",
-    roomType: "Deluxe",
-    roomNumber: "507",
-    adults: 2,
-    children: 0,
-    checkIn: "2025-10-18",
-    checkOut: "2025-10-20",
-    pricePerNight: 2800000, // 2.800.000₫/đêm
-    source: "Direct",
-    note: "Yêu cầu tầng cao, không hút thuốc.",
-  },
-  {
-    code: "STAY002",
-    guestName: "Tran B",
-    phone: "0900000002",
-    email: "b@example.com",
-    roomType: "Standard",
-    roomNumber: "202",
-    adults: 1,
-    children: 0,
-    checkIn: "2025-10-18",
-    checkOut: "2025-10-19",
-    pricePerNight: 1200000, // 1.200.000₫/đêm
-    source: "OTA",
-  },
-];
-
-const MOCK_FREE_ROOMS: Record<RoomType, string[]> = {
-  Standard: ["201", "202", "208", "210"],
-  Deluxe: ["502", "507", "510"],
-  Suite: ["801", "803"],
-};
+  DATA TYPES (API-driven)
+  ======================= */
 
 /* =======================
    STEPS (bỏ bước Cọc/Prepayment)
@@ -144,9 +90,8 @@ const faceSteps = [
    ======================= */
 
 export default function CheckIn() {
-  // Nhận data từ navigation state (từ StaffBookings)
-  const location = useLocation();
-  const passedBookingData = location.state?.bookingData as Booking | undefined;
+  const navigate = useNavigate();
+  // Legacy navigation state removed; use API search
 
   // 0 = Manual, 1 = Face
   const [tab, setTab] = useState<0 | 1>(0);
@@ -156,34 +101,101 @@ export default function CheckIn() {
 
   /** --------- STEP 1: Lookup --------- */
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<Booking | null>(null);
+  const [checkInDate, setCheckInDate] = useState<string>(""); // yyyy-MM-dd
+  const [todayOnly, setTodayOnly] = useState<boolean>(false);
+  const [selected, setSelected] = useState<CheckinSearchItem | null>(null);
+  // room selections by roomTypeId -> rooms
+  const [selectedRoomsByType, setSelectedRoomsByType] = useState<Record<string, Array<{ _id: string; roomNumber?: string; name?: string }>>>({});
+  // room type names for display
+  const [roomTypeNames, setRoomTypeNames] = useState<Record<string, string>>({});
+  // available rooms to choose per roomType
+  const [availableRoomsByType, setAvailableRoomsByType] = useState<Record<string, Array<{ _id: string; roomNumber?: string; name?: string; status?: string }>>>({});
+  // payment summary for selected reservation
+  const [paymentSummary, setPaymentSummary] = useState<{ paymentStatus: 'unpaid'|'partially_paid'|'deposit_paid'|'fully_paid'; depositAmount: number; totalPrice: number; paidAmount: number } | null>(null);
+  // per-room ID docs: roomId -> { number, nameOnId, address? }
+  const [idDocs, setIdDocs] = useState<Record<string, { number: string; nameOnId: string; address?: string }>>({});
+  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState<CheckinSearchItem[]>([]);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Cancel dialog state
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState<string>("");
 
   // Auto-select booking nếu được truyền từ StaffBookings
   useEffect(() => {
-    if (passedBookingData) {
-      setSelected(passedBookingData);
-      setQuery(passedBookingData.code);
-      // Tự động chuyển sang bước tiếp theo
-      setActiveStep(1);
+    // no-op: legacy navigation state removed; rely on search
+  }, []);
+
+  const doSearch = async () => {
+    setErrorMsg(null);
+    try {
+      setSearching(true);
+      const res = await apiSearchCheckin(query.trim(), {
+        checkInDate: checkInDate || undefined,
+        todayOnly,
+      });
+      setResults(res.results || []);
+    } catch (e: any) {
+      setErrorMsg(e?.response?.data?.message || 'Tìm kiếm thất bại');
+    } finally {
+      setSearching(false);
     }
-  }, [passedBookingData]);
+  };
+  // load reservation detail and default room selections
+  const loadReservationDetail = async (reservationId: string) => {
+    try {
+      const detail = await apiGetReservationForCheckIn(reservationId);
+      // store payment summary if provided
+      setPaymentSummary(detail.payment ?? null);
+      const map: Record<string, Array<{ _id: string; roomNumber?: string; name?: string }>> = {};
+      const avail: Record<string, Array<{ _id: string; roomNumber?: string; name?: string; status?: string }>> = {};
+      const typeNames: Record<string, string> = {};
+      for (const d of detail.details) {
+        const rtId = (d.roomType as any)._id || d.roomType; // supports populated or id
+        const rtName = (d.roomType as any).name || (d.roomType as any).title || "Loại phòng";
+        typeNames[String(rtId)] = String(rtName);
+        const qty = d.quantity;
+        const reserved = Array.isArray(d.reservedRooms) ? d.reservedRooms : [];
+        let picked = reserved.slice(0, qty);
+        const sug = detail.suggestions.find(s => String((s.roomType as any)._id || s.roomType) === String(rtId));
+        if (picked.length < qty) {
+          const add = (sug?.suggestedRooms || [])
+            .filter(r => !picked.some(p => String(p._id) === String(r._id)))
+            .slice(0, qty - picked.length);
+          picked = [...picked, ...add];
+        }
+        // Always store full available options for this room type to allow reassignment
+        avail[String(rtId)] = (sug?.suggestedRooms || []).map(r => ({ _id: String(r._id), roomNumber: r.roomNumber, name: r.name, status: (r as any).status }));
+        map[String(rtId)] = picked.map(r => ({ _id: String(r._id), roomNumber: r.roomNumber, name: r.name }));
+      }
+      setSelectedRoomsByType(map);
+      setAvailableRoomsByType(avail);
+      setRoomTypeNames(typeNames);
+      // reset id docs when switching reservation
+      setIdDocs({});
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
-  const results = useMemo(() => {
-    if (!query) return [];
-    const q = query.toLowerCase();
-    return MOCK_BOOKINGS.filter(
-      (b) =>
-        b.code.toLowerCase().includes(q) ||
-        b.guestName.toLowerCase().includes(q) ||
-        b.phone.includes(q)
-    );
-  }, [query]);
+  const allSelectedRooms = useMemo(() => Object.values(selectedRoomsByType).flat(), [selectedRoomsByType]);
+  const setIdDocField = (roomId: string, field: 'number' | 'nameOnId' | 'address', value: string) => {
+    setIdDocs(prev => ({ ...prev, [roomId]: { number: prev[roomId]?.number || '', nameOnId: prev[roomId]?.nameOnId || '', address: prev[roomId]?.address, [field]: value } as any }));
+  };
+  // initial load: list all eligible reservations by default
+  useEffect(() => {
+    void doSearch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // auto refresh when filters change (except while typing query; explicit search triggers)
+  useEffect(() => {
+    if (!query.trim()) {
+      void doSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkInDate, todayOnly]);
 
-  /** --------- MANUAL VERIFY --------- */
-  const [idNumber, setIdNumber] = useState("");
-  const [idName, setIdName] = useState("");
-  const [idAddress, setIdAddress] = useState("");
-  const [idImages, setIdImages] = useState<File[]>([]);
+  /** --------- MANUAL VERIFY (per-room handled below) --------- */
 
   /** --------- FACE VERIFY (UI ONLY) --------- */
   const [faceScore, setFaceScore] = useState<number | null>(null); // 0..100
@@ -200,63 +212,115 @@ export default function CheckIn() {
   const [extraDeposit, setExtraDeposit] = useState<number>(0); // VND, chỉ hiện khi upgrade != none
 
   /** --------- ASSIGN --------- */
-  // roomSelected mặc định = phòng KH đã chọn trên web
   const [roomSelected, setRoomSelected] = useState<string>("");
-
-  useEffect(() => {
-    setRoomSelected(selected?.roomNumber || "");
-  }, [selected]);
+  // No default from booking; optional note only
 
   const [keyMethod, setKeyMethod] = useState<"card" | "pin" | "qr">("card");
-  const [openRoomPicker, setOpenRoomPicker] = useState(false);
   const [openKeyDialog, setOpenKeyDialog] = useState(false);
+  // Room reassignment dialog state
+  const [roomPickerOpen, setRoomPickerOpen] = useState(false);
+  const [roomPickerTypeId, setRoomPickerTypeId] = useState<string | null>(null);
+  const [pickerTempIds, setPickerTempIds] = useState<string[]>([]);
+  const [pickerError, setPickerError] = useState<string | null>(null);
+
+  const openRoomPicker = (roomTypeId: string) => {
+    setRoomPickerTypeId(roomTypeId);
+    const current = selectedRoomsByType[roomTypeId] || [];
+    setPickerTempIds(current.map(r => r._id));
+    setPickerError(null);
+    setRoomPickerOpen(true);
+  };
+  const closeRoomPicker = () => {
+    setRoomPickerOpen(false);
+    setRoomPickerTypeId(null);
+    setPickerTempIds([]);
+    setPickerError(null);
+  };
+  const togglePickRoom = (roomId: string) => {
+    if (!roomPickerTypeId) return;
+    const required = (selectedRoomsByType[roomPickerTypeId] || []).length;
+    setPickerTempIds(prev => {
+      const exists = prev.includes(roomId);
+      if (exists) return prev.filter(id => id !== roomId);
+      if (prev.length >= required) {
+        setPickerError(`Cần chọn đúng ${required} phòng`);
+        return prev;
+      }
+      setPickerError(null);
+      return [...prev, roomId];
+    });
+  };
+  const applyRoomPicker = () => {
+    if (!roomPickerTypeId) return;
+    const required = (selectedRoomsByType[roomPickerTypeId] || []).length;
+    if (pickerTempIds.length !== required) {
+      setPickerError(`Cần chọn đúng ${required} phòng`);
+      return;
+    }
+    // map selected ids to room objects (prefer available list, fallback to old selection map)
+    const availList = availableRoomsByType[roomPickerTypeId] || [];
+    const oldList = selectedRoomsByType[roomPickerTypeId] || [];
+    const newRooms = pickerTempIds.map(id => {
+      const found = availList.find(r => String(r._id) === String(id)) || oldList.find(r => String(r._id) === String(id));
+      return found ? { _id: String(found._id), roomNumber: found.roomNumber, name: found.name } : { _id: String(id) } as any;
+    });
+    setSelectedRoomsByType(prev => ({ ...prev, [roomPickerTypeId]: newRooms }));
+    // prune id docs for rooms no longer selected
+    setIdDocs(prev => {
+      const allowedIds = new Set(Object.values({ ...selectedRoomsByType, [roomPickerTypeId]: newRooms }).flat().map(r => r._id));
+      const next: typeof prev = {};
+      Object.entries(prev).forEach(([rid, doc]) => { if (allowedIds.has(rid)) next[rid] = doc; });
+      return next;
+    });
+    closeRoomPicker();
+  };
 
   /** --------- SUMMARY HELPERS --------- */
   const totalNights = useMemo(() => {
     if (!selected) return 0;
-    const a = new Date(selected.checkIn);
-    const b = new Date(selected.checkOut);
+    const a = new Date(selected.checkInDate);
+    const b = new Date(selected.checkOutDate);
     return Math.max(1, Math.round((+b - +a) / (1000 * 60 * 60 * 24)));
   }, [selected]);
 
-  const totalRoom = useMemo(() => {
-    if (!selected) return 0;
-    return selected.pricePerNight * totalNights;
-  }, [selected, totalNights]);
+  // totals for summary (from payment summary)
+  const totalPrice = paymentSummary?.totalPrice ?? 0;
+  const depositAmount = paymentSummary?.depositAmount ?? 0;
+  const paidAmount = paymentSummary?.paidAmount ?? 0;
+  const remainingAmount = Math.max(0, totalPrice - paidAmount);
 
   /** --------- TARGET ROOM TYPE & VALIDATION --------- */
-  const targetRoomType: RoomType | null = useMemo(() => {
-    if (!selected) return null;
-    return upgrade === "none" ? selected.roomType : (upgrade as RoomType);
-  }, [selected, upgrade]);
+  // targetRoomType removed in API-driven flow
 
-  const isRoomValidForTarget = useMemo(() => {
-    if (!selected || !roomSelected || !targetRoomType) return false;
-    if (upgrade === "none") {
-      // không nâng hạng → giữ phòng đã chọn trên web (đã set vào roomSelected)
-      return !!roomSelected;
-    }
-    // nâng hạng → phòng phải thuộc hạng mới
-    return MOCK_FREE_ROOMS[targetRoomType].includes(roomSelected);
-  }, [selected, roomSelected, targetRoomType, upgrade]);
+  const isRoomValidForTarget = true; // backend auto-picks rooms; UI doesn't enforce
 
   /** --------- FLOW GUARDS --------- */
   const canNext = useMemo(() => {
-    if (activeStep === 0) return !!selected; // lookup ok
+  if (activeStep === 0) return !!selected; // lookup ok
     if (tab === 0) {
       // Manual
-      if (activeStep === 1) return idNumber.trim().length >= 6 && idName.trim().length >= 2; // nhập giấy tờ
+      if (activeStep === 1) {
+        // require one ID per selected room
+        if (allSelectedRooms.length === 0) return false;
+        for (const r of allSelectedRooms) {
+          const doc = idDocs[r._id];
+          if (!doc) return false;
+          if ((doc.number || '').trim().length < 6) return false;
+          if ((doc.nameOnId || '').trim().length < 2) return false;
+        }
+        return true;
+      }
       if (activeStep === 2) return true; // ngoại lệ & ghi chú
-      if (activeStep === 3) return isRoomValidForTarget; // gán phòng & key
+  if (activeStep === 3) return isRoomValidForTarget; // backend will validate
       return true;
     } else {
       // Face
       if (activeStep === 1) return faceOK; // face verify
       if (activeStep === 2) return true; // ngoại lệ & ghi chú
-      if (activeStep === 3) return isRoomValidForTarget; // gán phòng & key
+  if (activeStep === 3) return isRoomValidForTarget; // backend will validate
       return true;
     }
-  }, [activeStep, tab, idNumber, idName, faceOK, isRoomValidForTarget]);
+  }, [activeStep, tab, faceOK, isRoomValidForTarget, allSelectedRooms, idDocs]);
 
   const handleNext = () => setActiveStep((s) => Math.min(s + 1, steps.length - 1));
   const handleBack = () => setActiveStep((s) => Math.max(s - 1, 0));
@@ -265,10 +329,8 @@ export default function CheckIn() {
     setActiveStep(0);
     setQuery("");
     setSelected(null);
-    setIdNumber("");
-    setIdName("");
-    setIdAddress("");
-    setIdImages([]);
+    setSelectedRoomsByType({});
+    setIdDocs({});
     setFaceScore(null);
     setEarlyCheckin(false);
     setUpgrade("none");
@@ -285,19 +347,13 @@ export default function CheckIn() {
   const handleUpgradeChange = (v: "none" | "Deluxe" | "Suite") => {
     setUpgrade(v);
     setExtraDeposit(0);
-    if (v === "none") {
-      setRoomSelected(selected?.roomNumber || "");
-    } else {
-      setRoomSelected(""); // xoá để bắt chọn phòng mới
-    }
+    // In API flow, we don't manage room selection here
+    setRoomSelected("");
   };
 
   // Tự bật dialog chọn phòng khi vào bước Assign mà đang nâng hạng & chưa chọn phòng
   useEffect(() => {
-    const isAssignStep = (tab === 0 && activeStep === 3) || (tab === 1 && activeStep === 3);
-    if (isAssignStep && upgrade !== "none" && !roomSelected) {
-      setOpenRoomPicker(true);
-    }
+    // no-op; backend will handle auto room assignment if needed
   }, [activeStep, tab, upgrade, roomSelected]);
 
   const BlockHeader = ({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle?: string }) => (
@@ -314,8 +370,6 @@ export default function CheckIn() {
     </Stack>
   );
 
-  const canChangeRoom = upgrade !== "none";
-  const defaultRoomNumber = selected?.roomNumber || "";
 
   return (
     <Box>
@@ -360,59 +414,56 @@ export default function CheckIn() {
           {activeStep === 0 && (
             <Card>
               <CardContent>
-                <BlockHeader icon={<SearchIcon fontSize="small" />} title="Tra cứu booking" subtitle="Nhập mã / quét QR / tìm theo SĐT hoặc tên khách" />
+                <BlockHeader icon={<SearchIcon fontSize="small" />} title="Tra cứu booking" subtitle="Tìm hoặc lọc các đặt phòng đủ điều kiện check-in (đã duyệt và đã cọc/đã thanh toán)" />
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-                  <TextField fullWidth label="Mã booking / QR / SĐT / Tên" value={query} onChange={(e) => setQuery(e.target.value)} />
-                  <Button variant="contained">Tìm</Button>
+                  <TextField fullWidth label="Từ khóa (Tên / Username / SĐT / Mã đặt phòng)" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e)=>{ if(e.key==='Enter') doSearch(); }} />
+                  <TextField
+                    type="date"
+                    label="Ngày check-in"
+                    InputLabelProps={{ shrink: true }}
+                    value={checkInDate}
+                    onChange={(e)=> setCheckInDate(e.target.value)}
+                    sx={{ minWidth: 200 }}
+                  />
+                  <FormControlLabel control={<Checkbox checked={todayOnly} onChange={(e)=> setTodayOnly(e.target.checked)} />} label="Chỉ hôm nay" />
+                  <Button variant="contained" onClick={doSearch} disabled={searching}>{searching? 'Đang tìm...' : 'Tìm'}</Button>
                 </Stack>
+                {errorMsg && <Alert severity="error" sx={{ mt: 1 }}>{errorMsg}</Alert>}
 
                 <Table size="small" sx={{ mt: 2 }}>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Mã</TableCell>
                       <TableCell>Khách</TableCell>
-                      <TableCell>Hạng</TableCell>
-                      <TableCell>Phòng</TableCell>
+                      <TableCell>SĐT</TableCell>
+                      <TableCell>Khách sạn</TableCell>
                       <TableCell>CI</TableCell>
                       <TableCell>CO</TableCell>
-                      <TableCell>Giá/đêm</TableCell>
-                      <TableCell align="right">Chọn</TableCell>
+                      <TableCell>Payment</TableCell>
+                      <TableCell align="right">Thao tác</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {results.map((b) => (
-                      <TableRow key={b.code} hover selected={selected?.code === b.code}>
-                        <TableCell>{b.code}</TableCell>
-                        <TableCell>{b.guestName}</TableCell>
-                        <TableCell>{b.roomType}</TableCell>
-                        <TableCell>{b.roomNumber}</TableCell>
-                        <TableCell>{b.checkIn}</TableCell>
-                        <TableCell>{b.checkOut}</TableCell>
-                        <TableCell>{formatVND(b.pricePerNight)}</TableCell>
+                      <TableRow key={b.id} hover selected={selected?.id === b.id}>
+                        <TableCell>{b.customer?.fullname}</TableCell>
+                        <TableCell>{b.customer?.phone || '—'}</TableCell>
+                        <TableCell>{b.hotel?.name}</TableCell>
+                        <TableCell>{new Date(b.checkInDate).toLocaleDateString('vi-VN')}</TableCell>
+                        <TableCell>{new Date(b.checkOutDate).toLocaleDateString('vi-VN')}</TableCell>
+                        <TableCell>{b.paymentStatus}</TableCell>
                         <TableCell align="right">
-                          <Button
-                            size="small"
-                            onClick={() => setSelected(b)}
-                            variant={selected?.code === b.code ? "contained" : "outlined"}
-                          >
-                            Chọn
-                          </Button>
+                          <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            <Button size="small" variant="contained" onClick={() => { setSelected(b); void loadReservationDetail(b.id); setActiveStep(1); }}>Check-in</Button>
+                            <Button size="small" variant="outlined" color="error" onClick={() => { setCancelingId(b.id); setCancelReason(""); }}>Hủy</Button>
+                            <Button size="small" onClick={() => navigate(`/manager/bookings/${b.id}`)}>Chi tiết</Button>
+                          </Stack>
                         </TableCell>
                       </TableRow>
                     ))}
-                    {!query && (
+                    {!searching && results.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={8}>
-                          <Typography variant="body2" color="text.secondary">
-                            Nhập từ khóa để tìm.
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {query && results.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={8}>
-                          <Alert severity="warning">Không tìm thấy booking.</Alert>
+                          <Alert severity="warning">Không có đặt phòng phù hợp.</Alert>
                         </TableCell>
                       </TableRow>
                     )}
@@ -426,29 +477,26 @@ export default function CheckIn() {
           {tab === 0 && activeStep === 1 && (
             <Card>
               <CardContent>
-                <BlockHeader icon={<FactCheckIcon fontSize="small" />} title="Nhập thông tin giấy tờ" />
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
-                  <TextField fullWidth label="Số CCCD/Hộ chiếu" value={idNumber} onChange={(e) => setIdNumber(e.target.value)} />
-                  <TextField fullWidth label="Họ tên theo giấy tờ" value={idName} onChange={(e) => setIdName(e.target.value)} />
-                  <Box sx={{ gridColumn: "1 / -1" }}>
-                    <TextField fullWidth label="Địa chỉ" value={idAddress} onChange={(e) => setIdAddress(e.target.value)} />
-                  </Box>
-                  <Box sx={{ gridColumn: "1 / -1" }}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Button startIcon={<UploadFileIcon />} component="label">
-                        Tải ảnh giấy tờ
-                        <input
-                          hidden
-                          type="file"
-                          multiple
-                          accept="image/*"
-                          onChange={(e) => setIdImages(Array.from(e.target.files || []))}
-                        />
-                      </Button>
-                      {!!idImages.length && <Chip label={`${idImages.length} file`} />}
-                    </Stack>
-                  </Box>
-                </Box>
+                <BlockHeader icon={<FactCheckIcon fontSize="small" />} title="Nhập thông tin giấy tờ cho từng phòng" subtitle="Yêu cầu: 1 người đại diện/1 phòng" />
+                {allSelectedRooms.length === 0 && (
+                  <Alert severity="warning">Chưa có phòng được chọn. Hệ thống sẽ tự động gán dựa trên đặt phòng.</Alert>
+                )}
+                <Stack spacing={2}>
+                  {allSelectedRooms.map((r) => (
+                    <Card key={r._id} variant="outlined">
+                      <CardContent>
+                        <Typography variant="subtitle2" gutterBottom>Phòng {r.roomNumber || r.name || r._id}</Typography>
+                        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
+                          <TextField fullWidth label="Số CCCD/Hộ chiếu" value={idDocs[r._id]?.number || ''} onChange={(e) => setIdDocField(r._id, 'number', e.target.value)} />
+                          <TextField fullWidth label="Họ tên theo giấy tờ" value={idDocs[r._id]?.nameOnId || ''} onChange={(e) => setIdDocField(r._id, 'nameOnId', e.target.value)} />
+                          <Box sx={{ gridColumn: "1 / -1" }}>
+                            <TextField fullWidth label="Địa chỉ (tuỳ chọn)" value={idDocs[r._id]?.address || ''} onChange={(e) => setIdDocField(r._id, 'address', e.target.value)} />
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Stack>
               </CardContent>
             </Card>
           )}
@@ -543,26 +591,46 @@ export default function CheckIn() {
           {((tab === 0 && activeStep === 3) || (tab === 1 && activeStep === 3)) && (
             <Card>
               <CardContent>
-                <BlockHeader
-                  icon={<MeetingRoomIcon fontSize="small" />}
-                  title="Gán phòng & phát key"
-                  subtitle={
-                    canChangeRoom
-                      ? "Đang nâng hạng — chọn phòng mới theo hạng đã chọn"
-                      : "Phòng đã được khách chọn sẵn trên web (không đổi)"
-                  }
-                />
+                <BlockHeader icon={<MeetingRoomIcon fontSize="small" />} title="Gán phòng & phát key" subtitle={"Phòng sẽ được tự động gán theo đặt phòng và tình trạng hiện tại"} />
+
+                {/* Current assigned rooms per type with option to reassign */}
+                {Object.keys(selectedRoomsByType).length > 0 ? (
+                  <Stack spacing={2} sx={{ mb: 2 }}>
+                    {Object.entries(selectedRoomsByType).map(([typeId, rooms]) => (
+                      <Card key={typeId} variant="outlined">
+                        <CardContent>
+                          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={1.5}>
+                            <Box>
+                              <Typography variant="subtitle2" gutterBottom>
+                                {roomTypeNames[typeId] || "Loại phòng"} — {rooms.length} phòng
+                              </Typography>
+                              <Stack direction="row" spacing={1} flexWrap="wrap">
+                                {rooms.map(r => (
+                                  <Chip key={r._id} label={`Phòng ${r.roomNumber || r.name || r._id}`} size="small" />
+                                ))}
+                              </Stack>
+                            </Box>
+                            <Button variant="outlined" onClick={() => openRoomPicker(typeId)} disabled={(availableRoomsByType[typeId] || []).length === 0}>
+                              Đổi phòng
+                            </Button>
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Alert severity="info" sx={{ mb: 2 }}>Chưa có thông tin phòng — hệ thống sẽ tự động gán dựa trên đặt phòng.</Alert>
+                )}
 
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems="center">
                   <TextField
-                    label={canChangeRoom ? "Phòng (chọn phòng mới)" : "Phòng (khóa theo đặt trước)"}
+                    label={"Ghi chú phát key (tuỳ chọn)"}
                     value={roomSelected}
-                    onClick={() => canChangeRoom && setOpenRoomPicker(true)}
-                    placeholder={canChangeRoom ? "Nhấn để chọn phòng" : ""}
+                    onChange={(e)=>setRoomSelected(e.target.value)}
                     fullWidth
-                    InputProps={{ readOnly: true }}
+                    placeholder="VD: Đã phát 2 thẻ."
                   />
-                  {!canChangeRoom && <Chip icon={<LockIcon />} label="Locked" variant="outlined" />}
+                  <Chip icon={<LockIcon />} label="Auto-assign" variant="outlined" />
 
                   <FormControl fullWidth>
                     <InputLabel>Phương thức key</InputLabel>
@@ -595,15 +663,14 @@ export default function CheckIn() {
                       <CardContent>
                         <Typography variant="subtitle2" gutterBottom>Khách & booking</Typography>
                         <Stack spacing={0.5}>
-                          <Row label="Mã booking" value={selected.code} />
-                          <Row label="Khách" value={selected.guestName} />
-                          <Row label="SĐT" value={selected.phone} />
-                          <Row label="Email" value={selected.email} />
-                          <Row label="Hạng ban đầu" value={selected.roomType} />
-                          <Row label="Phòng (theo web)" value={defaultRoomNumber} />
+                          <Row label="Khách" value={selected.customer?.fullname || '—'} />
+                          <Row label="SĐT" value={selected.customer?.phone || '—'} />
+                          <Row label="Email" value={selected.customer?.email || '—'} />
+                          <Row label="Khách sạn" value={selected.hotel?.name || '—'} />
+                          <Row label="Check-in" value={new Date(selected.checkInDate).toLocaleDateString('vi-VN')} />
+                          <Row label="Check-out" value={new Date(selected.checkOutDate).toLocaleDateString('vi-VN')} />
                           <Row label="Số đêm" value={`${totalNights}`} />
-                          <Row label="Giá/đêm" value={formatVND(selected.pricePerNight)} />
-                          <Row label="Nguồn" value={selected.source} />
+                          <Row label="Payment" value={selected.paymentStatus} />
                         </Stack>
                       </CardContent>
                     </Card>
@@ -642,19 +709,17 @@ export default function CheckIn() {
               <BlockHeader icon={<PersonSearchIcon fontSize="small" />} title="Tóm tắt booking" />
               {selected ? (
                 <Stack spacing={0.75}>
-                  <Row label="Mã" value={selected.code} />
-                  <Row label="Khách" value={selected.guestName} />
-                  <Row label="Hạng ban đầu" value={selected.roomType} />
-                  <Row label="Phòng (web)" value={selected.roomNumber} />
-                  <Row label="Khách (A/C)" value={`${selected.adults}/${selected.children}`} />
-                  <Row label="Check-in" value={selected.checkIn} />
-                  <Row label="Check-out" value={selected.checkOut} />
+                  <Row label="Khách" value={selected.customer?.fullname} />
+                  <Row label="Khách sạn" value={selected.hotel?.name} />
+                  <Row label="Check-in" value={new Date(selected.checkInDate).toLocaleDateString('vi-VN')} />
+                  <Row label="Check-out" value={new Date(selected.checkOutDate).toLocaleDateString('vi-VN')} />
                   <Row label="Số đêm" value={`${totalNights}`} />
-                  <Row label="Giá/đêm" value={formatVND(selected.pricePerNight)} />
-                  <Row label="Nguồn" value={selected.source} />
-                  {selected.note && <Row label="Ghi chú" value={selected.note} />}
+                  <Row label="Payment" value={paymentSummary?.paymentStatus || selected.paymentStatus} />
                   <Divider sx={{ my: 1 }} />
-                  <Row label="Tổng tiền phòng" value={formatVND(totalRoom)} />
+                  <Row label="Tổng tiền phòng" value={formatVND(totalPrice)} />
+                  <Row label="Đã thanh toán" value={formatVND(paidAmount)} />
+                  <Row label="Cọc yêu cầu" value={formatVND(depositAmount)} />
+                  <Row label="Còn lại" value={formatVND(remainingAmount)} />
                 </Stack>
               ) : (
                 <Typography variant="body2" color="text.secondary">Chưa chọn booking.</Typography>
@@ -671,10 +736,28 @@ export default function CheckIn() {
                     variant="contained"
                     color="success"
                     startIcon={<CheckCircleIcon />}
-                    disabled={!selected || !roomSelected || (tab === 1 && !faceOK)}
-                    onClick={() => {
-                      // UI-only: reset sau khi confirm
-                      resetAll();
+                    disabled={!selected || (tab === 1 && !faceOK)}
+                    onClick={async () => {
+                      if (!selected) return;
+                      try {
+                        // Ensure ID docs exist for the currently selected rooms
+                        const currentRooms = Object.values(selectedRoomsByType).flat();
+                        const missingId = currentRooms.find(r => !idDocs[r._id] || !(idDocs[r._id].number || '').trim() || !(idDocs[r._id].nameOnId || '').trim());
+                        if (missingId) {
+                          alert('Vui lòng nhập giấy tờ cho tất cả các phòng đã chọn.');
+                          setActiveStep(1); // go back to ID step
+                          return;
+                        }
+                        // Build selections and idVerifications
+                        const selections = Object.entries(selectedRoomsByType).map(([roomTypeId, rooms]) => ({ roomTypeId, roomIds: rooms.map(r => r._id) }));
+                        const idVerifications = allSelectedRooms.map(r => ({ roomId: r._id, idDocument: { type: 'citizen_id' as const, number: idDocs[r._id]?.number || '', nameOnId: idDocs[r._id]?.nameOnId || '', address: idDocs[r._id]?.address || '', method: 'manual' as const } }));
+                        await apiConfirmCheckin(selected.id, { selections, idVerifications });
+                        // Refresh the eligible reservations list so just-checked-in booking disappears
+                        await doSearch();
+                        resetAll();
+                      } catch (e: any) {
+                        alert(e?.response?.data?.message || 'Check-in thất bại');
+                      }
                     }}
                   >
                     Xác nhận Check-in
@@ -686,29 +769,42 @@ export default function CheckIn() {
         </Box>
       </Box>
 
-      {/* Dialog chọn phòng (chỉ bật nếu upgrade != none) */}
-      <Dialog open={openRoomPicker} onClose={() => setOpenRoomPicker(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Chọn phòng trống ({targetRoomType || "—"})</DialogTitle>
+      {/* Dialog chọn phòng: ẩn trong API-driven flow (auto-assign) */}
+      {/* Room reassignment dialog */}
+      <Dialog open={roomPickerOpen} onClose={closeRoomPicker} maxWidth="sm" fullWidth>
+        <DialogTitle>Chọn phòng khác</DialogTitle>
         <DialogContent dividers>
-          {selected ? (
-            upgrade === "none" ? (
-              <Alert severity="info">Không thể đổi phòng khi không nâng hạng.</Alert>
-            ) : (
-              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1 }}>
-                {MOCK_FREE_ROOMS[targetRoomType || selected.roomType].map((r) => (
-                  <Button key={r} variant={roomSelected === r ? "contained" : "outlined"} fullWidth onClick={() => setRoomSelected(r)}>
-                    {r}
-                  </Button>
-                ))}
-              </Box>
-            )
-          ) : (
-            <Alert severity="warning">Chọn booking trước.</Alert>
+          {roomPickerTypeId && (
+            <>
+              <Typography variant="body2" gutterBottom>
+                {roomTypeNames[roomPickerTypeId] || "Loại phòng"} — cần chọn đúng {(selectedRoomsByType[roomPickerTypeId] || []).length} phòng
+              </Typography>
+              {(availableRoomsByType[roomPickerTypeId] || []).length === 0 ? (
+                <Alert severity="info">Không còn phòng trống khác để đổi.</Alert>
+              ) : (
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {(availableRoomsByType[roomPickerTypeId] || []).map(r => {
+                    const picked = pickerTempIds.includes(r._id);
+                    return (
+                      <Chip
+                        key={r._id}
+                        label={`Phòng ${r.roomNumber || r.name || r._id}`}
+                        color={picked ? "primary" : "default"}
+                        variant={picked ? "filled" : "outlined"}
+                        onClick={() => togglePickRoom(r._id)}
+                        sx={{ mb: 1 }}
+                      />
+                    );
+                  })}
+                </Stack>
+              )}
+              {pickerError && <Alert severity="warning" sx={{ mt: 2 }}>{pickerError}</Alert>}
+            </>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenRoomPicker(false)}>Đóng</Button>
-          <Button variant="contained" disabled={!roomSelected} onClick={() => setOpenRoomPicker(false)}>Xong</Button>
+          <Button onClick={closeRoomPicker}>Hủy</Button>
+          <Button variant="contained" onClick={applyRoomPicker} disabled={!roomPickerTypeId}>Xác nhận</Button>
         </DialogActions>
       </Dialog>
 
@@ -741,6 +837,44 @@ export default function CheckIn() {
         <DialogActions>
           <Button onClick={() => setOpenKeyDialog(false)}>Đóng</Button>
           <Button variant="contained" onClick={() => setOpenKeyDialog(false)}>Phát key</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Cancel reservation dialog */}
+      <Dialog open={!!cancelingId} onClose={() => setCancelingId(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Hủy đặt phòng</DialogTitle>
+        <DialogContent dividers>
+          <Alert severity="warning" sx={{ mb: 2 }}>Hành động này sẽ hủy đặt phòng. Vui lòng nhập lý do.</Alert>
+          <TextField
+            label="Lý do hủy"
+            fullWidth
+            multiline
+            minRows={3}
+            value={cancelReason}
+            onChange={(e)=> setCancelReason(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelingId(null)}>Đóng</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={!cancelReason.trim()}
+            onClick={async () => {
+              if (!cancelingId) return;
+              try {
+                await apiCancelReservation(cancelingId, cancelReason.trim());
+                // refresh list and clear selection if needed
+                if (selected?.id === cancelingId) setSelected(null);
+                await doSearch();
+                setCancelingId(null);
+              } catch (e: any) {
+                alert(e?.response?.data?.message || 'Hủy đặt phòng thất bại');
+              }
+            }}
+          >
+            Xác nhận hủy
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
