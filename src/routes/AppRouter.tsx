@@ -18,7 +18,6 @@ import Logout from "../pages/auth/Logout";
 import AdminUserManagement from "../pages/admin/AdminUserManagement";
 import AdminHotelList from "../pages/admin/AdminHotelList";
 
-
 import ForgotPass from "../pages/auth/ForgotPass";
 import VerifyEmail from "../pages/auth/VerifyEmail";
 import Profile from "../pages/customer/Profile";
@@ -45,7 +44,6 @@ import BookingDetail from "../pages/admin/BookingDetail";
 
 import ContactManagement from "../pages/admin/ContactManagement";
 
-
 // Staff components
 import StaffDashboard from "../pages/staff/StaffDashboard";
 import StaffRooms from "../pages/staff/StaffRooms";
@@ -62,9 +60,12 @@ import StaffTasks from "../pages/staff/StaffTasks";
 import AuthLayout from "../layouts/AuthLayout";
 import AuthCallback from "../pages/AuthCallPage";
 
-import { USER_ROLES, ADMIN_PATHS, MANAGER_PATHS, STAFF_PATHS } from "../utils/constant/enum";
-
-
+import {
+  USER_ROLES,
+  ADMIN_PATHS,
+  MANAGER_PATHS,
+  STAFF_PATHS,
+} from "../utils/constant/enum";
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const routes = {
@@ -140,40 +141,58 @@ export const router = createBrowserRouter([
       { path: "about", element: <AboutUs /> },
       { path: "contact", element: <LandingContact /> },
       { path: routes.PROFILE_PATH, element: <Profile /> },
-  { path: routes.PROFILE_WISHLISTS_PATH, element: <WishLists /> },
-  { path: routes.PROFILE_SUPPORT_PATH, element: <CustomerChat /> },
+      { path: routes.PROFILE_WISHLISTS_PATH, element: <WishLists /> },
+      { path: routes.PROFILE_SUPPORT_PATH, element: <CustomerChat /> },
       { path: routes.HOTELS_PATH, element: <Hotels /> },
       { path: routes.ROOMS_PATH, element: <Rooms /> },
-      { path: routes.RESERVATION_REVIEW_PATH, element: (
-        <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
-          <ReservationReview />
-        </RoleBasedRoute>
-      ) },
-      { path: routes.RESERVATION_FORM_PATH, element: (
-        <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
-          <ReservationForm />
-        </RoleBasedRoute>
-      ) },
-      { path: routes.RESERVATION_PENDING_PATH, element: (
-        <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
-          <ReservationPending />
-        </RoleBasedRoute>
-      ) },
-      { path: routes.RESERVATION_QR_PAYMENT_PATH, element: (
-        <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
-          <ReservationQRPayment />
-        </RoleBasedRoute>
-      ) },
-      { path: routes.RESERVATION_PAYMENT_CONFIRMATION_PATH, element: (
-        <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
-          <ReservationPaymentConfirmation />
-        </RoleBasedRoute>
-      ) },
-      { path: routes.RESERVATION_BILL_PATH, element: (
-        <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
-          <ReservationBill />
-        </RoleBasedRoute>
-      ) },
+      {
+        path: routes.RESERVATION_REVIEW_PATH,
+        element: (
+          <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
+            <ReservationReview />
+          </RoleBasedRoute>
+        ),
+      },
+      {
+        path: routes.RESERVATION_FORM_PATH,
+        element: (
+          <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
+            <ReservationForm />
+          </RoleBasedRoute>
+        ),
+      },
+      {
+        path: routes.RESERVATION_PENDING_PATH,
+        element: (
+          <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
+            <ReservationPending />
+          </RoleBasedRoute>
+        ),
+      },
+      {
+        path: routes.RESERVATION_QR_PAYMENT_PATH,
+        element: (
+          <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
+            <ReservationQRPayment />
+          </RoleBasedRoute>
+        ),
+      },
+      {
+        path: routes.RESERVATION_PAYMENT_CONFIRMATION_PATH,
+        element: (
+          <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
+            <ReservationPaymentConfirmation />
+          </RoleBasedRoute>
+        ),
+      },
+      {
+        path: routes.RESERVATION_BILL_PATH,
+        element: (
+          <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
+            <ReservationBill />
+          </RoleBasedRoute>
+        ),
+      },
       // { path: routes.ROOM_DETAIL_PATH, element: <RoomDetail /> },
       { path: routes.ALL_PATH, element: <NotFoundPage /> },
     ],
@@ -243,7 +262,7 @@ export const router = createBrowserRouter([
       { path: "rooms/:roomId", element: <StaffRoomDetail /> },
       { path: "bookings", element: <StaffBookings /> },
       { path: "calendar", element: <StaffCalendar /> },
-  { path: "tasks", element: <StaffTasks /> },
+      { path: "tasks", element: <StaffTasks /> },
       { path: "chat", element: <StaffChat /> },
       { path: "customers", element: <StaffCustomers /> },
       { path: "profile", element: <StaffProfile /> },
