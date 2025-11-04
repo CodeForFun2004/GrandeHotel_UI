@@ -101,7 +101,6 @@ const Header: React.FC<Props> = ({ heroSelector = "#hero" }) => {
             {/* <Nav.Link as={NavLink} to="/service" className="deluxe-link">
               Service
             </Nav.Link> */}
-            <Nav.Link as={NavLink} to="/blog" className="deluxe-link"></Nav.Link>
             <Nav.Link as={NavLink} to="/about" className="deluxe-link">
               About
             </Nav.Link>

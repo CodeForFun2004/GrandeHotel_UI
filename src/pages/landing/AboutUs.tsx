@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { Carousel } from "react-bootstrap";
+import { FormatQuote } from "@mui/icons-material";
 
 type Props = {
   showHero?: boolean;
@@ -305,6 +307,159 @@ const AboutUs: React.FC<Props> = ({
 
         .insta-grid img:hover { transform: scale(1.05); }
 
+        /* ---------- TESTIMONIALS ---------- */
+        .testimonials-section-landing {
+          padding: 80px 20px;
+          background: #ffffff;
+        }
+
+        .testimonials-section-landing h3 {
+          font-size: 2.5rem;
+          font-weight: 700;
+          color: #2c3e50;
+        }
+
+        .testimonials-carousel-landing {
+          max-width: 900px;
+          margin: 0 auto;
+          padding: 20px 0;
+        }
+
+        .testimonials-carousel-landing .carousel-inner {
+          min-height: 400px;
+        }
+
+        .testimonials-carousel-landing .carousel-item {
+          min-height: 400px;
+        }
+
+        .testimonials-carousel-landing .carousel-control-prev,
+        .testimonials-carousel-landing .carousel-control-next {
+          width: 50px;
+          height: 50px;
+          background-color: rgba(198, 166, 103, 0.9);
+          border-radius: 50%;
+          top: 50%;
+          transform: translateY(-50%);
+          opacity: 1;
+        }
+
+        .testimonials-carousel-landing .carousel-control-prev:hover,
+        .testimonials-carousel-landing .carousel-control-next:hover {
+          background-color: #c6a667;
+        }
+
+        .testimonials-carousel-landing .carousel-control-prev {
+          left: -60px;
+        }
+
+        .testimonials-carousel-landing .carousel-control-next {
+          right: -60px;
+        }
+
+        .testimonials-carousel-landing .carousel-indicators {
+          margin-bottom: -40px;
+        }
+
+        .testimonials-carousel-landing .carousel-indicators button {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background-color: #c6a667;
+          border: none;
+          margin: 0 5px;
+        }
+
+        .testimonial-card-landing {
+          background: #f8f9fa;
+          border: 1px solid #e0e0e0;
+          padding: 60px 50px;
+          border-radius: 20px;
+          text-align: center;
+          min-height: 380px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+          margin: 0 auto;
+          max-width: 800px;
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .testimonial-card-landing:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+        }
+
+        .quote-icon-landing {
+          color: #c6a667;
+          margin-bottom: 20px;
+          opacity: 0.3;
+        }
+
+        .testimonial-text-landing {
+          font-size: 1.2rem;
+          line-height: 1.9;
+          color: #495057;
+          font-style: italic;
+          margin-bottom: 30px;
+        }
+
+        .testimonial-author-landing {
+          font-size: 1.1rem;
+          margin-top: 20px;
+          color: #2c3e50;
+        }
+
+        .testimonial-author-landing strong {
+          font-weight: 600;
+          color: #1a1a1a;
+        }
+
+        .testimonial-author-landing span {
+          color: #6c757d;
+        }
+
+        .rating-landing {
+          margin-top: 15px;
+          font-size: 1.3rem;
+        }
+
+        @media (max-width: 992px) {
+          .testimonials-carousel-landing .carousel-control-prev,
+          .testimonials-carousel-landing .carousel-control-next {
+            display: none;
+          }
+
+          .testimonial-card-landing {
+            padding: 40px 30px;
+            min-height: 320px;
+          }
+
+          .testimonial-text-landing {
+            font-size: 1.05rem;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .testimonials-section-landing {
+            padding: 60px 15px;
+          }
+
+          .testimonials-section-landing h3 {
+            font-size: 2rem;
+          }
+
+          .testimonial-card-landing {
+            padding: 30px 20px;
+            min-height: auto;
+          }
+
+          .testimonial-text-landing {
+            font-size: 1rem;
+          }
+        }
+
         @media (max-width: 992px) {
           .about-intro {
             flex-direction: column;
@@ -424,6 +579,110 @@ const AboutUs: React.FC<Props> = ({
           </div>
         </section>
       )}
+
+      {/* ---------- TESTIMONIALS CAROUSEL ---------- */}
+      <section className="testimonials-section-landing">
+        <div className="container">
+          <h3 className="text-center mb-5">What Our Guests Say</h3>
+          <Carousel 
+            interval={4000} 
+            pause="hover" 
+            indicators={true}
+            controls={true}
+            className="testimonials-carousel-landing"
+          >
+            <Carousel.Item>
+              <div className="testimonial-card-landing">
+                <div className="quote-icon-landing">
+                  <FormatQuote sx={{ fontSize: 60 }} />
+                </div>
+                <p className="testimonial-text-landing">
+                  "An exceptional experience from start to finish. The attention to detail and 
+                  personalized service made our anniversary celebration truly memorable. The rooms 
+                  are beautifully designed with a perfect blend of luxury and comfort."
+                </p>
+                <div className="testimonial-author-landing">
+                  <strong>Sarah & Michael Chen</strong>
+                  <span> • Singapore</span>
+                </div>
+                <div className="rating-landing">⭐⭐⭐⭐⭐</div>
+              </div>
+            </Carousel.Item>
+
+            <Carousel.Item>
+              <div className="testimonial-card-landing">
+                <div className="quote-icon-landing">
+                  <FormatQuote sx={{ fontSize: 60 }} />
+                </div>
+                <p className="testimonial-text-landing">
+                  "The perfect blend of modern amenities and timeless elegance. Every staff member 
+                  went above and beyond to ensure our stay was flawless. The location is ideal, 
+                  and the dining experience exceeded all expectations."
+                </p>
+                <div className="testimonial-author-landing">
+                  <strong>James Anderson</strong>
+                  <span> • London, UK</span>
+                </div>
+                <div className="rating-landing">⭐⭐⭐⭐⭐</div>
+              </div>
+            </Carousel.Item>
+
+            <Carousel.Item>
+              <div className="testimonial-card-landing">
+                <div className="quote-icon-landing">
+                  <FormatQuote sx={{ fontSize: 60 }} />
+                </div>
+                <p className="testimonial-text-landing">
+                  "I've stayed at many luxury hotels around the world, but Grande Hotel stands out 
+                  for its genuine warmth and impeccable service. The spa facilities are world-class, 
+                  and the breakfast spread is absolutely divine. Will definitely return!"
+                </p>
+                <div className="testimonial-author-landing">
+                  <strong>Dr. Emily Nguyen</strong>
+                  <span> • New York, USA</span>
+                </div>
+                <div className="rating-landing">⭐⭐⭐⭐⭐</div>
+              </div>
+            </Carousel.Item>
+
+            <Carousel.Item>
+              <div className="testimonial-card-landing">
+                <div className="quote-icon-landing">
+                  <FormatQuote sx={{ fontSize: 60 }} />
+                </div>
+                <p className="testimonial-text-landing">
+                  "A tranquil oasis in the heart of the city. The rooms are spacious and beautifully 
+                  appointed, the staff is incredibly professional yet friendly, and the overall 
+                  atmosphere is one of refined luxury. Highly recommended for business or leisure."
+                </p>
+                <div className="testimonial-author-landing">
+                  <strong>Robert & Lisa Martinez</strong>
+                  <span> • Sydney, Australia</span>
+                </div>
+                <div className="rating-landing">⭐⭐⭐⭐⭐</div>
+              </div>
+            </Carousel.Item>
+
+            <Carousel.Item>
+              <div className="testimonial-card-landing">
+                <div className="quote-icon-landing">
+                  <FormatQuote sx={{ fontSize: 60 }} />
+                </div>
+                <p className="testimonial-text-landing">
+                  "From the moment we arrived, we felt welcomed and valued. The concierge team 
+                  provided excellent recommendations for local attractions. Our suite had stunning 
+                  views, and every detail was thoughtfully curated. An unforgettable stay!"
+                </p>
+                <div className="testimonial-author-landing">
+                  <strong>Sophie Dubois</strong>
+                  <span> • Paris, France</span>
+                </div>
+                <div className="rating-landing">⭐⭐⭐⭐⭐</div>
+              </div>
+            </Carousel.Item>
+          </Carousel>
+        </div>
+      </section>
     </>
   );
 };
