@@ -30,6 +30,27 @@ export default function BookingForm() {
     'Hai Phong',
   ];
 
+  // Helpers for date-only handling (avoid timezone shifts)
+  const ymd = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const parseYMD = (s: string): Date | null => {
+    if (!s) return null;
+    const str = s.includes('T') ? s.slice(0, 10) : s;
+    const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(str);
+    if (!m) {
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    const year = Number(m[1]);
+    const month = Number(m[2]);
+    const day = Number(m[3]);
+    return new Date(year, month - 1, day);
+  };
+
   // Sync state from URL query whenever it changes
   useEffect(() => {
     const q = new URLSearchParams(location.search);
@@ -38,8 +59,8 @@ export default function BookingForm() {
     const co = q.get('checkOutDate');
     const rooms = q.get('rooms');
     setDestination(city);
-    setCheckin(ci ? new Date(ci) : null);
-    setCheckout(co ? new Date(co) : null);
+    setCheckin(ci ? parseYMD(ci) : null);
+    setCheckout(co ? parseYMD(co) : null);
     setRoomCount(rooms ? Math.max(1, Number(rooms)) : 1);
   }, [location.search]);
 
@@ -66,8 +87,8 @@ export default function BookingForm() {
     // Navigate to Rooms page with query params
     const params = new URLSearchParams();
     if (destination) params.set('city', destination);
-    if (checkin) params.set('checkInDate', checkin.toISOString());
-    if (checkout) params.set('checkOutDate', checkout.toISOString());
+    if (checkin) params.set('checkInDate', ymd(checkin));
+    if (checkout) params.set('checkOutDate', ymd(checkout));
     if (roomCount) params.set('rooms', String(roomCount));
     if (voucher) params.set('voucher', voucher);
 
