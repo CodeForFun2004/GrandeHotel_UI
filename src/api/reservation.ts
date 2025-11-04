@@ -2,7 +2,8 @@ import instance from './axios';
 
 export type CreateReservationPayload = {
   hotelId: string;
-  customerId: string;
+  // customerId is derived from auth on backend; keep optional for backward compat
+  customerId?: string;
   checkInDate: string;
   checkOutDate: string;
   numberOfGuests: number;

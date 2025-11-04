@@ -79,9 +79,16 @@ const ReservationReview: React.FC = () => {
     if (!draft) return;
     setLoading(true); setError(null);
     try {
+      // Require login: if no accessToken, redirect to login preserving draft
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        // keep draft in sessionStorage; navigate to login with redirect
+        const ret = encodeURIComponent('/reservation/review');
+        navigate(`/auth/login?redirect=${ret}`);
+        return;
+      }
       const payload = {
         hotelId: draft.hotelId,
-        customerId: 'guest', // TODO: wire to auth user if available
         checkInDate: draft.checkInDate,
         checkOutDate: draft.checkOutDate,
         numberOfGuests: (draft.selected || []).reduce((acc: number, s: any) => acc + s.adults + s.children + s.infants, 0),
