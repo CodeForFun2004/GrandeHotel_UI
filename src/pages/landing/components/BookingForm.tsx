@@ -6,7 +6,6 @@ import "react-datepicker/dist/react-datepicker.css";
 import { 
   LocationOn, 
   CalendarToday, 
-  Home, 
   LocalOffer,
   Search 
 } from "@mui/icons-material";
@@ -169,7 +168,6 @@ export default function BookingForm() {
                 <div className="wrap w-100">
                   <label className="label label-booking">Số phòng</label>
                   <div className="room-stepper">
-                    <Home className="input-icon" />
                     <button 
                       type="button" 
                       className="stepper-btn" 

@@ -1,9 +1,10 @@
 import React from "react";
 import AvatarUpload from "./AvatarUpload";
+import type { Tab } from "../types/profile.types";
 
 interface ProfileHeaderProps {
   avatarUrl: string;
-  tab: "profile" | "change";
+  tab: Tab;
   editing: boolean;
   uploading: boolean;
   onAvatarChange: (newAvatarUrl: string) => void;
@@ -51,9 +52,14 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         />
 
         <div>
-          <div style={{ fontWeight: 800, fontSize: 20 }}>My Profile</div>
+          <div style={{ fontWeight: 800, fontSize: 20 }}>
+            {tab === "support" ? "Support" : "My Profile"}
+          </div>
           <div style={{ color: "#9ca3af", fontSize: 13 }}>
-            Real-time information and activities of your prototype.
+            {tab === "support"
+              ? "Get help and support for your account"
+              : "Real-time information and activities of your prototype."
+            }
           </div>
         </div>
       </div>

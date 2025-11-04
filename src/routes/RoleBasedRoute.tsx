@@ -12,7 +12,33 @@ interface RoleBasedRouteProps {
 export const RoleBasedRoute = ({ children, allowedRoles }: RoleBasedRouteProps) => {
   const user = useSelector((state: RootState) => state.auth.user);
   
-  // Nếu chưa đăng nhập, redirect về login
+  // Kiểm tra cả token và user state - đảm bảo không redirect khi đang refresh token
+  const accessToken = localStorage.getItem('accessToken');
+  const hasToken = !!accessToken;
+  
+  // Nếu không có token và không có user, redirect về login
+  if (!hasToken && !user) {
+    return <Navigate to="/auth/login" replace />;
+  }
+
+  // Nếu có token nhưng chưa có user trong Redux, thử load user từ localStorage
+  if (!user && hasToken) {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const parsedUser = JSON.parse(userStr);
+        // Nếu có user trong localStorage, check role
+        if (parsedUser?.role && allowedRoles.includes(parsedUser.role)) {
+          // Cho phép truy cập tạm thời, user sẽ được sync vào Redux sau
+          return <>{children}</>;
+        }
+      }
+    } catch {
+      // Parse error - không có user hợp lệ
+    }
+  }
+
+  // Nếu không có user sau khi check cả localStorage, redirect về login
   if (!user) {
     return <Navigate to="/auth/login" replace />;
   }

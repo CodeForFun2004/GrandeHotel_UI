@@ -31,33 +31,27 @@ export const updateReservationStatus = async (id: string, status: string) => {
   return res.data;
 };
 
-// Approve or cancel (reject) reservation
-export const approveReservation = async (
-  id: string,
-  action: 'approve' | 'cancel',
-  reason?: string
-) => {
-  const res = await instance.put(`/reservations/${id}/approve`, { action, reason });
-  return res.data;
-};
-
-// Select payment option: 'full' | 'deposit'
-export const selectPaymentOption = async (
-  id: string,
-  paymentType: 'full' | 'deposit'
-) => {
-  const res = await instance.post(`/reservations/${id}/payment-options`, { paymentType });
-  return res.data;
-};
-
-// Verify payment via AppScript (server will match and update Payment)
-export const verifyReservationPayment = async (id: string) => {
-  const res = await instance.put(`/reservations/${id}/payment`);
-  return res.data;
-};
-
 export const deleteReservation = async (id: string) => {
   const res = await instance.delete(`/reservations/${id}`);
+  return res.data;
+};
+
+// Payment related APIs
+// POST /:id/payment-options - Select payment option and get QR code
+export const selectPaymentOption = async (id: string, paymentType: 'full' | 'deposit') => {
+  const res = await instance.post(`/reservations/${id}/payment-options`, { paymentType });
+  return res.data; // Returns: { message, paymentInfo: { paymentType, requiredAmount, vietQRLink, ... } }
+};
+
+// PUT /:id/payment - Check and confirm payment via AppScript
+export const handlePayment = async (id: string) => {
+  const res = await instance.put(`/reservations/${id}/payment`);
+  return res.data; // Returns: { message, reservation, matchedTransaction, paymentDetails }
+};
+
+// PUT /:id/approve - Approve or reject reservation
+export const approveReservation = async (id: string, action: 'approve' | 'cancel', reason?: string) => {
+  const res = await instance.put(`/reservations/${id}/approve`, { action, reason });
   return res.data;
 };
 
@@ -66,8 +60,8 @@ export default {
   getAllReservations,
   getReservationById,
   updateReservationStatus,
-  approveReservation,
-  selectPaymentOption,
-  verifyReservationPayment,
   deleteReservation,
+  selectPaymentOption,
+  handlePayment,
+  approveReservation,
 };

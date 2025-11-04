@@ -22,6 +22,7 @@ import {
   Tabs,
   Tab,
   Tooltip,
+  Alert,
 } from "@mui/material";
 import {
   Search,
@@ -37,112 +38,21 @@ import {
   Email,
   History,
   BookOnline,
+  Wifi,
+  WifiOff,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
-
-/* =========================
-   Mock & types (đồng bộ Hotel_ID / Accounts / Bookings)
-   ========================= */
-type AccountStatus = "active" | "inactive" | "banned";
-type BookingStatus = "confirmed" | "pending" | "cancelled";
-
-type CustomerLite = {
-  Account_ID: number;
-  FirstName: string;
-  LastName: string;
-  Email: string;
-  PhoneNumber: string;
-  Status: AccountStatus;
-};
-
-type Message = {
-  id: string;
-  from: "customer" | "staff";
-  text: string;
-  time: string; // ISO
-};
-
-type Conversation = {
-  threadId: string;
-  customer: CustomerLite;
-  hotelId: number;
-  lastMessageAt: string; // ISO
-  unread: number;
-  pinned?: boolean;
-  booking?: {
-    Reservation_ID: string;
-    Stay_ID?: string;
-    RoomNumber?: string;
-    Status: BookingStatus;
-    CheckIn?: string;
-    CheckOut?: string;
-  };
-  messages: Message[];
-};
-
-const currentHotelId = 1;
-
-const CUSTOMERS: CustomerLite[] = [
-  { Account_ID: 11, FirstName: "John", LastName: "Doe", Email: "john.doe@email.com", PhoneNumber: "0900000001", Status: "active" },
-  { Account_ID: 12, FirstName: "Jane", LastName: "Smith", Email: "jane.smith@email.com", PhoneNumber: "0900000002", Status: "active" },
-  { Account_ID: 13, FirstName: "Bob", LastName: "Johnson", Email: "bob.johnson@email.com", PhoneNumber: "0900000003", Status: "inactive" },
-];
-
-const CONVERSATIONS_SEED: Conversation[] = [
-  {
-    threadId: "T-1001",
-    hotelId: 1,
-    customer: CUSTOMERS[0],
-    lastMessageAt: "2025-10-18T10:45:00Z",
-    unread: 2,
-    pinned: true,
-    booking: {
-      Reservation_ID: "RSV-1001",
-      Stay_ID: "STAY-1101",
-      RoomNumber: "507",
-      Status: "confirmed",
-      CheckIn: "2025-10-18",
-      CheckOut: "2025-10-20",
-    },
-    messages: [
-      { id: "m1", from: "customer", text: "Chào lễ tân, mấy giờ check-in ạ?", time: "2025-10-18T10:40:00Z" },
-      { id: "m2", from: "staff", text: "Check-in từ 14:00 anh/chị nhé.", time: "2025-10-18T10:42:00Z" },
-      { id: "m3", from: "customer", text: "Ok. Có thể nhận sớm không ạ?", time: "2025-10-18T10:45:00Z" },
-    ],
-  },
-  {
-    threadId: "T-1002",
-    hotelId: 1,
-    customer: CUSTOMERS[1],
-    lastMessageAt: "2025-10-18T09:20:00Z",
-    unread: 0,
-    booking: {
-      Reservation_ID: "RSV-1002",
-      Stay_ID: "STAY-1102",
-      RoomNumber: "103",
-      Status: "confirmed",
-      CheckIn: "2025-10-16",
-      CheckOut: "2025-10-20",
-    },
-    messages: [
-      { id: "m1", from: "customer", text: "Cho mình xin hóa đơn điện tử sau khi trả phòng nhé.", time: "2025-10-18T09:05:00Z" },
-      { id: "m2", from: "staff", text: "Dạ được ạ, mình sẽ gửi qua email sau khi check-out.", time: "2025-10-18T09:12:00Z" },
-      { id: "m3", from: "customer", text: "Cảm ơn bạn!", time: "2025-10-18T09:20:00Z" },
-    ],
-  },
-  {
-    threadId: "T-1003",
-    hotelId: 2, // khách sạn khác -> sẽ bị lọc khỏi danh sách staff hotelId=1
-    customer: CUSTOMERS[2],
-    lastMessageAt: "2025-10-17T20:10:00Z",
-    unread: 1,
-    booking: {
-      Reservation_ID: "RSV-0990",
-      Status: "pending",
-    },
-    messages: [{ id: "m1", from: "customer", text: "Còn phòng Deluxe cuối tuần này không?", time: "2025-10-17T20:10:00Z" }],
-  },
-];
+import { useSelector } from "react-redux";
+import type { RootState } from "../../redux/store";
+import {
+  getStaffConversations,
+  getStaffConversation,
+  sendStaffMessage,
+  markStaffRead,
+  toggleStaffPin,
+  type Conversation,
+} from "../../api/chat";
+import { useChat } from "../../hooks/useChat";
 
 /* =========================
    Helpers
@@ -152,7 +62,7 @@ const fmtTimeShort = (iso: string) => {
   return d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
 };
 
-const statusChip = (s: BookingStatus) =>
+const statusChip = (s: string) =>
   s === "confirmed" ? (
     <Chip size="small" color="success" icon={<CheckCircle fontSize="small" />} label="Confirmed" />
   ) : s === "pending" ? (
@@ -161,21 +71,34 @@ const statusChip = (s: BookingStatus) =>
     <Chip size="small" color="error" icon={<Cancel fontSize="small" />} label="Cancelled" />
   );
 
-const fullName = (c: CustomerLite) => `${c.FirstName} ${c.LastName}`;
+const fullName = (c: Conversation['customer']) => c ? `${c.FirstName} ${c.LastName}`.trim() : '';
 
 /* =========================
    Component
    ========================= */
 const StaffChat: React.FC = () => {
   const navigate = useNavigate();
+  const user = useSelector((state: RootState) => state.auth.user);
   const [query, setQuery] = React.useState("");
   const [tab, setTab] = React.useState<"all" | "unread" | "active">("all");
-  const [threads, setThreads] = React.useState<Conversation[]>(
-    CONVERSATIONS_SEED.filter((t) => t.hotelId === currentHotelId)
-  );
+  const [threads, setThreads] = React.useState<Conversation[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [lastUpdate, setLastUpdate] = React.useState<Date>(new Date());
 
-  const [activeId, setActiveId] = React.useState<string | null>(threads[0]?.threadId ?? null);
+  const [activeId, setActiveId] = React.useState<string | null>(null);
   const active = React.useMemo(() => threads.find((t) => t.threadId === activeId) || null, [threads, activeId]);
+
+  // Real-time chat hook
+  const {
+    messages: realTimeMessages,
+    isTyping: realTimeTyping,
+    isConnected,
+    connectionStatus,
+    error: socketError,
+    sendMessage: sendRealTimeMessage,
+    handleTyping: handleRealTimeTyping,
+    loadMessages,
+  } = useChat({ threadId: activeId || undefined, autoConnect: true });
 
   // search + filter
   const filtered = React.useMemo(() => {
@@ -185,9 +108,8 @@ const StaffChat: React.FC = () => {
         const matchKw =
           !kw ||
           fullName(t.customer).toLowerCase().includes(kw) ||
-          t.customer.PhoneNumber.includes(kw) ||
-          t.booking?.Reservation_ID?.toLowerCase().includes(kw) ||
-          t.booking?.Stay_ID?.toLowerCase().includes(kw);
+          (t.customer?.PhoneNumber && t.customer.PhoneNumber.includes(kw)) ||
+          t.booking?.Reservation_ID?.toLowerCase().includes(kw);
         const matchTab =
           tab === "all" ? true : tab === "unread" ? t.unread > 0 : (t.booking?.Status || "pending") === "confirmed";
         return matchKw && matchTab;
@@ -202,33 +124,47 @@ const StaffChat: React.FC = () => {
   const [text, setText] = React.useState("");
   const [typing, setTyping] = React.useState(false);
 
+  // Auto-scroll refs
+  const messagesContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new messages arrive
+  const scrollToBottom = React.useCallback(() => {
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      container.scrollTop = container.scrollHeight;
+    }
+  }, []);
+
+  // Scroll when messages change
+  React.useEffect(() => {
+    // Use setTimeout to ensure DOM has updated
+    const timeoutId = setTimeout(() => {
+      scrollToBottom();
+    }, 100);
+    return () => clearTimeout(timeoutId);
+  }, [realTimeMessages, scrollToBottom]);
+
   const sendMessage = () => {
     if (!active || !text.trim()) return;
-    const msg: Message = { id: `m-${Date.now()}`, from: "staff", text: text.trim(), time: new Date().toISOString() };
-    setThreads((prev) =>
-      prev.map((t) =>
-        t.threadId === active.threadId
-          ? {
-              ...t,
-              messages: [...t.messages, msg],
-              lastMessageAt: msg.time,
-              unread: 0, // đã phản hồi
-            }
-          : t
-      )
-    );
+    // Use real-time messaging
+    sendRealTimeMessage(text.trim());
     setText("");
   };
 
-  const markAllRead = (threadId: string) => {
-    setThreads((prev) => prev.map((t) => (t.threadId === threadId ? { ...t, unread: 0 } : t)));
+  const markAllRead = async (threadId: string) => {
+    try {
+      await markStaffRead(threadId);
+      setThreads((prev) => prev.map((t) => (t.threadId === threadId ? { ...t, unread: 0 } : t)));
+    } catch (error) {
+      console.error("Failed to mark as read:", error);
+    }
   };
 
   const quickReply = (tpl: string) => setText((s) => (s ? s + " " + tpl : tpl));
 
   const openCustomer = () => {
     if (!active) return;
-    navigate("/staff/customers", { state: { q: active.customer.PhoneNumber } });
+    navigate("/staff/customers", { state: { q: active.customer?.PhoneNumber || "" } });
   };
 
   const openBooking = () => {
@@ -236,20 +172,59 @@ const StaffChat: React.FC = () => {
     navigate("/staff/bookings", { state: { q: active.booking.Reservation_ID } });
   };
 
-  // khi chọn thread => đánh dấu đã đọc
+  // Fetch conversations on mount and when query/tab changes
   React.useEffect(() => {
-    if (!active) return;
-    markAllRead(active.threadId);
-  }, [activeId]); // eslint-disable-line
+    const fetchConversations = async () => {
+      setLoading(true);
+      try {
+        const data = await getStaffConversations({ hotelId: user?.hotelId as string, query, tab });
+        setThreads(data);
+        if (data.length > 0 && !activeId) {
+          setActiveId(data[0].threadId);
+        }
+      } catch (error) {
+        console.error("Failed to fetch conversations:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchConversations();
+  }, [query, tab]);
+
+  // Fetch full messages when selecting a thread and load into real-time hook
+  React.useEffect(() => {
+    if (!activeId) return;
+    const fetchConversation = async () => {
+      try {
+        const data = await getStaffConversation(activeId);
+        // Load messages into the real-time hook (only pass messages array)
+        loadMessages({ ...data, messages: data.messages });
+        // Mark as read
+        await markAllRead(activeId);
+      } catch (error) {
+        console.error("Failed to fetch conversation:", error);
+      }
+    };
+    fetchConversation();
+  }, [activeId, loadMessages]);
 
   return (
     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "360px 1fr" }, gap: 2 }}>
       {/* LEFT: thread list */}
       <Card sx={{ height: { md: "calc(100vh - 120px)" }, overflow: "hidden", display: "flex", flexDirection: "column" }}>
         <CardContent sx={{ pb: 1.5 }}>
-          <Typography variant="h6" fontWeight={800} sx={{ color: "#b8192b", mb: 1 }}>
-            Chat
-          </Typography>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+            <Typography variant="h6" fontWeight={800} sx={{ color: "#b8192b" }}>
+              Chat
+            </Typography>
+            <Chip
+              size="small"
+              variant="outlined"
+              icon={<Person />}
+              label={`Cập nhật: ${fmtTimeShort(lastUpdate.toISOString())}`}
+              sx={{ fontSize: '0.7rem' }}
+            />
+          </Stack>
           <TextField
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -340,68 +315,87 @@ const StaffChat: React.FC = () => {
       <Card sx={{ height: { md: "calc(100vh - 120px)" }, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {/* Header */}
         <CardContent sx={{ pb: 1.5 }}>
-          {active ? (
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Avatar sx={{ bgcolor: "#b8192b" }}>
-                <Person />
-              </Avatar>
-              <Box>
-                <Typography variant="h6" fontWeight={800}>
-                  {fullName(active.customer)}
-                </Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                  <Chip size="small" variant="outlined" icon={<Phone fontSize="small" />} label={active.customer.PhoneNumber} />
-                  <Chip size="small" variant="outlined" icon={<Email fontSize="small" />} label={active.customer.Email} />
-                  {active.booking?.Reservation_ID && (
-                    <Chip size="small" variant="outlined" icon={<BookOnline fontSize="small" />} label={`#${active.booking.Reservation_ID}`} />
-                  )}
-                  {active.booking?.Stay_ID && (
-                    <Chip size="small" variant="outlined" icon={<History fontSize="small" />} label={`#${active.booking.Stay_ID}`} />
-                  )}
-                </Stack>
-              </Box>
-              <Box sx={{ flex: 1 }} />
-              <Tooltip title="Tùy chọn">
-                <IconButton onClick={(e) => setAnchor(e.currentTarget)}>
-                  <MoreVert />
-                </IconButton>
-              </Tooltip>
-              <Menu open={Boolean(anchor)} anchorEl={anchor} onClose={() => setAnchor(null)}>
-                <MenuItem
-                  onClick={() => {
-                    setAnchor(null);
-                    markAllRead(active.threadId);
-                  }}
-                >
-                  Đánh dấu đã đọc
-                </MenuItem>
-                <MenuItem
-                  onClick={() => {
-                    setAnchor(null);
-                    // mock: ghim
-                    setThreads((prev) =>
-                      prev.map((t) => (t.threadId === active.threadId ? { ...t, pinned: !t.pinned } : t))
-                    );
-                  }}
-                >
-                  {active.pinned ? "Bỏ ghim" : "Ghim hội thoại"}
-                </MenuItem>
-              </Menu>
-            </Stack>
-          ) : (
-            <Typography variant="h6" color="text.secondary">
-              Chọn một hội thoại để bắt đầu.
-            </Typography>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+            {active ? (
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <Avatar sx={{ bgcolor: "#b8192b" }}>
+                  <Person />
+                </Avatar>
+                <Box>
+                  <Typography variant="h6" fontWeight={800}>
+                    {fullName(active.customer)}
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Chip size="small" variant="outlined" icon={<Phone fontSize="small" />} label={active.customer?.PhoneNumber || ""} />
+                    <Chip size="small" variant="outlined" icon={<Email fontSize="small" />} label={active.customer?.Email || ""} />
+                    {active.booking?.Reservation_ID && (
+                      <Chip size="small" variant="outlined" icon={<BookOnline fontSize="small" />} label={`#${active.booking.Reservation_ID}`} />
+                    )}
+                  </Stack>
+                </Box>
+                <Box sx={{ flex: 1 }} />
+                <Tooltip title="Tùy chọn">
+                  <IconButton onClick={(e) => setAnchor(e.currentTarget)}>
+                    <MoreVert />
+                  </IconButton>
+                </Tooltip>
+                <Menu open={Boolean(anchor)} anchorEl={anchor} onClose={() => setAnchor(null)}>
+                  <MenuItem
+                    onClick={() => {
+                      setAnchor(null);
+                      markAllRead(active.threadId);
+                    }}
+                  >
+                    Đánh dấu đã đọc
+                  </MenuItem>
+                  <MenuItem
+                    onClick={async () => {
+                      setAnchor(null);
+                      try {
+                        await toggleStaffPin(active.threadId, !active.pinned);
+                        setThreads((prev) =>
+                          prev.map((t) => (t.threadId === active.threadId ? { ...t, pinned: !t.pinned } : t))
+                        );
+                      } catch (error) {
+                        console.error("Failed to toggle pin:", error);
+                      }
+                    }}
+                  >
+                    {active.pinned ? "Bỏ ghim" : "Ghim hội thoại"}
+                  </MenuItem>
+                </Menu>
+              </Stack>
+            ) : (
+              <Typography variant="h6" color="text.secondary">
+                Chọn một hội thoại để bắt đầu.
+              </Typography>
+            )}
+
+            {/* Connection Status */}
+            <Chip
+              size="small"
+              icon={isConnected ? <Wifi /> : <WifiOff />}
+              label={connectionStatus === 'connected' ? 'Online' : connectionStatus === 'connecting' ? 'Connecting...' : 'Offline'}
+              color={isConnected ? 'success' : 'error'}
+              variant="outlined"
+            />
+          </Stack>
+
+          {/* Error Display */}
+          {socketError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {socketError}
+            </Alert>
           )}
         </CardContent>
 
         <Divider />
 
         {/* Messages */}
-        <Box sx={{ flex: 1, overflowY: "auto", p: 2, backgroundColor: "#fafafa" }}>
+        <Box ref={messagesContainerRef} sx={{ flex: 1, overflowY: "auto", p: 2, backgroundColor: "#fafafa" }}>
           {active ? (
             <Stack spacing={1.2}>
-              {active.messages.map((m) => {
+              {realTimeMessages.map((m) => {
                 const mine = m.from === "staff";
                 return (
                   <Box key={m.id} sx={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
@@ -425,7 +419,7 @@ const StaffChat: React.FC = () => {
                   </Box>
                 );
               })}
-              {typing && (
+              {realTimeTyping && (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
                   <Avatar sx={{ width: 24, height: 24 }}>
                     <Person fontSize="small" />

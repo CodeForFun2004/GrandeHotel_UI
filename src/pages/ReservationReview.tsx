@@ -77,28 +77,157 @@ const ReservationReview: React.FC = () => {
 
   const onConfirm = async () => {
     if (!draft) return;
-    setLoading(true); setError(null);
+    setLoading(true); 
+    setError(null);
+    
     try {
-      // Require login: if no accessToken, redirect to login preserving draft
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        // keep draft in sessionStorage; navigate to login with redirect
-        const ret = encodeURIComponent('/reservation/review');
-        navigate(`/auth/login?redirect=${ret}`);
+      // Kiểm tra token trước khi gọi API
+      const accessToken = localStorage.getItem('accessToken');
+      if (!accessToken) {
+        setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        console.error('❌ No access token found');
         return;
       }
+
+      // Get customerId from localStorage - đảm bảo đọc đúng key
+      // Cũng thử decode token để lấy user ID từ token (backend có thể check token thay vì payload)
+      let customerId = 'guest';
+      try {
+        const rawUser = localStorage.getItem('user');
+        if (rawUser) {
+          const user = JSON.parse(rawUser);
+          // Ưu tiên _id (MongoDB), sau đó id (có thể từ transform)
+          customerId = user?._id || user?.id || 'guest';
+          console.log('✅ Customer ID:', customerId, 'from user:', { _id: user?._id, id: user?.id });
+        } else {
+          console.warn('⚠️ No user found in localStorage');
+        }
+        
+        // Thử decode token để lấy user ID từ token
+        if (accessToken) {
+          try {
+            const tokenParts = accessToken.split('.');
+            if (tokenParts.length === 3) {
+              const payload = JSON.parse(atob(tokenParts[1]));
+              const tokenUserId = payload.id || payload.userId || payload._id;
+              console.log('🔑 User ID from token:', tokenUserId);
+              
+              // Nếu token có user ID và khác với customerId, có thể đây là vấn đề
+              if (tokenUserId && customerId !== 'guest' && tokenUserId !== customerId) {
+                console.warn('⚠️ Token user ID does not match customerId:', {
+                  tokenUserId,
+                  customerId
+                });
+                // Có thể backend yêu cầu customerId phải match với token user ID
+                // Thử dùng token user ID thay vì customerId từ localStorage
+                customerId = tokenUserId;
+                console.log('🔄 Using token user ID as customerId:', customerId);
+              }
+            }
+          } catch (tokenErr) {
+            console.warn('⚠️ Could not decode token:', tokenErr);
+          }
+        }
+      } catch (err) {
+        console.error('❌ Failed to get user from localStorage:', err);
+        setError('Không thể lấy thông tin người dùng. Vui lòng đăng nhập lại.');
+        return;
+      }
+
+      if (customerId === 'guest') {
+        console.warn('⚠️ Using guest customerId');
+        setError('Bạn cần đăng nhập để đặt phòng.');
+        return;
+      }
+
       const payload = {
         hotelId: draft.hotelId,
+        customerId: customerId,
         checkInDate: draft.checkInDate,
         checkOutDate: draft.checkOutDate,
         numberOfGuests: (draft.selected || []).reduce((acc: number, s: any) => acc + s.adults + s.children + s.infants, 0),
-        rooms: (draft.selected || []).map((s: any) => ({ roomTypeId: s.roomTypeId, quantity: s.quantity, adults: s.adults, children: s.children, infants: s.infants })),
+        rooms: (draft.selected || []).map((s: any) => ({ 
+          roomTypeId: s.roomTypeId, 
+          quantity: s.quantity, 
+          adults: s.adults, 
+          children: s.children, 
+          infants: s.infants 
+        })),
       };
+
+      // Kiểm tra xem customerId có match với token id không
+      if (accessToken) {
+        try {
+          const tokenParts = accessToken.split('.');
+          if (tokenParts.length === 3) {
+            const tokenPayload = JSON.parse(atob(tokenParts[1]));
+            console.log('🔍 Verifying customerId before request:', {
+              customerIdInPayload: customerId,
+              userIdInToken: tokenPayload.id,
+              roleInToken: tokenPayload.role,
+              match: customerId === tokenPayload.id
+            });
+            
+            if (customerId !== tokenPayload.id) {
+              console.warn('⚠️ WARNING: customerId does not match token id! Using token id instead.');
+              // Sửa customerId trong request payload để match với token id
+              payload.customerId = tokenPayload.id;
+              console.log('🔄 Updated customerId to:', payload.customerId);
+            }
+          }
+        } catch {}
+      }
+      
+      // Log payload và so sánh với token
+      console.log('📤 Creating reservation with payload:', { ...payload, rooms: payload.rooms.length });
+      
       const res = await reservationApi.createReservation(payload);
-      sessionStorage.removeItem('reservationDraft');
-      navigate(`/booking-complete?reservation=${res?.reservation?._id || ''}`);
+      
+      console.log('✅ Reservation created:', res?.reservation?._id || res?.reservation?.id);
+      
+      // Keep draft in sessionStorage for pending page
+      sessionStorage.setItem('reservationDraft', JSON.stringify(draft));
+      
+      // Navigate to pending page to wait for approval
+      const reservationId = res?.reservation?._id || res?.reservation?.id || '';
+      navigate(`/reservation/pending?reservation=${reservationId}`);
     } catch (e: any) {
-      setError(e?.message || 'Xác nhận đặt phòng thất bại');
+      console.error('❌ Reservation creation error:', e);
+      const errorMessage = e?.response?.data?.message || e?.message || 'Xác nhận đặt phòng thất bại';
+      
+      // Kiểm tra xem có phải lỗi do thiếu role trong token không
+      if (e?.response?.status === 401) {
+        console.error('❌ 401 Unauthorized - Checking token...');
+        
+        // Kiểm tra token có role không
+        const currentToken = localStorage.getItem('accessToken');
+        if (currentToken) {
+          try {
+            const tokenParts = currentToken.split('.');
+            if (tokenParts.length === 3) {
+              const payload = JSON.parse(atob(tokenParts[1]));
+              if (!payload.role) {
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                  const user = JSON.parse(userStr);
+                  if (user.role) {
+                    setError(`Xác thực thất bại: Token không chứa thông tin quyền (role). Vui lòng đăng xuất và đăng nhập lại. (Role hiện tại: ${user.role})`);
+                    console.error('❌ Token thiếu role field. User có role:', user.role);
+                    console.error('❌ Backend refresh token endpoint cần được sửa để include role trong token');
+                    setLoading(false);
+                    return;
+                  }
+                }
+              }
+            }
+          } catch {}
+        }
+        
+        // Nếu không phải lỗi role, hiển thị error message thông thường
+        setError(errorMessage || 'Xác thực thất bại. Vui lòng đăng nhập lại.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }

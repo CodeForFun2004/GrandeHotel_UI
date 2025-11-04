@@ -58,6 +58,87 @@ export const deleteService = async (id: string) => {
   return res.data;
 };
 
+// Admin Hotel Management APIs
+export const getAllAdminHotels = async (params?: { page?: number; limit?: number }) => {
+  const res = await instance.get('/admin/hotels', { params });
+  return res.data;
+};
+
+export const getAdminHotelById = async (id: string) => {
+  const res = await instance.get<Hotel>(`/admin/hotels/${id}`);
+  return res.data;
+};
+
+export const createAdminHotel = async (payload: Partial<Hotel>, images?: File[]) => {
+  const formData = new FormData();
+
+  // Add hotel data
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      formData.append(key, value.toString());
+    }
+  });
+
+  // Add images
+  if (images && images.length > 0) {
+    images.forEach((image, index) => {
+      formData.append('images', image);
+    });
+  }
+
+  const res = await instance.post<Hotel>('/admin/hotels', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return res.data;
+};
+
+export const updateAdminHotel = async (id: string, payload: Partial<Hotel>, images?: File[]) => {
+  const formData = new FormData();
+
+  // Add hotel data
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      formData.append(key, value.toString());
+    }
+  });
+
+  // Add images
+  if (images && images.length > 0) {
+    images.forEach((image, index) => {
+      formData.append('images', image);
+    });
+  }
+
+  const res = await instance.put<Hotel>(`/admin/hotels/${id}`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return res.data;
+};
+
+export const deleteAdminHotel = async (id: string) => {
+  const res = await instance.delete<{ message?: string }>(`/admin/hotels/${id}`);
+  return res.data;
+};
+
+export const assignManagerToHotel = async (hotelId: string, managerId: string) => {
+  const res = await instance.put(`/admin/hotels/${hotelId}/assign-manager`, { managerId });
+  return res.data;
+};
+
+export const unassignManagerFromHotel = async (hotelId: string) => {
+  const res = await instance.put(`/admin/hotels/${hotelId}/unassign-manager`);
+  return res.data;
+};
+
+export const getAvailableManagers = async () => {
+  const res = await instance.get('/admin/hotels/managers/available');
+  return res.data;
+};
+
 export default {
   getAllHotels,
   getHotelById,
@@ -70,4 +151,13 @@ export default {
   getServiceById,
   updateService,
   deleteService,
+  // Admin APIs
+  getAllAdminHotels,
+  getAdminHotelById,
+  createAdminHotel,
+  updateAdminHotel,
+  deleteAdminHotel,
+  assignManagerToHotel,
+  unassignManagerFromHotel,
+  getAvailableManagers,
 };
