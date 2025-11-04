@@ -9,6 +9,12 @@ export interface Customer {
   Status: 'active' | 'banned';
 }
 
+export interface Hotel {
+  Hotel_ID: string;
+  Name: string;
+  Address: string;
+}
+
 export interface Booking {
   Reservation_ID: string;
   Status: 'confirmed' | 'pending';
@@ -26,6 +32,7 @@ export interface Message {
 export interface Conversation {
   threadId: string;
   customer?: Customer; // Only in staff responses
+  hotel?: Hotel; // Only in customer list responses
   hotelId?: string; // Only in staff responses
   lastMessageAt: string;
   unread: number;
@@ -68,9 +75,9 @@ export const toggleStaffPin = async (threadId: string, pinned: boolean): Promise
   await axios.put(`/staff/conversations/${threadId}/pin`, { pinned });
 };
 
-// Customer endpoints (assuming similar structure)
-export const getCustomerConversations = async (): Promise<Conversation[]> => {
-  const response = await axios.get('/customer/conversations');
+// Customer endpoints
+export const getCustomerConversations = async (params?: { query?: string; tab?: 'all' | 'unread' | 'active' }): Promise<Conversation[]> => {
+  const response = await axios.get('/customer/conversations', { params });
   return response.data;
 };
 

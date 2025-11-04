@@ -10,6 +10,7 @@ export type User = {
   phone?: string;
   role: 'customer' | 'admin' | 'staff' | 'shipper';
   avatar?: string;
+  photoFace?: string;
   address?: string;
   gender?: 'male' | 'female' | 'other';
   birthday?: string;
@@ -48,6 +49,13 @@ export const updateUser = async (id: string, payload: Partial<User>) => {
 
 export const updateUserAvatar = async (id: string, formData: FormData) => {
   const res = await instance.put<User>(`/users/${id}/avatar`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return res.data;
+};
+
+export const uploadPhotoFace = async (id: string, formData: FormData) => {
+  const res = await instance.put<User>(`/users/${id}/photoFace`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return res.data;
@@ -116,6 +124,7 @@ export default {
   getUserById,
   updateUser,
   updateUserAvatar,
+  uploadPhotoFace,
   deleteUser,
   suspendUser,
   unsuspendUser,
