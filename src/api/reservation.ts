@@ -7,7 +7,7 @@ export type CreateReservationPayload = {
   checkInDate: string;
   checkOutDate: string;
   numberOfGuests: number;
-  rooms: Array<{ roomTypeId: string; quantity: number }>;
+  rooms: Array<{ roomTypeId: string; quantity: number; adults?: number; children?: number; infants?: number }>;
   voucherCode?: string;
 };
 

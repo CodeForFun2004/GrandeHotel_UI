@@ -112,8 +112,9 @@ export default function CheckIn() {
   const [availableRoomsByType, setAvailableRoomsByType] = useState<Record<string, Array<{ _id: string; roomNumber?: string; name?: string; status?: string }>>>({});
   // payment summary for selected reservation
   const [paymentSummary, setPaymentSummary] = useState<{ paymentStatus: 'unpaid'|'partially_paid'|'deposit_paid'|'fully_paid'; depositAmount: number; totalPrice: number; paidAmount: number } | null>(null);
-  // per-room ID docs: roomId -> { number, nameOnId, address? }
-  const [idDocs, setIdDocs] = useState<Record<string, { number: string; nameOnId: string; address?: string }>>({});
+  // per-room ID docs: roomId -> { type, number, nameOnId, address? }
+  type IdType = 'cccd' | 'cmnd' | 'passport' | 'other';
+  const [idDocs, setIdDocs] = useState<Record<string, { type?: IdType; number: string; nameOnId: string; address?: string }>>({});
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<CheckinSearchItem[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -180,7 +181,39 @@ export default function CheckIn() {
 
   const allSelectedRooms = useMemo(() => Object.values(selectedRoomsByType).flat(), [selectedRoomsByType]);
   const setIdDocField = (roomId: string, field: 'number' | 'nameOnId' | 'address', value: string) => {
-    setIdDocs(prev => ({ ...prev, [roomId]: { number: prev[roomId]?.number || '', nameOnId: prev[roomId]?.nameOnId || '', address: prev[roomId]?.address, [field]: value } as any }));
+    setIdDocs(prev => {
+      const current = prev[roomId] || { type: 'cccd', number: '', nameOnId: '' };
+      let v = value;
+      // sanitize by type
+      const t = current.type || 'cccd';
+      if (field === 'number') {
+        if (t === 'cccd' || t === 'cmnd') v = value.replace(/\D/g, '');
+        else if (t === 'passport' || t === 'other') v = value.toUpperCase();
+      }
+      return { ...prev, [roomId]: { ...current, [field]: v } } as any;
+    });
+  };
+  const setIdDocType = (roomId: string, type: IdType) => {
+    setIdDocs(prev => {
+      const current = prev[roomId] || { number: '', nameOnId: '' };
+      // when switching type, re-sanitize number
+      let num = current.number || '';
+      if (type === 'cccd' || type === 'cmnd') num = (num || '').replace(/\D/g, '');
+      else num = (num || '').toUpperCase();
+      return { ...prev, [roomId]: { ...current, type, number: num } } as any;
+    });
+  };
+
+  const validateIdDoc = (doc?: { type?: IdType; number?: string; nameOnId?: string }) => {
+    if (!doc) return false;
+    const t = doc.type || 'cccd';
+    const num = (doc.number || '').trim();
+    const name = (doc.nameOnId || '').trim();
+    if (name.length < 2) return false;
+    if (t === 'cccd') return /^\d{12}$/.test(num);
+    if (t === 'cmnd') return /^\d{9}$/.test(num);
+    if (t === 'passport') return /^[A-Z0-9]{6,9}$/.test(num);
+    return /^[A-Z0-9-]{6,20}$/.test(num);
   };
   // initial load: list all eligible reservations by default
   useEffect(() => {
@@ -241,13 +274,25 @@ export default function CheckIn() {
     const required = (selectedRoomsByType[roomPickerTypeId] || []).length;
     setPickerTempIds(prev => {
       const exists = prev.includes(roomId);
-      if (exists) return prev.filter(id => id !== roomId);
-      if (prev.length >= required) {
-        setPickerError(`Cần chọn đúng ${required} phòng`);
-        return prev;
+      if (exists) {
+        // unselect if already selected
+        const next = prev.filter(id => id !== roomId);
+        setPickerError(null);
+        return next;
       }
+      if (required <= 0) {
+        setPickerError(null);
+        return [roomId];
+      }
+      if (prev.length < required) {
+        setPickerError(null);
+        return [...prev, roomId];
+      }
+      // At capacity: replace the last selection with the new one (1-for-1 swap)
+      const replaced = [...prev];
+      replaced[replaced.length - 1] = roomId;
       setPickerError(null);
-      return [...prev, roomId];
+      return replaced;
     });
   };
   const applyRoomPicker = () => {
@@ -300,13 +345,10 @@ export default function CheckIn() {
     if (tab === 0) {
       // Manual
       if (activeStep === 1) {
-        // require one ID per selected room
+        // require one valid ID per selected room
         if (allSelectedRooms.length === 0) return false;
         for (const r of allSelectedRooms) {
-          const doc = idDocs[r._id];
-          if (!doc) return false;
-          if ((doc.number || '').trim().length < 6) return false;
-          if ((doc.nameOnId || '').trim().length < 2) return false;
+          if (!validateIdDoc(idDocs[r._id])) return false;
         }
         return true;
       }
@@ -487,11 +529,29 @@ export default function CheckIn() {
                       <CardContent>
                         <Typography variant="subtitle2" gutterBottom>Phòng {r.roomNumber || r.name || r._id}</Typography>
                         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
+                          <FormControl fullWidth>
+                            <InputLabel>Loại giấy tờ</InputLabel>
+                            <Select
+                              label="Loại giấy tờ"
+                              value={idDocs[r._id]?.type || 'cccd'}
+                              onChange={(e) => setIdDocType(r._id, e.target.value as IdType)}
+                            >
+                              <MenuItem value="cccd">CCCD (12 số)</MenuItem>
+                              <MenuItem value="cmnd">CMND (9 số)</MenuItem>
+                              <MenuItem value="passport">Passport (6–9 ký tự chữ/số)</MenuItem>
+                              <MenuItem value="other">Khác</MenuItem>
+                            </Select>
+                          </FormControl>
                           <TextField fullWidth label="Số CCCD/Hộ chiếu" value={idDocs[r._id]?.number || ''} onChange={(e) => setIdDocField(r._id, 'number', e.target.value)} />
                           <TextField fullWidth label="Họ tên theo giấy tờ" value={idDocs[r._id]?.nameOnId || ''} onChange={(e) => setIdDocField(r._id, 'nameOnId', e.target.value)} />
                           <Box sx={{ gridColumn: "1 / -1" }}>
                             <TextField fullWidth label="Địa chỉ (tuỳ chọn)" value={idDocs[r._id]?.address || ''} onChange={(e) => setIdDocField(r._id, 'address', e.target.value)} />
                           </Box>
+                          {!validateIdDoc(idDocs[r._id]) && (
+                            <Box sx={{ gridColumn: '1 / -1' }}>
+                              <Alert severity="warning">Vui lòng nhập đúng định dạng. Quy tắc: CCCD 12 số; CMND 9 số; Passport 6–9 ký tự chữ/số (viết hoa).</Alert>
+                            </Box>
+                          )}
                         </Box>
                       </CardContent>
                     </Card>
@@ -750,7 +810,23 @@ export default function CheckIn() {
                         }
                         // Build selections and idVerifications
                         const selections = Object.entries(selectedRoomsByType).map(([roomTypeId, rooms]) => ({ roomTypeId, roomIds: rooms.map(r => r._id) }));
-                        const idVerifications = allSelectedRooms.map(r => ({ roomId: r._id, idDocument: { type: 'citizen_id' as const, number: idDocs[r._id]?.number || '', nameOnId: idDocs[r._id]?.nameOnId || '', address: idDocs[r._id]?.address || '', method: 'manual' as const } }));
+                        const idVerifications = allSelectedRooms.map(r => {
+                          const doc = idDocs[r._id] || { type: 'cccd' as IdType, number: '', nameOnId: '' };
+                          // final sanitize for payload
+                          let number = doc.number || '';
+                          if ((doc.type || 'cccd') === 'cccd' || doc.type === 'cmnd') number = number.replace(/\D/g, '');
+                          else number = number.toUpperCase();
+                          return {
+                            roomId: r._id,
+                            idDocument: {
+                              type: (doc.type || 'cccd') as IdType,
+                              number,
+                              nameOnId: doc.nameOnId || '',
+                              address: doc.address || '',
+                              method: 'manual' as const,
+                            }
+                          };
+                        });
                         await apiConfirmCheckin(selected.id, { selections, idVerifications });
                         // Refresh the eligible reservations list so just-checked-in booking disappears
                         await doSearch();
