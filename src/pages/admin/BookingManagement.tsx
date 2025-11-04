@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -33,134 +33,95 @@ import {
   FilterList,
   CheckCircle,
   Cancel,
-  Payment,
-  Login,
-  Logout,
   Visibility,
 } from "@mui/icons-material";
+import {
+  getAllReservations as apiGetAllReservations,
+  approveReservation as apiApproveReservation,
+} from "../../api/reservation";
 
 // Types
+type ReservationStatus = "pending" | "approved" | "rejected" | "canceled" | "completed";
+
 interface Booking {
   id: string;
-  bookingCode: string;
-  customerName: string;
+  reservationCode: string; // short reservation id (last 6)
+  customerName: string; // fullname or username
   customerEmail: string;
-  roomType: string;
-  checkIn: string;
-  checkOut: string;
-  totalAmount: number;
-  status: "pending" | "approved" | "rejected" | "paid" | "checked-in" | "checked-out";
+  checkIn: string; // expected
+  checkOut: string; // expected
+  reservationStatus: ReservationStatus;
   createdAt: string;
   paymentMethod?: string;
 }
 
-// Mock data
-const MOCK_BOOKINGS: Booking[] = [
-  {
-    id: "1",
-    bookingCode: "BK001",
-    customerName: "Nguyễn Văn A",
-    customerEmail: "nguyenvana@email.com",
-    roomType: "Suite Ocean",
-    checkIn: "2024-01-15",
-    checkOut: "2024-01-18",
-    totalAmount: 660,
-    status: "pending",
-    createdAt: "2024-01-10",
-  },
-  {
-    id: "2",
-    bookingCode: "BK002",
-    customerName: "Trần Thị B",
-    customerEmail: "tranthib@email.com",
-    roomType: "Deluxe Garden",
-    checkIn: "2024-01-20",
-    checkOut: "2024-01-22",
-    totalAmount: 360,
-    status: "approved",
-    createdAt: "2024-01-12",
-  },
-  {
-    id: "3",
-    bookingCode: "BK003",
-    customerName: "Lê Văn C",
-    customerEmail: "levanc@email.com",
-    roomType: "Family City",
-    checkIn: "2024-01-25",
-    checkOut: "2024-01-28",
-    totalAmount: 600,
-    status: "paid",
-    paymentMethod: "Credit Card",
-    createdAt: "2024-01-14",
-  },
-  {
-    id: "4",
-    bookingCode: "BK004",
-    customerName: "Phạm Thị D",
-    customerEmail: "phamthid@email.com",
-    roomType: "Classic Cozy",
-    checkIn: "2024-01-30",
-    checkOut: "2024-02-02",
-    totalAmount: 450,
-    status: "checked-in",
-    paymentMethod: "Bank Transfer",
-    createdAt: "2024-01-16",
-  },
-  {
-    id: "5",
-    bookingCode: "BK005",
-    customerName: "Hoàng Văn E",
-    customerEmail: "hoangvane@email.com",
-    roomType: "Suite Ocean",
-    checkIn: "2024-01-05",
-    checkOut: "2024-01-08",
-    totalAmount: 660,
-    status: "checked-out",
-    paymentMethod: "Credit Card",
-    createdAt: "2024-01-01",
-  },
-];
-
-const STATUS_CONFIG = {
-  pending: { label: "Chờ duyệt", color: "warning" as const, icon: <FilterList /> },
-  approved: { label: "Đã duyệt", color: "info" as const, icon: <CheckCircle /> },
-  rejected: { label: "Từ chối", color: "error" as const, icon: <Cancel /> },
-  paid: { label: "Đã thanh toán", color: "success" as const, icon: <Payment /> },
-  "checked-in": { label: "Đã nhận phòng", color: "primary" as const, icon: <Login /> },
-  "checked-out": { label: "Đã trả phòng", color: "secondary" as const, icon: <Logout /> },
+const STATUS_CONFIG: Record<ReservationStatus, { label: string; color: any; icon: any }> = {
+  pending: { label: "Chờ duyệt", color: "warning", icon: <FilterList /> },
+  approved: { label: "Đã duyệt", color: "info", icon: <CheckCircle /> },
+  rejected: { label: "Từ chối", color: "error", icon: <Cancel /> },
+  canceled: { label: "Đã hủy", color: "error", icon: <Cancel /> },
+  completed: { label: "Hoàn tất", color: "success", icon: <CheckCircle /> },
 };
 
-const STATUS_FLOW = {
+const STATUS_FLOW: Record<ReservationStatus, string[]> = {
   pending: ["approved", "rejected"],
-  approved: ["paid"],
-  paid: ["checked-in"],
-  "checked-in": ["checked-out"],
+  approved: [],
   rejected: [],
-  "checked-out": [],
+  canceled: [],
+  completed: [],
 };
 
 export default function BookingManagement() {
   const navigate = useNavigate();
-  const [bookings, setBookings] = useState<Booking[]>(MOCK_BOOKINGS);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [actionDialog, setActionDialog] = useState(false);
   const [actionType, setActionType] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
   
   // Pagination state
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
+  // Fetch reservations on mount
+  useEffect(() => {
+    const fetchReservations = async () => {
+      try {
+        setLoading(true);
+        const data = await apiGetAllReservations();
+        const reservations = Array.isArray(data?.reservations) ? data.reservations : [];
+        const mapped: Booking[] = reservations.map((r: any) => ({
+          id: r?._id,
+          reservationCode: (r?._id || '').slice(-6).toUpperCase(),
+          customerName: r?.customer?.fullname || r?.customer?.username || 'Khách lẻ',
+          customerEmail: r?.customer?.email || '-',
+          checkIn: r?.checkInDate ? new Date(r.checkInDate).toISOString().slice(0, 10) : '-',
+          checkOut: r?.checkOutDate ? new Date(r.checkOutDate).toISOString().slice(0, 10) : '-',
+          reservationStatus: (r?.status as ReservationStatus) || 'pending',
+          createdAt: r?.createdAt ? new Date(r.createdAt).toISOString().slice(0, 10) : '-',
+          paymentMethod: r?.payment?.paymentMethod,
+        }));
+        setBookings(mapped);
+      } catch (err) {
+        console.error('Failed to fetch reservations', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchReservations();
+  }, []);
+
   // Filter bookings
   const filteredBookings = useMemo(() => {
     return bookings.filter((booking) => {
       const matchesSearch = 
-        booking.bookingCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        booking.reservationCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
         booking.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         booking.customerEmail.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesStatus = statusFilter === "all" || booking.status === statusFilter;
+      const matchesStatus = statusFilter === "all" || booking.reservationStatus === statusFilter;
       
       return matchesSearch && matchesStatus;
     });
@@ -185,20 +146,34 @@ export default function BookingManagement() {
 
   // Get available actions for a booking
   const getAvailableActions = (booking: Booking) => {
-    return STATUS_FLOW[booking.status] || [];
+    return STATUS_FLOW[booking.reservationStatus] || [];
   };
 
   // Handle status change
-  const handleStatusChange = (bookingId: string, newStatus: string) => {
-    setBookings(prev => 
-      prev.map(booking => 
-        booking.id === bookingId 
-          ? { ...booking, status: newStatus as Booking["status"] }
-          : booking
-      )
-    );
-    setActionDialog(false);
-    setSelectedBooking(null);
+  const handleStatusChange = async (bookingId: string, newStatus: string) => {
+    try {
+      if (newStatus === 'approved') {
+        await apiApproveReservation(bookingId, 'approve');
+      } else if (newStatus === 'rejected') {
+        await apiApproveReservation(bookingId, 'cancel', 'Rejected by manager');
+      } else {
+        // For other actions (paid, checked-in, checked-out) we will handle in detail flows
+      }
+
+      // Optimistic UI update
+      setBookings(prev => 
+        prev.map(booking => 
+          booking.id === bookingId 
+            ? { ...booking, reservationStatus: newStatus as ReservationStatus }
+            : booking
+        )
+      );
+    } catch (err) {
+      console.error('Failed to update booking status', err);
+    } finally {
+      setActionDialog(false);
+      setSelectedBooking(null);
+    }
   };
 
   // Open action dialog
@@ -214,12 +189,12 @@ export default function BookingManagement() {
   };
 
   // Get status color
-  const getStatusColor = (status: Booking["status"]) => {
+  const getStatusColor = (status: ReservationStatus) => {
     return STATUS_CONFIG[status]?.color || "secondary";
   };
 
   // Get status label
-  const getStatusLabel = (status: Booking["status"]) => {
+  const getStatusLabel = (status: ReservationStatus) => {
     return STATUS_CONFIG[status]?.label || status;
   };
 
@@ -273,25 +248,30 @@ export default function BookingManagement() {
         <Table sx={{ tableLayout: 'fixed' }}>
           <TableHead>
             <TableRow>
-              <TableCell>Mã booking</TableCell>
+              <TableCell>Mã đặt chỗ</TableCell>
               <TableCell>Khách hàng</TableCell>
-              <TableCell>Loại phòng</TableCell>
-              <TableCell>Ngày nhận</TableCell>
-              <TableCell>Ngày trả</TableCell>
-              <TableCell>Tổng tiền</TableCell>
-              <TableCell>Trạng thái</TableCell>
+              <TableCell>Ngày nhận (dự kiến)</TableCell>
+              <TableCell>Ngày trả (dự kiến)</TableCell>
+              <TableCell>Trạng thái đơn</TableCell>
               <TableCell align="center" sx={{ minWidth: 200, width: 200 }}>Hành động</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {paginatedBookings.map((booking) => {
+            {loading && (
+              <TableRow>
+                <TableCell colSpan={6} align="center">
+                  <Typography color="text.secondary">Đang tải...</Typography>
+                </TableCell>
+              </TableRow>
+            )}
+            {!loading && paginatedBookings.map((booking) => {
               const availableActions = getAvailableActions(booking);
               
               return (
                 <TableRow key={booking.id} hover>
                   <TableCell>
                     <Typography variant="body2" fontWeight="bold">
-                      {booking.bookingCode}
+                      {booking.reservationCode}
                     </Typography>
                   </TableCell>
                   <TableCell>
@@ -304,32 +284,26 @@ export default function BookingManagement() {
                       </Typography>
                     </Box>
                   </TableCell>
-                  <TableCell>{booking.roomType}</TableCell>
                   <TableCell>{booking.checkIn}</TableCell>
                   <TableCell>{booking.checkOut}</TableCell>
                   <TableCell>
-                    <Typography variant="body2" fontWeight="bold" color="primary">
-                      ${booking.totalAmount}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
                     <Chip
-                      label={getStatusLabel(booking.status)}
-                      color={getStatusColor(booking.status)}
+                      label={getStatusLabel(booking.reservationStatus)}
+                      color={getStatusColor(booking.reservationStatus)}
                       size="small"
-                      icon={STATUS_CONFIG[booking.status]?.icon}
+                      icon={STATUS_CONFIG[booking.reservationStatus]?.icon}
                     />
                   </TableCell>
                   <TableCell align="center" sx={{ minWidth: 200 }}>
                     <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
-                      {availableActions.map((action) => (
-                        <Tooltip key={action} title={STATUS_CONFIG[action as keyof typeof STATUS_CONFIG]?.label}>
+                      {availableActions.map((action: string) => (
+                        <Tooltip key={action} title={STATUS_CONFIG[action as ReservationStatus]?.label}>
                           <Button
                             size="small"
                             variant="outlined"
-                            color={getStatusColor(action as Booking["status"])}
+                            color={getStatusColor(action as ReservationStatus)}
                             onClick={() => openActionDialog(booking, action)}
-                            startIcon={STATUS_CONFIG[action as keyof typeof STATUS_CONFIG]?.icon}
+                            startIcon={STATUS_CONFIG[action as ReservationStatus]?.icon}
                             sx={{
                               minWidth: 100,
                               height: 32,
@@ -338,11 +312,7 @@ export default function BookingManagement() {
                               fontWeight: 500,
                             }}
                           >
-                            {action === "approved" ? "Duyệt" : 
-                             action === "rejected" ? "Từ chối" :
-                             action === "paid" ? "Thanh toán" :
-                             action === "checked-in" ? "Nhận phòng" :
-                             action === "checked-out" ? "Trả phòng" : action}
+                            {action === "approved" ? "Duyệt" : action === "rejected" ? "Từ chối" : action}
                           </Button>
                         </Tooltip>
                       ))}
@@ -365,9 +335,9 @@ export default function BookingManagement() {
                 </TableRow>
               );
             })}
-            {paginatedBookings.length === 0 && (
+            {!loading && paginatedBookings.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} align="center">
+                <TableCell colSpan={6} align="center">
                   <Typography color="text.secondary">
                     Không có dữ liệu
                   </Typography>
@@ -423,16 +393,16 @@ export default function BookingManagement() {
           {selectedBooking && (
             <Box>
               <Typography variant="body1" gutterBottom>
-                Bạn có chắc chắn muốn thay đổi trạng thái booking <strong>{selectedBooking.bookingCode}</strong>?
+                Bạn có chắc chắn muốn thay đổi trạng thái booking <strong>{selectedBooking.reservationCode}</strong>?
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Khách hàng: {selectedBooking.customerName}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Từ: <Chip label={getStatusLabel(selectedBooking.status)} color={getStatusColor(selectedBooking.status)} size="small" />
+                Từ: <Chip label={getStatusLabel(selectedBooking.reservationStatus)} color={getStatusColor(selectedBooking.reservationStatus)} size="small" />
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Thành: <Chip label={STATUS_CONFIG[actionType as keyof typeof STATUS_CONFIG]?.label} color={getStatusColor(actionType as Booking["status"])} size="small" />
+                Thành: <Chip label={STATUS_CONFIG[actionType as keyof typeof STATUS_CONFIG]?.label} color={getStatusColor(actionType as ReservationStatus)} size="small" />
               </Typography>
             </Box>
           )}
@@ -443,7 +413,7 @@ export default function BookingManagement() {
           </Button>
           <Button 
             variant="contained" 
-            color={getStatusColor(actionType as Booking["status"])}
+            color={getStatusColor(actionType as ReservationStatus)}
             onClick={() => selectedBooking && handleStatusChange(selectedBooking.id, actionType)}
           >
             Xác nhận

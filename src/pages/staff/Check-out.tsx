@@ -32,6 +32,9 @@ import {
   RadioGroup,
   Radio,
   Switch,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from "@mui/material";
 import { useLocation } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
@@ -47,6 +50,8 @@ import PrintIcon from "@mui/icons-material/Print";
 import EmailIcon from "@mui/icons-material/Email";
 import IosShareIcon from "@mui/icons-material/IosShare";
 import MoneyOffIcon from "@mui/icons-material/MoneyOff";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { listInHouseStays, createCheckoutPayment, verifyCheckoutPayment, confirmCheckout } from "../../api/dashboard";
 
 /* =======================
    UTIL
@@ -61,12 +66,14 @@ const formatVND = (n: number) =>
 /* =======================
    TYPES & MOCK DATA
    ======================= */
-type RoomType = "Standard" | "Deluxe" | "Suite";
+// Accept any room type name returned from backend
+type RoomType = string;
 type LineStatus = "POSTED" | "VOIDED" | "ADJUSTED";
 type LineSource = "WEB_ADDON" | "MINIBAR" | "POS" | "FRONTDESK" | "INSPECTION";
 
 type InHouse = {
   stayId: string;              // Mã StayID dùng xuyên suốt
+  roomId?: string;             // Room ID for partial checkout (optional when selecting all)
   guestName: string;
   phone: string;
   email: string;
@@ -93,35 +100,7 @@ type FolioItem = {
   by?: string;                 // ai post
 };
 
-// Mock danh sách khách đang ở
-const IN_HOUSE: InHouse[] = [
-  {
-    stayId: "STAY001",
-    guestName: "Nguyen A",
-    phone: "0900000001",
-    email: "a@example.com",
-    roomType: "Deluxe",
-    roomNumber: "507",
-    checkIn: "2025-10-18 14:15",
-    checkOutPlan: "2025-10-20 12:00",
-    pricePerNight: 2_800_000,
-    nightsSoFar: 2,
-    deposit: 2_000_000,
-  },
-  {
-    stayId: "STAY002",
-    guestName: "Tran B",
-    phone: "0900000002",
-    email: "b@example.com",
-    roomType: "Standard",
-    roomNumber: "202",
-    checkIn: "2025-10-18 13:40",
-    checkOutPlan: "2025-10-19 12:00",
-    pricePerNight: 1_200_000,
-    nightsSoFar: 1,
-    deposit: 500_000,
-  },
-];
+// In-house list will be fetched from backend
 
 // Mock phát sinh đã có SẴN (web add-on, minibar, POS, front desk)
 const PREPOSTED_LINES: Record<string, FolioItem[]> = {
@@ -217,19 +196,47 @@ export default function CheckOut() {
 
   /** Step 1: Lookup */
   const [query, setQuery] = useState("");
+  const [inHouse, setInHouse] = useState<InHouse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<InHouse | null>(null);
+  const [selectedAll, setSelectedAll] = useState<boolean>(false);
+  const [selectedStayId, setSelectedStayId] = useState<string | null>(null);
+  const [selectedRooms, setSelectedRooms] = useState<InHouse[]>([]);
 
-  const filtered = useMemo(() => {
-    if (!query) return [];
-    const q = query.toLowerCase();
-    return IN_HOUSE.filter(
-      (s) =>
-        s.stayId.toLowerCase().includes(q) ||
-        s.roomNumber.includes(q) ||
-        s.guestName.toLowerCase().includes(q) ||
-        s.phone.includes(q)
-    );
-  }, [query]);
+  // Load in-house list from backend
+  const loadList = async (q?: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await listInHouseStays(q);
+      // API returns minimal fields; map directly to our InHouse type
+      const items = (res.inHouse || []).map((it) => ({
+        stayId: it.stayId,
+        roomId: it.roomId,
+        guestName: it.guestName,
+        phone: it.phone,
+        email: it.email,
+        roomType: it.roomType as RoomType,
+        roomNumber: it.roomNumber,
+        checkIn: typeof it.checkIn === "string" ? it.checkIn : new Date(it.checkIn).toISOString(),
+        checkOutPlan:
+          typeof it.checkOutPlan === "string"
+            ? it.checkOutPlan
+            : new Date(it.checkOutPlan).toISOString(),
+        pricePerNight: it.pricePerNight,
+        nightsSoFar: it.nightsSoFar,
+        deposit: it.deposit,
+      })) as InHouse[];
+      setInHouse(items);
+      // if current selection belongs to a stay no longer listed, clear it
+      setSelected((cur) => (cur && !items.some(i => i.stayId === cur.stayId && (selectedAll ? true : i.roomId === cur.roomId)) ? null : cur));
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.message || "Failed to load in-house list");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /** Folio items */
   const [folio, setFolio] = useState<FolioItem[]>([]);
@@ -254,11 +261,18 @@ export default function CheckOut() {
     return items;
   };
 
+  const rebuildFolioFromSelection = (rooms: InHouse[], stayId: string) => {
+    const lines: FolioItem[] = [];
+    rooms.forEach(r => { lines.push(...initRoomLines(r)); });
+    const pre = PREPOSTED_LINES[stayId] || [];
+    setFolio([...lines, ...pre]);
+  };
+
   const pickStay = (stay: InHouse) => {
-    const base = initRoomLines(stay);
-    // Ưu tiên sử dụng prepostedServices từ booking nếu có, nếu không thì dùng PREPOSTED_LINES mock
-    const pre = stay.prepostedServices || PREPOSTED_LINES[stay.stayId] || [];
-    setFolio([...base, ...pre]);
+    setSelectedAll(false);
+    setSelectedStayId(stay.stayId);
+    setSelectedRooms([stay]);
+    rebuildFolioFromSelection([stay], stay.stayId);
     setSelected(stay);
     setNote("");
     setLateCheckout("none");
@@ -266,6 +280,50 @@ export default function CheckOut() {
     setLostKey(false);
     setPaymentAction("none");
     setRefundRequested(false);
+  };
+
+  const pickStayAll = (stayId: string) => {
+    const groupRooms = inHouse.filter(i => i.stayId === stayId);
+    if (groupRooms.length === 0) return;
+    rebuildFolioFromSelection(groupRooms, stayId);
+    const rep = groupRooms[0];
+    setSelected({ ...rep, roomId: undefined });
+    setSelectedRooms(groupRooms);
+    setSelectedStayId(stayId);
+    setSelectedAll(true);
+    setNote("");
+    setLateCheckout("none");
+    setDamageFee(0);
+    setLostKey(false);
+    setPaymentAction("none");
+    setRefundRequested(false);
+  };
+
+  const toggleRoom = (stayId: string, room: InHouse) => {
+    if (selectedStayId && selectedStayId !== stayId) {
+      setSelectedRooms([room]);
+      setSelectedStayId(stayId);
+      setSelectedAll(false);
+      setSelected(room);
+      rebuildFolioFromSelection([room], stayId);
+      return;
+    }
+    const exists = selectedRooms.some(r => (r.roomId || r.roomNumber) === (room.roomId || room.roomNumber));
+    const next = exists ? selectedRooms.filter(r => (r.roomId || r.roomNumber) !== (room.roomId || room.roomNumber)) : [...selectedRooms, room];
+    setSelectedRooms(next);
+    setSelectedStayId(stayId);
+    const allRoomsInGroup = inHouse.filter(i => i.stayId === stayId);
+    setSelectedAll(next.length > 0 && next.length === allRoomsInGroup.length);
+    setSelected(next[0] || null);
+    rebuildFolioFromSelection(next, stayId);
+  };
+
+  const unselectAll = (stayId: string) => {
+    setSelectedRooms([]);
+    setSelectedAll(false);
+    setSelected(null);
+    setSelectedStayId(stayId);
+    setFolio([]);
   };
 
   /** Bước 3: phụ phí kiểm phòng */
@@ -337,6 +395,12 @@ export default function CheckOut() {
   /** Step 4: Invoice & payment */
   const [paymentAction, setPaymentAction] = useState<"collect" | "refund" | "none">("none");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "qr">("cash");
+  const [qrLink, setQrLink] = useState<string | null>(null);
+  const [requiresPayment, setRequiresPayment] = useState<boolean>(false);
+  const [paymentVerified, setPaymentVerified] = useState<boolean>(false);
+  const [checkoutLoading, setCheckoutLoading] = useState<boolean>(false);
+  const [verifyLoading, setVerifyLoading] = useState<boolean>(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   /** Derived totals (chỉ tính các dòng không VOided) */
   const effectiveLines = useMemo(
@@ -349,7 +413,8 @@ export default function CheckOut() {
     [effectiveLines]
   );
 
-  const deposit = selected?.deposit ?? 0;
+  // Apply deposit only when selecting all rooms of the stay (to avoid double counting on partial)
+  const deposit = selectedAll && selected ? (selected.deposit || 0) : 0;
   const taxes = useMemo(() => Math.round(subtotal * 0.08), [subtotal]); // VAT 8% (mock)
   const totalDue = useMemo(() => subtotal + taxes - deposit, [subtotal, taxes, deposit]);
 
@@ -396,6 +461,12 @@ export default function CheckOut() {
     setLostKey(false);
     setPaymentAction("none");
     setPaymentMethod("cash");
+    setQrLink(null);
+    setRequiresPayment(false);
+    setPaymentVerified(false);
+    setCheckoutLoading(false);
+    setVerifyLoading(false);
+    setActionError(null);
     setExportOpen(false);
     setRefundOpen(false);
     setRefundRequested(false);
@@ -494,22 +565,24 @@ export default function CheckOut() {
     st === "VOIDED" ? <Chip size="small" color="default" label="Voided" /> :
     <Chip size="small" color="warning" label="Adjusted" />;
 
+  // Initial load: fetch all in-house stays
+  useEffect(() => {
+    loadList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Auto-select stay nếu được truyền từ StaffBookings (đặt sau khi tất cả states đã setup)
   useEffect(() => {
     if (passedStayData && !selected) {
-      // Thêm vào mock list nếu chưa có
-      const existing = IN_HOUSE.find((s) => s.stayId === passedStayData.stayId);
-      if (!existing) {
-        IN_HOUSE.push(passedStayData);
-      }
-      // Auto-select và load folio
+      // nếu không có trong danh sách hiện tại, bổ sung tạm để thao tác
+      const exists = inHouse.some((s) => s.stayId === passedStayData.stayId);
+      if (!exists) setInHouse((arr) => [...arr, passedStayData]);
       pickStay(passedStayData);
       setQuery(passedStayData.stayId);
-      // Tự động chuyển sang bước review (bước 2)
       setActiveStep(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [passedStayData]);
+  }, [passedStayData, inHouse, selected]);
 
   return (
     <Box>
@@ -552,62 +625,91 @@ export default function CheckOut() {
                     label="StayID/Số phòng/Tên/SĐT"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        loadList(query);
+                      }
+                    }}
                   />
-                  <Button variant="contained">Tìm</Button>
+                  <Button variant="contained" onClick={() => loadList(query)}>Tìm</Button>
                 </Stack>
 
-                <Table size="small" sx={{ mt: 2 }}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>StayID</TableCell>
-                      <TableCell>Khách</TableCell>
-                      <TableCell>Phòng</TableCell>
-                      <TableCell>Hạng</TableCell>
-                      <TableCell>CI</TableCell>
-                      <TableCell>CO (dự kiến)</TableCell>
-                      <TableCell>Giá/đêm</TableCell>
-                      <TableCell align="right">Chọn</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filtered.map((s) => (
-                      <TableRow key={s.stayId} hover selected={selected?.stayId === s.stayId}>
-                        <TableCell>{s.stayId}</TableCell>
-                        <TableCell>{s.guestName}</TableCell>
-                        <TableCell>{s.roomNumber}</TableCell>
-                        <TableCell>{s.roomType}</TableCell>
-                        <TableCell>{s.checkIn}</TableCell>
-                        <TableCell>{s.checkOutPlan}</TableCell>
-                        <TableCell>{formatVND(s.pricePerNight)}</TableCell>
-                        <TableCell align="right">
-                          <Button
-                            size="small"
-                            onClick={() => pickStay(s)}
-                            variant={selected?.stayId === s.stayId ? "contained" : "outlined"}
-                          >
-                            Chọn
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {!query && (
-                      <TableRow>
-                        <TableCell colSpan={8}>
-                          <Typography variant="body2" color="text.secondary">
-                            Nhập từ khóa để tìm khách đang ở.
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {query && filtered.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={8}>
-                          <Alert severity="warning">Không tìm thấy.</Alert>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                {/* Grouped by stay using Accordions */}
+                <Box sx={{ mt: 2 }}>
+                  {loading && (
+                    <Alert severity="info">Đang tải...</Alert>
+                  )}
+                  {error && !loading && (
+                    <Alert severity="error">{error}</Alert>
+                  )}
+                  {!loading && !error && (() => {
+                    const groups = inHouse.reduce((acc: Record<string, InHouse[]>, item) => {
+                      acc[item.stayId] = acc[item.stayId] || [];
+                      acc[item.stayId].push(item);
+                      return acc;
+                    }, {});
+                    const entries = Object.entries(groups);
+                    if (entries.length === 0) {
+                      return <Alert severity="warning">Không có khách đang lưu trú.</Alert>;
+                    }
+                    return (
+                      <Box>
+                        {entries.map(([sid, rooms]) => {
+                          const head = rooms[0];
+                          const roomCount = rooms.length;
+                          const title = `${head.guestName} • ${roomCount} phòng`;
+                          return (
+                            <Accordion key={sid} sx={{ mb: 1 }}>
+                              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', width: '100%', alignItems: 'center', gap: 1 }}>
+                                  <Chip size="small" label={`Stay ${sid.slice(-6)}`} />
+                                  <Typography sx={{ flexGrow: 1 }} fontWeight={600}>{title}</Typography>
+                                  <Typography variant="body2" color="text.secondary">
+                                    CI: {new Date(head.checkIn).toLocaleString()} • CO: {new Date(head.checkOutPlan).toLocaleString()}
+                                  </Typography>
+                                  <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
+                                    <Button size="small" variant="outlined" onClick={() => pickStayAll(sid)}>Chọn tất cả</Button>
+                                    <Button size="small" color="error" variant="text" onClick={() => unselectAll(sid)}>Hủy chọn tất cả</Button>
+                                  </Stack>
+                                </Box>
+                              </AccordionSummary>
+                              <AccordionDetails>
+                                <Table size="small">
+                                  <TableHead>
+                                    <TableRow>
+                                      <TableCell>Phòng</TableCell>
+                                      <TableCell>Hạng</TableCell>
+                                      <TableCell>Giá/đêm</TableCell>
+                                      <TableCell>Cọc</TableCell>
+                                      <TableCell align="right">Chọn</TableCell>
+                                    </TableRow>
+                                  </TableHead>
+                                  <TableBody>
+                                    {rooms.map(r => (
+                                      <TableRow key={r.roomId || r.roomNumber} hover selected={selectedRooms.some(x => (x.roomId || x.roomNumber) === (r.roomId || r.roomNumber))}>
+                                        <TableCell>{r.roomNumber}</TableCell>
+                                        <TableCell>{r.roomType}</TableCell>
+                                        <TableCell>{formatVND(r.pricePerNight)}</TableCell>
+                                        <TableCell>{formatVND(r.deposit)}</TableCell>
+                                        <TableCell align="right">
+                                          {selectedRooms.some(x => (x.roomId || x.roomNumber) === (r.roomId || r.roomNumber)) ? (
+                                            <Button size="small" color="error" onClick={() => toggleRoom(sid, r)} variant="outlined">Bỏ chọn</Button>
+                                          ) : (
+                                            <Button size="small" onClick={() => toggleRoom(sid, r)} variant="outlined">Chọn</Button>
+                                          )}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </AccordionDetails>
+                            </Accordion>
+                          );
+                        })}
+                      </Box>
+                    );
+                  })()}
+                </Box>
               </CardContent>
             </Card>
           )}
@@ -858,6 +960,93 @@ export default function CheckOut() {
                             <MenuItem value="qr">QR/Bank</MenuItem>
                           </Select>
                         </FormControl>
+                        {/* QR checkout flow */}
+                        {paymentAction === "collect" && totalDue > 0 && paymentMethod === "qr" && (
+                          <Box mt={2}>
+                            <Stack spacing={1}>
+                              <Button
+                                variant="contained"
+                                onClick={async () => {
+                                  if (!selected) return;
+                                  // Disable QR for partial multi-room selection (backend supports single room or whole stay)
+                                  if (!selectedAll && selectedRooms.length > 1) {
+                                    setActionError("QR chỉ hỗ trợ 1 phòng hoặc toàn bộ stay. Vui lòng chọn 1 phòng hoặc 'Chọn tất cả'.");
+                                    return;
+                                  }
+                                  try {
+                                    setCheckoutLoading(true);
+                                    setActionError(null);
+                                    const res = await createCheckoutPayment(selected.stayId, { paymentMethod: "qr", roomId: selectedAll ? undefined : selected.roomId });
+                                    const info = res.checkout;
+                                    setRequiresPayment(!!info.requiresPayment);
+                                    setQrLink(info.vietQRLink || null);
+                                    if (info.requiresPayment === false) {
+                                      // nothing to pay
+                                      setPaymentVerified(true);
+                                    }
+                                  } catch (err: any) {
+                                    setActionError(err?.response?.data?.message || err?.message || "Không tạo được QR");
+                                  } finally {
+                                    setCheckoutLoading(false);
+                                  }
+                                }}
+                                disabled={checkoutLoading}
+                              >
+                                {checkoutLoading ? "Đang tạo QR…" : "Tạo QR thanh toán"}
+                              </Button>
+
+                              {actionError && <Alert severity="error">{actionError}</Alert>}
+
+                              {qrLink && (
+                                <Box>
+                                  <Typography variant="caption" color="text.secondary">
+                                    Quét QR để thanh toán số tiền còn thiếu.
+                                  </Typography>
+                                  <Box mt={1}>
+                                    {/* Hiển thị như ảnh nếu là URL ảnh, nếu không vẫn để anchor */}
+                                    <img src={qrLink} alt="VietQR" style={{ maxWidth: "100%", borderRadius: 8 }} onError={(e)=>{ (e.currentTarget as HTMLImageElement).style.display='none'; }} />
+                                    <Typography variant="body2" sx={{ mt: 1 }}>
+                                      <a href={qrLink} target="_blank" rel="noreferrer">Mở QR trong tab mới</a>
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              )}
+
+                              {requiresPayment && (
+                                <Button
+                                  variant="outlined"
+                                  onClick={async () => {
+                                    if (!selected) return;
+                                    try {
+                                      setVerifyLoading(true);
+                                      setActionError(null);
+                                      const res = await verifyCheckoutPayment(selected.stayId);
+                                      if (res?.payment?.paymentStatus && ["fully_paid"].includes(res.payment.paymentStatus)) {
+                                        setPaymentVerified(true);
+                                      } else if (res?.amountDue === 0) {
+                                        setPaymentVerified(true);
+                                      } else {
+                                        setActionError("Chưa nhận được thanh toán. Vui lòng kiểm tra lại sau vài giây.");
+                                      }
+                                    } catch (err: any) {
+                                      setActionError(err?.response?.data?.message || err?.message || "Không kiểm tra được trạng thái thanh toán");
+                                    } finally {
+                                      setVerifyLoading(false);
+                                    }
+                                  }}
+                                  disabled={verifyLoading}
+                                >
+                                  {verifyLoading ? "Đang kiểm tra…" : "Kiểm tra thanh toán"}
+                                </Button>
+                              )}
+
+                              {paymentVerified && <Alert severity="success">Đã xác nhận thanh toán đủ.</Alert>}
+                              {!selectedAll && selectedRooms.length > 1 && (
+                                <Alert severity="info">QR không khả dụng khi chọn một phần nhiều phòng. Hãy dùng tiền mặt/thẻ hoặc chọn 1 phòng hoặc toàn bộ.</Alert>
+                              )}
+                            </Stack>
+                          </Box>
+                        )}
                       </Box>
                     </Box>
                   </>
@@ -991,15 +1180,16 @@ export default function CheckOut() {
                   <Stack spacing={0.75} sx={{ mb: 1 }}>
                     <Row label="StayID" value={selected.stayId} />
                     <Row label="Khách" value={selected.guestName} />
-                    <Row label="Phòng" value={selected.roomNumber} />
-                    <Row label="Đêm lưu trú" value={`${selected.nightsSoFar}`} />
-                    <Row label="Giá/đêm" value={formatVND(selected.pricePerNight)} />
+                    <Row label="Phòng" value={selectedRooms.length > 1 ? selectedRooms.map(r => r.roomNumber).join(', ') : selected.roomNumber} />
+                    <Row label="Số phòng đã chọn" value={`${selectedRooms.length || (selected ? 1 : 0)}`} />
+                    <Row label="Đêm lưu trú" value={selectedRooms.length > 1 ? `${selected.nightsSoFar} x ${selectedRooms.length} phòng` : `${selected.nightsSoFar}`} />
+                    <Row label="Giá/đêm" value={selectedRooms.length > 1 ? 'Khác nhau' : formatVND(selected.pricePerNight)} />
                   </Stack>
 
                   <Divider sx={{ my: 1 }} />
                   <Row label="Tạm tính" value={formatVND(subtotal)} />
                   <Row label="Thuế (8%)" value={formatVND(taxes)} />
-                  <Row label="Cọc đã nhận" value={formatVND(deposit)} />
+                  <Row label="Cọc áp dụng" value={formatVND(deposit)} />
                   <Divider sx={{ my: 1 }} />
                   <Row
                     label={totalDue > 0 ? "Khách cần trả thêm" : totalDue < 0 ? "Hoàn lại khách" : "Chênh lệch"}
@@ -1033,16 +1223,63 @@ export default function CheckOut() {
                     variant="contained"
                     color="success"
                     startIcon={<CheckCircleIcon />}
-                    disabled={!selected}
-                    onClick={() => {
-                      // UI-only: reset sau khi confirm
-                      resetAll();
+                    disabled={!selected || (totalDue > 0 && (paymentAction !== "collect" || (paymentMethod === "qr" && (!paymentVerified || (!selectedAll && selectedRooms.length > 1)) )))}
+                    onClick={async () => {
+                      if (!selected) return;
+                      try {
+                        setActionError(null);
+                        if (totalDue > 0) {
+                          if (paymentAction !== "collect") {
+                            setActionError("Cần chọn hành động Thu thêm cho khoản chênh lệch dương.");
+                            return;
+                          }
+                          if (paymentMethod === "qr") {
+                            if (!paymentVerified) {
+                              setActionError("Chưa xác nhận thanh toán QR. Vui lòng kiểm tra thanh toán trước.");
+                              return;
+                            }
+                            // backend đã ghi nhận thanh toán qua verify; chỉ cần confirm checkout
+                            await confirmCheckout(selected.stayId, { paymentMethod: "qr", status: "Success", roomId: selectedAll ? undefined : selected.roomId });
+                          } else {
+                            // cash/card: nếu chọn một phần nhiều phòng, xử lý từng phòng với amountDue từng phòng
+                            if (!selectedAll && selectedRooms.length > 1) {
+                              for (const r of selectedRooms) {
+                                // Lấy amountDue riêng cho từng phòng
+                                const p = await createCheckoutPayment(selected.stayId, { paymentMethod, roomId: r.roomId });
+                                const due = p.checkout?.amountDue || 0;
+                                await confirmCheckout(selected.stayId, { paymentMethod, status: "Success", amountPaid: due, roomId: r.roomId });
+                              }
+                            } else {
+                              await confirmCheckout(selected.stayId, { paymentMethod, status: "Success", amountPaid: totalDue, roomId: selectedAll ? undefined : selected.roomId });
+                            }
+                          }
+                        } else {
+                          // Không cần thu thêm: xác nhận checkout ngay
+                          if (!selectedAll && selectedRooms.length > 1) {
+                            for (const r of selectedRooms) {
+                              await confirmCheckout(selected.stayId, { roomId: r.roomId });
+                            }
+                          } else {
+                            await confirmCheckout(selected.stayId, { roomId: selectedAll ? undefined : selected.roomId });
+                          }
+                        }
+                        // Sau khi thành công: refresh list và reset UI
+                        await loadList(query);
+                        resetAll();
+                      } catch (err: any) {
+                        setActionError(err?.response?.data?.message || err?.message || "Không thể xác nhận check-out");
+                      }
                     }}
                   >
                     Xác nhận Check-out
                   </Button>
                 )}
               </Stack>
+              {actionError && (
+                <Box mt={1}>
+                  <Alert severity="error">{actionError}</Alert>
+                </Box>
+              )}
             </CardContent>
           </Card>
         </Box>
