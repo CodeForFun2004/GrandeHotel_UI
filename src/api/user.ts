@@ -69,6 +69,11 @@ export const uploadCitizenIdentification = async (id: string, payload: { type: '
   return res.data;
 };
 
+export const checkCitizenIdentification = async (value: string) => {
+  const res = await instance.post('/users/check-citizen-id', { value });
+  return res.data;
+};
+
 export const deleteUser = async (id: string) => {
   const res = await instance.delete<{ message?: string }>(`/users/${id}`);
   return res.data;
@@ -134,6 +139,7 @@ export default {
   updateUserAvatar,
   uploadPhotoFace,
   uploadCitizenIdentification,
+  checkCitizenIdentification,
   deleteUser,
   suspendUser,
   unsuspendUser,
