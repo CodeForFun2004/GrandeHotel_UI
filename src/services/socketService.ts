@@ -45,6 +45,8 @@ class SocketService {
       transports: ['websocket', 'polling'],
       timeout: 20000,
       forceNew: true,
+      // ⚠️ Lưu ý: pingInterval và pingTimeout thường được cấu hình ở server-side
+      // Client-side config này có thể không có hiệu lực nếu server đã set
     });
 
     this.setupEventListeners();

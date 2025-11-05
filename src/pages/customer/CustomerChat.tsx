@@ -31,7 +31,7 @@ import {
 } from "../../api/chat";
 import ProfileSidebar from "./components/ProfileSidebar";
 import { DEFAULT_AVATAR } from "./constants/profile.constants";
-import { useChat, type Conversation as ChatConversation } from "../../hooks/useChat";
+import { useChat, type Conversation } from "../../hooks/useChat";
 
 /* =========================
    Helpers
