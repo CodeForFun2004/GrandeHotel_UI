@@ -1,17 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Container, Row, Col, Card, Button, Alert, Spinner } from 'react-bootstrap';
 import { 
   Print,
   Download,
-  Home,
-  CloudUpload,
-  CheckCircle
+  Home
 } from '@mui/icons-material';
-import { QRCodeSVG } from 'qrcode.react';
+
 import * as reservationApi from '../api/reservation';
 import * as hotelApi from '../api/hotel';
-import * as userApi from '../api/user';
 import heroBg from '../assets/images/login.avif';
 import './ReservationBill.css';
 
@@ -55,14 +52,6 @@ const ReservationBill: React.FC = () => {
     phone: '—',
     email: '—'
   });
-  const [userId, setUserId] = useState<string | null>(null);
-  const [hasPhotoFace, setHasPhotoFace] = useState<boolean>(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!reservationId) {
@@ -117,29 +106,11 @@ const ReservationBill: React.FC = () => {
           if (rawUser) {
             const user = JSON.parse(rawUser);
             if (user?._id === customerId || user?.id === customerId) {
-              setUserId(user?._id || user?.id);
               setCustomerInfo({
                 name: user?.username || user?.fullname || user?.fullName || user?.name || 'Khách lẻ',
                 phone: user?.phone || user?.phoneNumber || '—',
                 email: user?.email || '—'
               });
-              
-              // Check if user has photoFace by fetching from API
-              try {
-                const userData = await userApi.getUserById(user?._id || user?.id);
-                const userDataObj = userData?.user || userData?.data || userData;
-                console.log('[BILL] User data:', userDataObj);
-                if (userDataObj?.photoFace) {
-                  setHasPhotoFace(true);
-                  console.log('[BILL] User already has photoFace:', userDataObj.photoFace);
-                } else {
-                  setHasPhotoFace(false);
-                  console.log('[BILL] User does not have photoFace');
-                }
-              } catch (err) {
-                console.error('[BILL] Failed to check photoFace:', err);
-                setHasPhotoFace(false);
-              }
             }
           }
         } catch (err) {
@@ -203,85 +174,6 @@ const ReservationBill: React.FC = () => {
     navigate('/rooms');
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        setUploadError('Vui lòng chọn file ảnh (JPG, PNG, v.v.)');
-        return;
-      }
-
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setUploadError('Kích thước file không được vượt quá 5MB');
-        return;
-      }
-
-      setSelectedFile(file);
-      setUploadError(null);
-
-      // Create preview URL
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleUploadPhoto = async () => {
-    if (!selectedFile || !userId) {
-      setUploadError('Vui lòng chọn ảnh trước khi tải lên');
-      return;
-    }
-
-    try {
-      setUploadingPhoto(true);
-      setUploadError(null);
-
-      const formData = new FormData();
-      formData.append('photoFace', selectedFile);
-
-      const response = await userApi.uploadPhotoFace(userId, formData);
-      console.log('[BILL] Upload photoFace success:', response);
-
-      setUploadSuccess(true);
-      setHasPhotoFace(true);
-
-      // Update localStorage
-      const rawUser = localStorage.getItem('user');
-      if (rawUser) {
-        const user = JSON.parse(rawUser);
-        const responseData = response?.user || response?.data || response;
-        user.photoFace = responseData?.photoFace;
-        localStorage.setItem('user', JSON.stringify(user));
-      }
-
-      // Clear the selected file and preview after successful upload
-      setTimeout(() => {
-        setSelectedFile(null);
-        setPreviewUrl(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-      }, 2000);
-    } catch (err: any) {
-      console.error('[BILL] Failed to upload photoFace:', err);
-      setUploadError(err?.response?.data?.message || err?.message || 'Không thể tải ảnh lên. Vui lòng thử lại.');
-    } finally {
-      setUploadingPhoto(false);
-    }
-  };
-
-  const handleClearFile = () => {
-    setSelectedFile(null);
-    setPreviewUrl(null);
-    setUploadError(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
 
   if (loading) {
     return (
@@ -527,98 +419,6 @@ const ReservationBill: React.FC = () => {
                       )}
                     </div>
                   </div>
-
-                  {/* Upload Photo Face for Check-in (only show if user doesn't have photoFace) */}
-                  {userId && !hasPhotoFace && (
-                    <div className="photoface-upload">
-                      <h4 className="section-title">Upload Photo Face for Check-in</h4>
-                      <p className="upload-description">
-                        Để tăng tốc quá trình check-in bằng AI nhận diện khuôn mặt, vui lòng tải lên ảnh khuôn mặt của bạn.
-                        <br />
-                        <em>(Tùy chọn - Optional)</em>
-                      </p>
-                      
-                      <div className="upload-container">
-                        {uploadSuccess ? (
-                          <div className="upload-success-message">
-                            <CheckCircle className="success-icon" />
-                            <p>Tải ảnh thành công! Bạn có thể sử dụng AI check-in khi đến khách sạn.</p>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="upload-area">
-                              <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleFileSelect}
-                                accept="image/*"
-                                className="file-input"
-                                id="photoFaceInput"
-                                disabled={uploadingPhoto}
-                              />
-                              <label htmlFor="photoFaceInput" className="file-label">
-                                <CloudUpload className="upload-icon" />
-                                <span className="upload-text">
-                                  {selectedFile ? selectedFile.name : 'Chọn ảnh khuôn mặt'}
-                                </span>
-                                <span className="upload-hint">
-                                  JPG, PNG tối đa 5MB
-                                </span>
-                              </label>
-                            </div>
-
-                            {previewUrl && (
-                              <div className="preview-container">
-                                <img src={previewUrl} alt="Preview" className="preview-image" />
-                                <Button 
-                                  variant="outline-secondary" 
-                                  size="sm" 
-                                  onClick={handleClearFile}
-                                  disabled={uploadingPhoto}
-                                >
-                                  Xóa
-                                </Button>
-                              </div>
-                            )}
-
-                            {uploadError && (
-                              <Alert variant="danger" className="mt-3 mb-0">
-                                {uploadError}
-                              </Alert>
-                            )}
-
-                            {selectedFile && !uploadSuccess && (
-                              <Button 
-                                variant="primary" 
-                                onClick={handleUploadPhoto}
-                                disabled={uploadingPhoto}
-                                className="mt-3 upload-btn"
-                              >
-                                {uploadingPhoto ? (
-                                  <>
-                                    <Spinner
-                                      as="span"
-                                      animation="border"
-                                      size="sm"
-                                      role="status"
-                                      aria-hidden="true"
-                                      className="me-2"
-                                    />
-                                    Đang tải lên...
-                                  </>
-                                ) : (
-                                  <>
-                                    <CloudUpload className="me-2" />
-                                    Tải lên
-                                  </>
-                                )}
-                              </Button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )}
 
                   {/* Action Buttons */}
                   <div className="bill-actions">

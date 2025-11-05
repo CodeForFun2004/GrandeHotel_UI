@@ -11,6 +11,9 @@ export type User = {
   role: 'customer' | 'admin' | 'staff' | 'shipper';
   avatar?: string;
   photoFace?: string;
+  cccd?: string;
+  cmnd?: string;
+  passport?: string;
   address?: string;
   gender?: 'male' | 'female' | 'other';
   birthday?: string;
@@ -58,6 +61,11 @@ export const uploadPhotoFace = async (id: string, formData: FormData) => {
   const res = await instance.put<User>(`/users/${id}/photoFace`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
+  return res.data;
+};
+
+export const uploadCitizenIdentification = async (id: string, payload: { type: 'cccd' | 'cmnd' | 'passport'; value: string }) => {
+  const res = await instance.put(`/users/${id}/upload-citizen-id`, payload);
   return res.data;
 };
 
@@ -125,6 +133,7 @@ export default {
   updateUser,
   updateUserAvatar,
   uploadPhotoFace,
+  uploadCitizenIdentification,
   deleteUser,
   suspendUser,
   unsuspendUser,
