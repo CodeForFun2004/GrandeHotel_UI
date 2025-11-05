@@ -84,6 +84,19 @@ export default function BookingForm() {
       setError('Vui lòng chọn ngày nhận và ngày trả phòng.');
       return;
     }
+    // Enforce UI-only date rules: no past check-in; checkout must be after check-in
+    const today = new Date();
+    const start = new Date(checkin.getFullYear(), checkin.getMonth(), checkin.getDate());
+    const end = new Date(checkout.getFullYear(), checkout.getMonth(), checkout.getDate());
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    if (start < todayStart) {
+      setError('Ngày nhận phòng không được ở quá khứ.');
+      return;
+    }
+    if (end <= start) {
+      setError('Ngày trả phòng phải sau ngày nhận phòng.');
+      return;
+    }
     // Navigate to Rooms page with query params
     const params = new URLSearchParams();
     if (destination) params.set('city', destination);

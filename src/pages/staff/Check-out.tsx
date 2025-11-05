@@ -415,8 +415,9 @@ export default function CheckOut() {
 
   // Apply deposit only when selecting all rooms of the stay (to avoid double counting on partial)
   const deposit = selectedAll && selected ? (selected.deposit || 0) : 0;
-  const taxes = useMemo(() => Math.round(subtotal * 0.08), [subtotal]); // VAT 8% (mock)
-  const totalDue = useMemo(() => subtotal + taxes - deposit, [subtotal, taxes, deposit]);
+  // No tax: final due is subtotal minus applicable deposit/credit
+  const taxes = 0;
+  const totalDue = useMemo(() => subtotal - deposit, [subtotal, deposit]);
 
   /** Export final bill dialog */
   const [exportOpen, setExportOpen] = useState(false);
@@ -878,8 +879,7 @@ export default function CheckOut() {
                 ) : (
                   <>
                     <Alert severity="info" sx={{ mb: 2 }}>
-                      Tạm tính: <b>{formatVND(subtotal)}</b> • Thuế (8%):{" "}
-                      <b>{formatVND(taxes)}</b> • Cọc đã nhận:{" "}
+                      Tạm tính: <b>{formatVND(subtotal)}</b> • Cọc đã nhận: {" "}
                       <b>{formatVND(deposit)}</b> →{" "}
                       {totalDue > 0 ? (
                         <>Khách <b>cần trả thêm</b>: <b>{formatVND(totalDue)}</b></>
@@ -1119,7 +1119,6 @@ export default function CheckOut() {
                       <CardContent>
                         <Typography variant="subtitle2" gutterBottom>Tóm tắt hóa đơn</Typography>
                         <Row label="Tạm tính" value={formatVND(subtotal)} />
-                        <Row label="Thuế (8%)" value={formatVND(taxes)} />
                         <Row label="Cọc đã nhận" value={formatVND(deposit)} />
                         <Divider sx={{ my: 1 }} />
                         <Row
@@ -1188,7 +1187,6 @@ export default function CheckOut() {
 
                   <Divider sx={{ my: 1 }} />
                   <Row label="Tạm tính" value={formatVND(subtotal)} />
-                  <Row label="Thuế (8%)" value={formatVND(taxes)} />
                   <Row label="Cọc áp dụng" value={formatVND(deposit)} />
                   <Divider sx={{ my: 1 }} />
                   <Row
