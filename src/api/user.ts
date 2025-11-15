@@ -11,6 +11,9 @@ export type User = {
   role: 'customer' | 'admin' | 'staff' | 'shipper';
   avatar?: string;
   photoFace?: string;
+  cccd?: string;
+  cmnd?: string;
+  passport?: string;
   address?: string;
   gender?: 'male' | 'female' | 'other';
   birthday?: string;
@@ -59,6 +62,24 @@ export const uploadPhotoFace = async (id: string, formData: FormData) => {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return res.data;
+};
+
+export const uploadCitizenIdentification = async (id: string, payload: { type: 'cccd' | 'cmnd' | 'passport'; value: string }) => {
+  const res = await instance.put(`/users/${id}/upload-citizen-id`, payload);
+  return res.data;
+};
+
+export const checkCitizenIdentification = async (value: string) => {
+  const res = await instance.post('/users/check-citizen-id', { value });
+  return res.data;
+};
+
+export const getUsersWithPhotoFace = async () => {
+  // Get all users and filter those with photoFace
+  const res = await instance.get('/users');
+  const users = Array.isArray(res.data) ? res.data : (res.data?.users || res.data?.data || []);
+  // Filter users that have photoFace
+  return users.filter((user: any) => user.photoFace);
 };
 
 export const deleteUser = async (id: string) => {
@@ -125,6 +146,9 @@ export default {
   updateUser,
   updateUserAvatar,
   uploadPhotoFace,
+  uploadCitizenIdentification,
+  checkCitizenIdentification,
+  getUsersWithPhotoFace,
   deleteUser,
   suspendUser,
   unsuspendUser,

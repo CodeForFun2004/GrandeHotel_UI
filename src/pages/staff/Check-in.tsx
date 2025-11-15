@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -33,13 +33,12 @@ import {
   TableBody,
   Alert,
   Avatar,
-  Slider,
 } from "@mui/material";
-// import { useLocation } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import SearchIcon from "@mui/icons-material/Search";
 import PersonSearchIcon from "@mui/icons-material/PersonSearch";
-import FactCheckIcon from "@mui/icons-material/FactCheck";
 import MeetingRoomIcon from "@mui/icons-material/MeetingRoom";
 import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import NoteAltIcon from "@mui/icons-material/NoteAlt";
@@ -50,20 +49,16 @@ import BadgeIcon from "@mui/icons-material/Badge";
 import LockIcon from "@mui/icons-material/Lock";
 import { searchReservationsForCheckIn as apiSearchCheckin, confirmCheckIn as apiConfirmCheckin, getReservationForCheckIn as apiGetReservationForCheckIn, type CheckinSearchItem } from "../../api/dashboard";
 import { cancelReservation as apiCancelReservation } from "../../api/reservations";
-
-/* =======================
-   UTIL
-   ======================= */
-const formatVND = (n: number) =>
-  (Number.isFinite(n) ? n : 0).toLocaleString("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  });
-
-/* =======================
-  DATA TYPES (API-driven)
-  ======================= */
+import type { IdType } from "./components/checkin";
+import { 
+  formatVND, 
+  validateIdDoc, 
+  sanitizeIdNumber,
+  ManualCheckInFlow,
+  FaceRecognizeCheckInFlow,
+  MATCH_THRESHOLD,
+  BlockHeader
+} from "./components/checkin";
 
 /* =======================
    STEPS (bỏ bước Cọc/Prepayment)
@@ -113,8 +108,9 @@ export default function CheckIn() {
   // payment summary for selected reservation
   const [paymentSummary, setPaymentSummary] = useState<{ paymentStatus: 'unpaid'|'partially_paid'|'deposit_paid'|'fully_paid'; depositAmount: number; totalPrice: number; paidAmount: number } | null>(null);
   // per-room ID docs: roomId -> { type, number, nameOnId, address? }
-  type IdType = 'cccd' | 'cmnd' | 'passport' | 'other';
   const [idDocs, setIdDocs] = useState<Record<string, { type?: IdType; number: string; nameOnId: string; address?: string }>>({});
+  // Track verification status for manual check-in
+  const [verifiedRooms, setVerifiedRooms] = useState<Set<string>>(new Set());
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<CheckinSearchItem[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -182,38 +178,23 @@ export default function CheckIn() {
   const allSelectedRooms = useMemo(() => Object.values(selectedRoomsByType).flat(), [selectedRoomsByType]);
   const setIdDocField = (roomId: string, field: 'number' | 'nameOnId' | 'address', value: string) => {
     setIdDocs(prev => {
-      const current = prev[roomId] || { type: 'cccd', number: '', nameOnId: '' };
+      const current = prev[roomId] || { type: 'cccd' as IdType, number: '', nameOnId: '' };
       let v = value;
       // sanitize by type
       const t = current.type || 'cccd';
       if (field === 'number') {
-        if (t === 'cccd' || t === 'cmnd') v = value.replace(/\D/g, '');
-        else if (t === 'passport' || t === 'other') v = value.toUpperCase();
+        v = sanitizeIdNumber(t, value);
       }
-      return { ...prev, [roomId]: { ...current, [field]: v } } as any;
+      return { ...prev, [roomId]: { ...current, [field]: v } };
     });
   };
   const setIdDocType = (roomId: string, type: IdType) => {
     setIdDocs(prev => {
       const current = prev[roomId] || { number: '', nameOnId: '' };
       // when switching type, re-sanitize number
-      let num = current.number || '';
-      if (type === 'cccd' || type === 'cmnd') num = (num || '').replace(/\D/g, '');
-      else num = (num || '').toUpperCase();
-      return { ...prev, [roomId]: { ...current, type, number: num } } as any;
+      const num = sanitizeIdNumber(type, current.number || '');
+      return { ...prev, [roomId]: { ...current, type, number: num } };
     });
-  };
-
-  const validateIdDoc = (doc?: { type?: IdType; number?: string; nameOnId?: string }) => {
-    if (!doc) return false;
-    const t = doc.type || 'cccd';
-    const num = (doc.number || '').trim();
-    const name = (doc.nameOnId || '').trim();
-    if (name.length < 2) return false;
-    if (t === 'cccd') return /^\d{12}$/.test(num);
-    if (t === 'cmnd') return /^\d{9}$/.test(num);
-    if (t === 'passport') return /^[A-Z0-9]{6,9}$/.test(num);
-    return /^[A-Z0-9-]{6,20}$/.test(num);
   };
   // initial load: list all eligible reservations by default
   useEffect(() => {
@@ -232,8 +213,9 @@ export default function CheckIn() {
 
   /** --------- FACE VERIFY (UI ONLY) --------- */
   const [faceScore, setFaceScore] = useState<number | null>(null); // 0..100
-  const MATCH_THRESHOLD = 80;
-  const faceOK = (faceScore ?? 0) >= MATCH_THRESHOLD;
+  const [faceVerified, setFaceVerified] = useState(false); // Track if face was verified via API (success: true)
+  const [faceUserData, setFaceUserData] = useState<any>(null); // Store matched user data
+  const faceOK = faceVerified; // Chỉ cần API trả về success là được
 
   /** --------- EXTRAS (nâng hạng & cọc thêm optional) --------- */
   const [earlyCheckin, setEarlyCheckin] = useState(false);
@@ -345,10 +327,16 @@ export default function CheckIn() {
     if (tab === 0) {
       // Manual
       if (activeStep === 1) {
-        // require one valid ID per selected room
+        // require one valid ID per selected room AND all rooms must be verified
         if (allSelectedRooms.length === 0) return false;
         for (const r of allSelectedRooms) {
+          // Must have valid ID doc
           if (!validateIdDoc(idDocs[r._id])) return false;
+          // Must be verified via API (for CCCD/CMND only)
+          const docType = idDocs[r._id]?.type || 'cccd';
+          if (docType === 'cccd' || docType === 'cmnd') {
+            if (!verifiedRooms.has(r._id)) return false; // Must be verified
+          }
         }
         return true;
       }
@@ -357,14 +345,47 @@ export default function CheckIn() {
       return true;
     } else {
       // Face
-      if (activeStep === 1) return faceOK; // face verify
+      if (activeStep === 1) {
+        // Chỉ cần API verify thành công (success: true) hoặc score >= 40% (mapped to 80%+)
+        return faceVerified;
+      }
       if (activeStep === 2) return true; // ngoại lệ & ghi chú
   if (activeStep === 3) return isRoomValidForTarget; // backend will validate
       return true;
     }
-  }, [activeStep, tab, faceOK, isRoomValidForTarget, allSelectedRooms, idDocs]);
+  }, [activeStep, tab, faceVerified, isRoomValidForTarget, allSelectedRooms, idDocs, verifiedRooms]);
 
-  const handleNext = () => setActiveStep((s) => Math.min(s + 1, steps.length - 1));
+  const handleNext = () => {
+    // Additional validation for manual check-in ID step
+    if (tab === 0 && activeStep === 1) {
+      const unverifiedRooms = allSelectedRooms.filter(r => {
+        const docType = idDocs[r._id]?.type || 'cccd';
+        return (docType === 'cccd' || docType === 'cmnd') && !verifiedRooms.has(r._id);
+      });
+      
+      if (unverifiedRooms.length > 0) {
+        const roomNumbers = unverifiedRooms.map(r => r.roomNumber || r.name || r._id).join(', ');
+        toast.error(`⚠️ Vui lòng kiểm tra và xác thực giấy tờ cho các phòng: ${roomNumbers}`, {
+          position: "top-center",
+          autoClose: 5000,
+        });
+        return;
+      }
+    }
+    
+    // Additional validation for face check-in
+    if (tab === 1 && activeStep === 1) {
+      if (!faceVerified) {
+        toast.error(`⚠️ Vui lòng quét khuôn mặt để xác thực thành công`, {
+          position: "top-center",
+          autoClose: 5000,
+        });
+        return;
+      }
+    }
+    
+    setActiveStep((s) => Math.min(s + 1, steps.length - 1));
+  };
   const handleBack = () => setActiveStep((s) => Math.max(s - 1, 0));
 
   const resetAll = () => {
@@ -373,7 +394,10 @@ export default function CheckIn() {
     setSelected(null);
     setSelectedRoomsByType({});
     setIdDocs({});
+    setVerifiedRooms(new Set());
     setFaceScore(null);
+    setFaceVerified(false);
+    setFaceUserData(null);
     setEarlyCheckin(false);
     setUpgrade("none");
     setAddAdult(0);
@@ -398,23 +422,11 @@ export default function CheckIn() {
     // no-op; backend will handle auto room assignment if needed
   }, [activeStep, tab, upgrade, roomSelected]);
 
-  const BlockHeader = ({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle?: string }) => (
-    <Stack direction="row" spacing={1} alignItems="center" mb={1}>
-      <Avatar sx={{ width: 28, height: 28 }}>{icon}</Avatar>
-      <Box>
-        <Typography variant="h6">{title}</Typography>
-        {subtitle && (
-          <Typography variant="body2" color="text.secondary">
-            {subtitle}
-          </Typography>
-        )}
-      </Box>
-    </Stack>
-  );
 
 
   return (
     <Box>
+      <ToastContainer />
       <Typography variant="h5" fontWeight={800} mb={1}>
         Check-in
       </Typography>
@@ -517,77 +529,40 @@ export default function CheckIn() {
 
           {/* MANUAL: Nhập giấy tờ */}
           {tab === 0 && activeStep === 1 && (
-            <Card>
-              <CardContent>
-                <BlockHeader icon={<FactCheckIcon fontSize="small" />} title="Nhập thông tin giấy tờ cho từng phòng" subtitle="Yêu cầu: 1 người đại diện/1 phòng" />
-                {allSelectedRooms.length === 0 && (
-                  <Alert severity="warning">Chưa có phòng được chọn. Hệ thống sẽ tự động gán dựa trên đặt phòng.</Alert>
-                )}
-                <Stack spacing={2}>
-                  {allSelectedRooms.map((r) => (
-                    <Card key={r._id} variant="outlined">
-                      <CardContent>
-                        <Typography variant="subtitle2" gutterBottom>Phòng {r.roomNumber || r.name || r._id}</Typography>
-                        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
-                          <FormControl fullWidth>
-                            <InputLabel>Loại giấy tờ</InputLabel>
-                            <Select
-                              label="Loại giấy tờ"
-                              value={idDocs[r._id]?.type || 'cccd'}
-                              onChange={(e) => setIdDocType(r._id, e.target.value as IdType)}
-                            >
-                              <MenuItem value="cccd">CCCD (12 số)</MenuItem>
-                              <MenuItem value="cmnd">CMND (9 số)</MenuItem>
-                              <MenuItem value="passport">Passport (6–9 ký tự chữ/số)</MenuItem>
-                              <MenuItem value="other">Khác</MenuItem>
-                            </Select>
-                          </FormControl>
-                          <TextField fullWidth label="Số CCCD/Hộ chiếu" value={idDocs[r._id]?.number || ''} onChange={(e) => setIdDocField(r._id, 'number', e.target.value)} />
-                          <TextField fullWidth label="Họ tên theo giấy tờ" value={idDocs[r._id]?.nameOnId || ''} onChange={(e) => setIdDocField(r._id, 'nameOnId', e.target.value)} />
-                          <Box sx={{ gridColumn: "1 / -1" }}>
-                            <TextField fullWidth label="Địa chỉ (tuỳ chọn)" value={idDocs[r._id]?.address || ''} onChange={(e) => setIdDocField(r._id, 'address', e.target.value)} />
-                          </Box>
-                          {!validateIdDoc(idDocs[r._id]) && (
-                            <Box sx={{ gridColumn: '1 / -1' }}>
-                              <Alert severity="warning">Vui lòng nhập đúng định dạng. Quy tắc: CCCD 12 số; CMND 9 số; Passport 6–9 ký tự chữ/số (viết hoa).</Alert>
-                            </Box>
-                          )}
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </Stack>
-              </CardContent>
-            </Card>
+            <ManualCheckInFlow
+              step="id"
+              allSelectedRooms={allSelectedRooms}
+              idDocs={idDocs}
+              onSetIdDocType={setIdDocType}
+              onSetIdDocField={setIdDocField}
+              verifiedRooms={verifiedRooms}
+              onRoomVerified={(roomId) => setVerifiedRooms(prev => new Set([...prev, roomId]))}
+              onRoomUnverified={(roomId) => setVerifiedRooms(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(roomId);
+                return newSet;
+              })}
+            />
           )}
 
           {/* FACE: Quét khuôn mặt (UI-only) */}
           {tab === 1 && activeStep === 1 && (
-            <Card>
-              <CardContent>
-                <BlockHeader
-                  icon={<TagFacesIcon fontSize="small" />}
-                  title="Quét & nhận diện khuôn mặt (UI demo)"
-                  subtitle="Dùng camera thiết bị + mô phỏng kết quả nhận diện"
-                />
-                {!selected && (
-                  <Alert severity="warning" sx={{ mb: 2 }}>
-                    Vui lòng chọn booking ở bước 1 trước khi quét.
-                  </Alert>
-                )}
-
-                <FaceVerifyUI
-                  matchThreshold={MATCH_THRESHOLD}
-                  onResult={(percent) => setFaceScore(percent)}
-                />
-
-                {faceScore !== null && faceScore < MATCH_THRESHOLD && (
-                  <Alert severity="warning" sx={{ mt: 2 }}>
-                    Điểm khớp chưa đạt ngưỡng. Bạn có thể quét lại hoặc chuyển sang Manual check-in.
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
+            <FaceRecognizeCheckInFlow
+              step="face"
+              selected={selected}
+              faceScore={faceScore}
+              onResult={(percent, userData) => {
+                setFaceScore(percent);
+                // Pass nếu score >= 80% trên UI (tương ứng với actualScore >= 40%)
+                if (percent >= 80) {
+                  setFaceVerified(true);
+                  setFaceUserData(userData);
+                } else {
+                  setFaceVerified(false);
+                  setFaceUserData(null);
+                }
+              }}
+            />
           )}
 
           {/* EXTRAS: nâng hạng + cọc thêm (optional) */}
@@ -968,104 +943,5 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
         {value}
       </Typography>
     </Stack>
-  );
-}
-
-/* =======================
-   FaceVerifyUI (UI-only, camera + mock score)
-   ======================= */
-function FaceVerifyUI({
-  matchThreshold = 80,
-  onResult,
-}: {
-  matchThreshold?: number;
-  onResult?: (percent: number) => void;
-}) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [score, setScore] = useState<number | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [streaming, setStreaming] = useState(false);
-
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false,
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-        setStreaming(true);
-      }
-    } catch (e) {
-      console.error(e);
-      setErr("Không truy cập được camera – hãy cấp quyền máy ảnh cho trình duyệt.");
-    }
-  };
-
-  const stopCamera = () => {
-    const v = videoRef.current;
-    const stream = v?.srcObject as MediaStream | null;
-    stream?.getTracks().forEach((t) => t.stop());
-    if (v) v.srcObject = null;
-    setStreaming(false);
-  };
-
-  // mô phỏng quét ra điểm
-  const simulate = (type: "match" | "mismatch") => {
-    const val =
-      type === "match" ? Math.floor(85 + Math.random() * 15) : Math.floor(40 + Math.random() * 35);
-    setScore(val);
-    onResult?.(val);
-  };
-
-  // chỉnh tay cho demo (slider)
-  const setManual = (_: Event, v: number | number[]) => {
-    const val = Array.isArray(v) ? v[0] : v;
-    setScore(val);
-    onResult?.(val);
-  };
-
-  useEffect(() => {
-    return () => {
-      // cleanup camera khi unmount
-      stopCamera();
-    };
-  }, []);
-
-  return (
-    <Box>
-      {err && <Alert severity="error" sx={{ mb: 1 }}>{err}</Alert>}
-
-      <Box sx={{ position: "relative", borderRadius: 1, overflow: "hidden", bgcolor: "#000" }}>
-        <video ref={videoRef} playsInline muted style={{ width: "100%", height: 300, objectFit: "cover" }} />
-        {!streaming && (
-          <Box sx={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", color: "#fff", bgcolor: "rgba(0,0,0,.25)" }}>
-            <Typography>Camera preview</Typography>
-          </Box>
-        )}
-      </Box>
-
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} mt={2} alignItems="center">
-        {!streaming ? (
-          <Button variant="contained" onClick={startCamera}>Bật camera</Button>
-        ) : (
-          <Button variant="outlined" onClick={stopCamera}>Tắt camera</Button>
-        )}
-        <Button onClick={() => simulate("match")} disabled={!streaming}>Scan (match)</Button>
-        <Button onClick={() => simulate("mismatch")} disabled={!streaming}>Scan (mismatch)</Button>
-        <Chip
-          label={score == null ? "Chưa quét" : `Match ${score}%`}
-          color={score != null ? (score >= matchThreshold ? "success" : "warning") : "default"}
-          variant="outlined"
-        />
-      </Stack>
-
-      <Box sx={{ mt: 2 }}>
-        <Typography variant="caption" color="text.secondary">Chỉnh tay điểm match (demo):</Typography>
-        <Slider value={score ?? 0} onChange={setManual} min={0} max={100} sx={{ maxWidth: 360 }} />
-        <Typography variant="caption" color="text.secondary">Ngưỡng đậu: {matchThreshold}%</Typography>
-      </Box>
-    </Box>
   );
 }

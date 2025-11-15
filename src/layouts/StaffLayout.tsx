@@ -43,6 +43,10 @@ import { useMemo, useState, Fragment } from "react";
 import type { ReactNode } from "react";
 import Logo from "../assets/logo.png";
 import { STAFF_PATHS } from "../utils/constant/enum";
+import { useAppDispatch } from "../redux/hooks";
+import { logout } from "../redux/slices/authSlice";
+import { routes } from "../routes/AppRouter";
+import { toast } from "react-toastify";
 
 /* =======================
    UI constants & mock
@@ -57,7 +61,11 @@ const NAV: NavGroup[] = [
   {
     label: "Operations",
     items: [
-      { title: "Dashboard", icon: <BarChartIcon />, path: STAFF_PATHS.DASHBOARD },
+      {
+        title: "Dashboard",
+        icon: <BarChartIcon />,
+        path: STAFF_PATHS.DASHBOARD,
+      },
       { title: "Check-in", icon: <LoginIcon />, path: STAFF_PATHS.CHECKIN },
       { title: "Check-out", icon: <LogoutIcon />, path: STAFF_PATHS.CHECKOUT },
     ],
@@ -66,8 +74,16 @@ const NAV: NavGroup[] = [
     label: "Inventory & Booking",
     items: [
       { title: "Rooms", icon: <MeetingRoomIcon />, path: STAFF_PATHS.ROOMS },
-      { title: "Bookings", icon: <BookOnlineIcon />, path: STAFF_PATHS.BOOKINGS },
-      { title: "Calendar", icon: <CalendarMonthIcon />, path: STAFF_PATHS.CALENDAR },
+      {
+        title: "Bookings",
+        icon: <BookOnlineIcon />,
+        path: STAFF_PATHS.BOOKINGS,
+      },
+      {
+        title: "Calendar",
+        icon: <CalendarMonthIcon />,
+        path: STAFF_PATHS.CALENDAR,
+      },
     ],
   },
   {
@@ -132,7 +148,9 @@ const theme = createTheme({
       },
     },
     MuiDrawer: {
-      styleOverrides: { paper: { backgroundColor: "#f5f5f5", borderRight: "none" } },
+      styleOverrides: {
+        paper: { backgroundColor: "#f5f5f5", borderRight: "none" },
+      },
     },
     MuiListItemButton: {
       styleOverrides: {
@@ -154,6 +172,7 @@ const theme = createTheme({
 export default function StaffLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
 
   const isMdDown = useMediaQuery("(max-width:900px)");
 
@@ -164,6 +183,7 @@ export default function StaffLayout() {
   const [currentHotel] = useState<Hotel | null>(CURRENT_HOTEL);
 
   const currentDrawerWidth = expanded ? DRAWER_EXPANDED : DRAWER_COLLAPSED;
+
 
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(path + "/");
@@ -211,7 +231,13 @@ export default function StaffLayout() {
             {expanded ? (
               <Typography
                 variant="overline"
-                sx={{ px: 2, pt: 1.5, pb: 0.5, color: "text.secondary", display: "block" }}
+                sx={{
+                  px: 2,
+                  pt: 1.5,
+                  pb: 0.5,
+                  color: "text.secondary",
+                  display: "block",
+                }}
               >
                 {group.label}
               </Typography>
@@ -283,14 +309,31 @@ export default function StaffLayout() {
           </Fragment>
         ))}
 
-        {/* Logout (UI mock) */}
+        {/* Logout */}
         <List dense disablePadding>
           <ListItem disablePadding>
-            <ListItemButton onClick={() => navigate("/")} sx={{ px: expanded ? 2 : 1.2 }}>
-              <ListItemIcon sx={{ minWidth: expanded ? 40 : "auto", justifyContent: "center" }}>
+            <ListItemButton
+              onClick={() => {
+                dispatch(logout());
+                toast.success("You've been signed out.");
+                navigate(routes.HOME_PATH, { replace: true });
+              }}
+              sx={{ px: expanded ? 2 : 1.2 }}
+            >
+              <ListItemIcon
+                sx={{
+                  minWidth: expanded ? 40 : "auto",
+                  justifyContent: "center",
+                }}
+              >
                 <PowerSettingsNewIcon color="error" />
               </ListItemIcon>
-              {expanded && <ListItemText primary="Logout" primaryTypographyProps={{ color: "error" }} />}
+              {expanded && (
+                <ListItemText
+                  primary="Logout"
+                  primaryTypographyProps={{ color: "error" }}
+                />
+              )}
             </ListItemButton>
           </ListItem>
         </List>
@@ -328,9 +371,19 @@ export default function StaffLayout() {
 
             {/* Khi drawer thu gọn, hiện logo nhỏ */}
             {!expanded && (
-              <Box sx={{ display: { xs: "none", sm: "flex" }, alignItems: "center", gap: 1.5, mr: 1 }}>
+              <Box
+                sx={{
+                  display: { xs: "none", sm: "flex" },
+                  alignItems: "center",
+                  gap: 1.5,
+                  mr: 1,
+                }}
+              >
                 <img src={Logo} alt="Logo" style={{ height: 32 }} />
-                <Typography variant="h6" sx={{ fontWeight: 800, color: "#b8192b" }}>
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 800, color: "#b8192b" }}
+                >
                   Staff
                 </Typography>
               </Box>
@@ -339,7 +392,12 @@ export default function StaffLayout() {
             {/* Tiêu đề trang */}
             <Typography
               variant="h6"
-              sx={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              sx={{
+                fontWeight: 700,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
             >
               {pageTitle}
             </Typography>
@@ -348,20 +406,30 @@ export default function StaffLayout() {
 
             {/* Hotel (read-only) */}
             {currentHotel ? (
-              <Chip color="primary" variant="outlined" label={currentHotel.name} sx={{ maxWidth: 360 }} />
+              <Chip
+                color="primary"
+                variant="outlined"
+                label={currentHotel.name}
+                sx={{ maxWidth: 360 }}
+              />
             ) : (
               <Stack direction="row" spacing={1} alignItems="center">
-                <Alert severity="warning" sx={{ py: 0.5 }}>Chưa gắn khách sạn cho tài khoản (UI demo)</Alert>
+                <Alert severity="warning" sx={{ py: 0.5 }}>
+                  Chưa gắn khách sạn cho tài khoản (UI demo)
+                </Alert>
               </Stack>
             )}
 
-            {/* User mock */}
-            <UserMenu onProfile={() => navigate(STAFF_PATHS.PROFILE)} onLogout={() => navigate("/")} />
+            {/* User menu */}
+            <UserMenu onProfile={() => navigate(STAFF_PATHS.PROFILE)} />
           </Toolbar>
         </AppBar>
 
         {/* DRAWER */}
-        <Box component="nav" sx={{ width: { sm: currentDrawerWidth }, flexShrink: { sm: 0 } }}>
+        <Box
+          component="nav"
+          sx={{ width: { sm: currentDrawerWidth }, flexShrink: { sm: 0 } }}
+        >
           {/* Mobile drawer */}
           <Drawer
             variant="temporary"
@@ -370,7 +438,10 @@ export default function StaffLayout() {
             ModalProps={{ keepMounted: true }}
             sx={{
               display: { xs: "block", sm: "none" },
-              "& .MuiDrawer-paper": { boxSizing: "border-box", width: DRAWER_EXPANDED },
+              "& .MuiDrawer-paper": {
+                boxSizing: "border-box",
+                width: DRAWER_EXPANDED,
+              },
             }}
           >
             {DrawerList}
@@ -395,7 +466,10 @@ export default function StaffLayout() {
         </Box>
 
         {/* MAIN — truyền currentHotel cho trang con */}
-        <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: 3, mt: "64px" }}>
+        <Box
+          component="main"
+          sx={{ flexGrow: 1, minWidth: 0, p: 3, mt: "64px" }}
+        >
           <Outlet context={{ currentHotel }} />
         </Box>
       </Box>
@@ -404,8 +478,17 @@ export default function StaffLayout() {
 }
 
 /* =============== small user menu =============== */
-function UserMenu({ onProfile, onLogout }: { onProfile: () => void; onLogout: () => void }) {
+function UserMenu({ onProfile }: { onProfile: () => void }) {
   const [el, setEl] = useState<null | HTMLElement>(null);
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    dispatch(logout());
+    toast.success("You've been signed out.");
+    navigate(routes.HOME_PATH, { replace: true });
+  };
+
   return (
     <>
       <IconButton onClick={(e) => setEl(e.currentTarget)}>
@@ -418,11 +501,20 @@ function UserMenu({ onProfile, onLogout }: { onProfile: () => void; onLogout: ()
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         transformOrigin={{ vertical: "top", horizontal: "right" }}
       >
-        <MenuItem onClick={() => { setEl(null); onProfile(); }}>
+        <MenuItem
+          onClick={() => {
+            setEl(null);
+            onProfile();
+          }}
+        >
           <PersonIcon fontSize="small" style={{ marginRight: 8 }} /> Profile
         </MenuItem>
-        <MenuItem onClick={() => { setEl(null); onLogout(); }}>
-          <PowerSettingsNewIcon fontSize="small" color="error" style={{ marginRight: 8 }} />
+        <MenuItem onClick={handleLogout}>
+          <PowerSettingsNewIcon
+            fontSize="small"
+            color="error"
+            style={{ marginRight: 8 }}
+          />
           Sign out
         </MenuItem>
       </Menu>

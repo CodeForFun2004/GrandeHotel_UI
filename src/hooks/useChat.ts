@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import socketService, { type Message } from '../services/socketService';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../redux/store';
+import { useSocket } from '../contexts/SocketContext';
 
 export interface Conversation {
   threadId: string;
@@ -40,12 +41,13 @@ export const useChat = (options: UseChatOptions = {}) => {
   const user = useSelector((state: RootState) => state.auth.user);
   const token = useSelector((state: RootState) => state.auth.accessToken);
 
+  // Use persistent socket connection and event subscriptions
+  const { isConnected, connectionStatus, onNewMessage, onUserTyping, onUserStoppedTyping, onError } = useSocket();
+
   // State
   const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
 
   // Refs
   const typingTimeoutRef = useRef<number>();
@@ -84,43 +86,29 @@ export const useChat = (options: UseChatOptions = {}) => {
 
   const handleError = useCallback((message: string) => {
     setError(message);
-    setConnectionStatus('disconnected');
   }, []);
 
-  const handleConnect = useCallback(() => {
-    setIsConnected(true);
-    setConnectionStatus('connected');
-    setError(null);
-  }, []);
-
-  const handleDisconnect = useCallback(() => {
-    setIsConnected(false);
-    setConnectionStatus('disconnected');
-  }, []);
-
-  // Connect to socket when component mounts and token is available
+  // Set up event listeners when component mounts (persistent connection already exists)
   useEffect(() => {
-    if (token && autoConnect) {
-      console.log('🔌 Connecting to chat server...');
-      setConnectionStatus('connecting');
+    if (autoConnect) {
+      console.log('🔌 Setting up chat event listeners...');
 
-      socketService.connect(token);
+      // Subscribe to events and store unsubscribe functions
+      const unsubscribeNewMessage = onNewMessage(handleNewMessage);
+      const unsubscribeUserTyping = onUserTyping(handleUserTyping);
+      const unsubscribeUserStoppedTyping = onUserStoppedTyping(handleUserStoppedTyping);
+      const unsubscribeError = onError(handleError);
 
-      // Set up event listeners
-      socketService.onNewMessage(handleNewMessage);
-      socketService.onUserTyping(handleUserTyping);
-      socketService.onUserStoppedTyping(handleUserStoppedTyping);
-      socketService.onError(handleError);
-      socketService.onConnect(handleConnect);
-      socketService.onDisconnect(handleDisconnect);
-
-      // Cleanup function
+      // Cleanup function - unsubscribe from events, keep connection alive
       return () => {
-        console.log('🔌 Cleaning up socket listeners...');
-        socketService.removeAllListeners();
+        console.log('🔌 Cleaning up chat event listeners...');
+        unsubscribeNewMessage();
+        unsubscribeUserTyping();
+        unsubscribeUserStoppedTyping();
+        unsubscribeError();
       };
     }
-  }, [token, autoConnect, handleNewMessage, handleUserTyping, handleUserStoppedTyping, handleError, handleConnect, handleDisconnect]);
+  }, [autoConnect, handleNewMessage, handleUserTyping, handleUserStoppedTyping, handleError, onNewMessage, onUserTyping, onUserStoppedTyping, onError]);
 
   // Join/leave conversation rooms when threadId changes
   useEffect(() => {
@@ -181,11 +169,10 @@ export const useChat = (options: UseChatOptions = {}) => {
     setMessages([]);
   }, []);
 
-  // Disconnect socket
+  // Disconnect socket (only for this chat instance, not global)
   const disconnect = useCallback(() => {
-    socketService.disconnect();
-    setIsConnected(false);
-    setConnectionStatus('disconnected');
+    // Note: This only removes listeners, doesn't disconnect global socket
+    socketService.removeAllListeners();
   }, []);
 
   // Cleanup on unmount

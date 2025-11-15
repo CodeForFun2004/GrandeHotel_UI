@@ -5,6 +5,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import ChatboxAI, { type ChatMessage } from "./components/common/ChatboxAI";
 import { askChatbot } from "./api/chatbot";
+import { SocketProvider } from "./contexts/SocketContext";
 
 const theme = createTheme({
   palette: {
@@ -19,7 +20,7 @@ const theme = createTheme({
 
 function App() {
   return (
-    <>
+    <SocketProvider>
       <ThemeProvider theme={theme}>
         <AppRouter />
         {/* Minimal Notion-like AI chatbox wired to backend */}
@@ -42,7 +43,7 @@ function App() {
           theme="colored"
         />
       </ThemeProvider>
-    </>
+    </SocketProvider>
   );
 }
 
