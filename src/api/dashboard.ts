@@ -83,7 +83,8 @@ export interface ConfirmCheckinRequest {
   idVerifications?: Array<{
     roomId: string;
     idDocument: {
-      type?: 'citizen_id' | 'passport' | 'other';
+      // Accept Vietnam ID variants directly; backend also supports 'other'
+      type?: 'cccd' | 'cmnd' | 'passport' | 'other';
       number: string;
       nameOnId: string;
       address?: string;

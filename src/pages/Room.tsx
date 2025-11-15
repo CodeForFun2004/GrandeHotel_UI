@@ -56,12 +56,39 @@ const RoomPage: React.FC = () => {
   const [bookingError, setBookingError] = useState<string | null>(null);
   // Inline edit states for summary
   const [isEditingDates, setIsEditingDates] = useState(false);
+  const [dateError, setDateError] = useState<string | null>(null);
   // Helper to get date-only (YYYY-MM-DD) without timezone shifts
   const dateOnly = (s?: string) => {
     if (!s) return '';
     const idx = s.indexOf('T');
     return idx > 0 ? s.slice(0, 10) : s;
   };
+  // Helpers for local YMD and parsing without timezone surprises
+  const ymdLocal = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const parseYMD = (s?: string): Date | null => {
+    if (!s) return null;
+    const str = s.includes('T') ? s.slice(0, 10) : s;
+    const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(str);
+    if (!m) {
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    const year = Number(m[1]);
+    const month = Number(m[2]);
+    const day = Number(m[3]);
+    return new Date(year, month - 1, day);
+  };
+  const addDays = (d: Date, days: number) => {
+    const copy = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    copy.setDate(copy.getDate() + days);
+    return copy;
+  };
+  const todayYMD = ymdLocal(new Date());
   const [tempIn, setTempIn] = useState<string>(dateOnly(checkInDate));
   const [tempOut, setTempOut] = useState<string>(dateOnly(checkOutDate));
   const [editingQty, setEditingQty] = useState<Record<string, boolean>>({});
@@ -188,8 +215,30 @@ const RoomPage: React.FC = () => {
 
   const saveDates = () => {
     const params = new URLSearchParams(window.location.search);
-    if (tempIn) params.set('checkInDate', tempIn); else params.delete('checkInDate');
-    if (tempOut) params.set('checkOutDate', tempOut); else params.delete('checkOutDate');
+    setDateError(null);
+    // Normalize and validate
+    let inStr = tempIn;
+    let outStr = tempOut;
+    const inDate = parseYMD(inStr);
+    const outDate = parseYMD(outStr);
+    const today = parseYMD(todayYMD)!;
+
+    // Ensure check-in is today or later
+    let validIn = inDate ?? today;
+    if (validIn < today) {
+      validIn = today;
+    }
+    // Ensure check-out is after check-in (at least +1 day)
+    let minOutDate = addDays(validIn, 1);
+    let validOut = outDate ?? minOutDate;
+    if (validOut <= validIn) {
+      validOut = minOutDate;
+    }
+    inStr = ymdLocal(validIn);
+    outStr = ymdLocal(validOut);
+
+    if (inStr) params.set('checkInDate', inStr); else params.delete('checkInDate');
+    if (outStr) params.set('checkOutDate', outStr); else params.delete('checkOutDate');
     navigate(`${window.location.pathname}?${params.toString()}`);
     setIsEditingDates(false);
   };
@@ -230,6 +279,7 @@ const RoomPage: React.FC = () => {
     } catch {/* ignore */}
   }, [hotelId, checkInDate, checkOutDate, nights, selected, totalPrice]);
 
+                {dateError && <div className="text-danger" style={{ fontSize: 12 }}>{dateError}</div>}
   return (
     <>
       <div className="hero-wrap" style={{ backgroundImage: `url(${heroBg})` }}>
@@ -404,19 +454,46 @@ const RoomPage: React.FC = () => {
                       <input
                         type="date"
                         value={tempIn}
-                        onChange={(e)=> setTempIn(e.target.value)}
+                        min={todayYMD}
+                        onChange={(e)=> {
+                          const val = e.target.value;
+                          setTempIn(val);
+                          // If checkout is invalid, auto-adjust to next day
+                          const inD = parseYMD(val) ?? parseYMD(todayYMD)!;
+                          const minOut = ymdLocal(addDays(inD, 1));
+                          if (!tempOut || tempOut <= val) {
+                            setTempOut(minOut);
+                          }
+                          setDateError(null);
+                        }}
                       />
                       <span>-</span>
                       <input
                         type="date"
                         value={tempOut}
-                        onChange={(e)=> setTempOut(e.target.value)}
+                        min={(() => {
+                          const inD = parseYMD(tempIn) ?? parseYMD(todayYMD)!;
+                          return ymdLocal(addDays(inD, 1));
+                        })()}
+                        onChange={(e)=> {
+                          const val = e.target.value;
+                          setTempOut(val);
+                          // Validate on the fly
+                          const inD = parseYMD(tempIn) ?? parseYMD(todayYMD)!;
+                          const outD = parseYMD(val);
+                          if (!outD || outD <= inD) {
+                            setDateError('Ngày trả phòng phải sau ngày nhận phòng.');
+                          } else {
+                            setDateError(null);
+                          }
+                        }}
                       />
                       <button className="link-btn" onClick={saveDates}>Lưu</button>
-                      <button className="link-btn" onClick={()=>{ setIsEditingDates(false); setTempIn(dateOnly(checkInDate)); setTempOut(dateOnly(checkOutDate)); }}>Hủy</button>
+                      <button className="link-btn" onClick={()=>{ setIsEditingDates(false); setTempIn(dateOnly(checkInDate)); setTempOut(dateOnly(checkOutDate)); setDateError(null); }}>Hủy</button>
                     </div>
                   )}
                 </div>
+                {dateError && <div className="text-danger" style={{ fontSize: 12 }}>{dateError}</div>}
                 <div>
                   {selected.length === 0 && <p>Chưa chọn phòng.</p>}
                   {selected.map(s => (

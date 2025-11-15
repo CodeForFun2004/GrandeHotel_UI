@@ -28,6 +28,7 @@ import {
   Snackbar,
   Alert,
   Menu,
+  CircularProgress,
 } from "@mui/material";
 import {
   MeetingRoom,
@@ -37,10 +38,10 @@ import {
   EventBusy,
   DoNotDisturb,
   Build,
-  ReportProblem,
   ChevronRight,
 } from "@mui/icons-material";
 import { useLocation, useNavigate } from "react-router-dom";
+import api from "../../api/axios";
 
 /* ----------------------------
    Helpers
@@ -53,124 +54,96 @@ const formatVND = (n: number) =>
   });
 
 /* ----------------------------
-   Types (khớp ERD)
+   Types
 ---------------------------- */
-type RoomStatus =
-  | "Available"
-  | "Reserved"
-  | "Occupied"
-  | "Under Maintenance"
-  | "Closed"
-  | "Out of Order";
+type BackendRoomStatus = 'Reserved' | 'Available' | 'Maintenance' | 'Cleaning' | 'Occupied' | string;
+type RoomStatusUI = 'Available' | 'Reserved' | 'Occupied' | 'Under Maintenance';
 
-type RoomType = {
-  RoomType_ID: number;
-  Name: string;
-  Number_of_Bed: number;
-  Capacity: number;
-  Base_price: number;
-  Description?: string;
+type ApiRoomType = {
+  _id: string;
+  name: string;
+  capacity?: number;
+  amenities?: string[];
 };
 
-// Removed unused FacilityType type
-
-type RoomFacility = {
-  Room_Facility_ID: number;
-  Room_ID: number;
-  FacilityType_ID: number;
-  Name: string; // denormalized for UI
-  Description?: string;
-  Status: RoomStatus;
+type ApiHotel = {
+  _id: string;
+  name?: string;
 };
 
-type RoomImage = {
-  Room_Image_ID: number;
-  URL: string;
-  Room_ID: number;
+type ApiRoom = {
+  _id: string;
+  roomType: ApiRoomType;
+  hotel?: ApiHotel;
+  roomNumber: string;
+  status: BackendRoomStatus;
+  description?: string;
+  pricePerNight: number;
+  images?: string[];
 };
 
-type Room = {
-  Room_ID: number;
-  RoomType_ID: number;
-  Number: string; // số phòng
-  Name: string;
-  Description?: string;
-  Price: number;
-  Status: RoomStatus;
-  Hotel_ID: number;
+type RoomCard = {
+  id: string;
+  number: string;
+  name: string;
+  price: number;
+  status: RoomStatusUI;
+  hotelId?: string;
+  roomType: { id: string; name: string; capacity?: number };
+  image?: string;
+  amenities?: string[];
 };
 
 /* ----------------------------
-   Mock data (UI only)
+   Data helpers
 ---------------------------- */
-const ROOM_TYPES: RoomType[] = [
-  { RoomType_ID: 1, Name: "Standard", Number_of_Bed: 1, Capacity: 2, Base_price: 900_000 },
-  { RoomType_ID: 2, Name: "Deluxe", Number_of_Bed: 1, Capacity: 3, Base_price: 1_500_000 },
-  { RoomType_ID: 3, Name: "Suite", Number_of_Bed: 2, Capacity: 4, Base_price: 2_500_000 },
-];
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-// Removed unused FACILITY_TYPES to avoid lint errors
-
-const INIT_ROOMS: Room[] = [
-  { Room_ID: 1, RoomType_ID: 1, Number: "101", Name: "Standard 101", Price: 1_100_000, Status: "Available", Hotel_ID: 1 },
-  { Room_ID: 2, RoomType_ID: 2, Number: "102", Name: "Deluxe 102", Price: 1_800_000, Status: "Occupied", Hotel_ID: 1 },
-  { Room_ID: 3, RoomType_ID: 1, Number: "103", Name: "Standard 103", Price: 1_000_000, Status: "Reserved", Hotel_ID: 1 },
-  { Room_ID: 4, RoomType_ID: 3, Number: "201", Name: "Suite 201", Price: 2_700_000, Status: "Available", Hotel_ID: 1 },
-  { Room_ID: 5, RoomType_ID: 2, Number: "202", Name: "Deluxe 202", Price: 1_900_000, Status: "Under Maintenance", Hotel_ID: 1 },
-  { Room_ID: 6, RoomType_ID: 1, Number: "203", Name: "Standard 203", Price: 1_050_000, Status: "Out of Order", Hotel_ID: 1 },
-];
-
-const ROOM_IMAGES: RoomImage[] = [
-  { Room_Image_ID: 1, URL: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=1200&auto=format&fit=crop", Room_ID: 1 },
-  { Room_Image_ID: 2, URL: "https://images.unsplash.com/photo-1493809842364-78817add7ffb?q=80&w=1200&auto=format&fit=crop", Room_ID: 2 },
-  { Room_Image_ID: 3, URL: "https://images.unsplash.com/photo-1505691938895-1758d7feb511?q=80&w=1200&auto=format&fit=crop", Room_ID: 3 },
-  { Room_Image_ID: 4, URL: "https://aeros.vn/upload/images/aeros-phong-suite-la-gi-1.webp", Room_ID: 4 },
-  { Room_Image_ID: 5, URL: "https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=1200&auto=format&fit=crop", Room_ID: 5 },
-  { Room_Image_ID: 6, URL: "https://images.unsplash.com/photo-1590490360182-c33d57733427?q=80&w=1200&auto=format&fit=crop", Room_ID: 6 },
-];
-
-const ROOM_FACILITIES: RoomFacility[] = [
-  { Room_Facility_ID: 1, Room_ID: 1, FacilityType_ID: 1, Name: "A/C", Status: "Available" },
-  { Room_Facility_ID: 2, Room_ID: 1, FacilityType_ID: 2, Name: "Wi-Fi", Status: "Available" },
-  { Room_Facility_ID: 3, Room_ID: 1, FacilityType_ID: 3, Name: "TV", Status: "Available" },
-  { Room_Facility_ID: 4, Room_ID: 2, FacilityType_ID: 1, Name: "A/C", Status: "Available" },
-  { Room_Facility_ID: 5, Room_ID: 2, FacilityType_ID: 2, Name: "Wi-Fi", Status: "Available" },
-  { Room_Facility_ID: 6, Room_ID: 2, FacilityType_ID: 4, Name: "Bathtub", Status: "Available" },
-  { Room_Facility_ID: 7, Room_ID: 3, FacilityType_ID: 1, Name: "A/C", Status: "Available" },
-  { Room_Facility_ID: 8, Room_ID: 3, FacilityType_ID: 2, Name: "Wi-Fi", Status: "Available" },
-  { Room_Facility_ID: 9, Room_ID: 4, FacilityType_ID: 5, Name: "Balcony", Status: "Available" },
-  { Room_Facility_ID: 10, Room_ID: 4, FacilityType_ID: 3, Name: "TV", Status: "Available" },
-  { Room_Facility_ID: 11, Room_ID: 5, FacilityType_ID: 2, Name: "Wi-Fi", Status: "Available" },
-  { Room_Facility_ID: 12, Room_ID: 6, FacilityType_ID: 1, Name: "A/C", Status: "Available" },
-];
+const mapBackendStatusToUI = (s: string): RoomStatusUI => {
+  switch ((s || '').toLowerCase()) {
+    case 'available':
+      return 'Available';
+    case 'reserved':
+      return 'Reserved';
+    case 'occupied':
+      return 'Occupied';
+    case 'maintenance':
+    case 'cleaning':
+    default:
+      return 'Under Maintenance';
+  }
+};
 
 /* ----------------------------
    UI Config
 ---------------------------- */
 const STATUS_META: Record<
-  RoomStatus,
+  RoomStatusUI,
   { color: "default" | "success" | "warning" | "error"; label: string; icon: React.ReactNode }
 > = {
   "Available": { color: "success", label: "Trống", icon: <CheckCircle fontSize="small" /> },
   "Reserved": { color: "warning", label: "Giữ chỗ", icon: <EventBusy fontSize="small" /> },
   "Occupied": { color: "error", label: "Đang ở", icon: <DoNotDisturb fontSize="small" /> },
-  "Under Maintenance": { color: "warning", label: "Bảo trì", icon: <Build fontSize="small" /> },
-  "Closed": { color: "default", label: "Đóng", icon: <DoNotDisturb fontSize="small" /> },
-  "Out of Order": { color: "default", label: "Hỏng (OOO)", icon: <ReportProblem fontSize="small" /> },
+  "Under Maintenance": { color: "warning", label: "Bảo trì/Vệ sinh", icon: <Build fontSize="small" /> },
 };
 
 const StaffRooms: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Local copy để thao tác UI
-  const [rooms, setRooms] = useState<Room[]>(INIT_ROOMS);
+  // Data from backend
+  const [rooms, setRooms] = useState<RoomCard[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [roomTypes, setRoomTypes] = useState<{ id: string; name: string }[]>([]);
 
   /* Filters */
   const [keyword, setKeyword] = useState("");
-  const [status, setStatus] = useState<RoomStatus | "ALL">("ALL");
-  const [typeId, setTypeId] = useState<number | "ALL">("ALL");
+  const [status, setStatus] = useState<RoomStatusUI | "ALL">("ALL");
+  const [typeId, setTypeId] = useState<string | "ALL">("ALL");
+  const resetFilters = () => {
+    setKeyword("");
+    setStatus("ALL");
+    setTypeId("ALL");
+  };
 
   // If navigated with a specific room filter (from Calendar or other pages), apply it once on mount
   useEffect(() => {
@@ -185,6 +158,44 @@ const StaffRooms: React.FC = () => {
     history.replaceState && history.replaceState(null, document.title, location.pathname);
   }, [location.pathname, location.state]);
 
+  // Fetch rooms from backend (public all)
+  useEffect(() => {
+    const doFetch = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+  const res = await api.get('/rooms/all');
+        const list: any[] = res.data?.data || res.data || [];
+        const mapped: RoomCard[] = list.map((r: any) => {
+          const id = r.id ?? r._id ?? '';
+          const roomNumber = r.roomNumber ?? r.code ?? '';
+          const rt = r.roomType || {};
+          return {
+            id,
+            number: String(roomNumber),
+            name: `${rt?.name ?? r.name ?? 'Room'} ${roomNumber}`.trim(),
+            price: Number(r.pricePerNight ?? rt?.basePrice ?? 0),
+            status: mapBackendStatusToUI(r.status),
+            hotelId: r.hotel?._id ?? r.hotel?.id,
+            roomType: { id: rt?._id || rt?.id || '', name: rt?.name || 'Unknown', capacity: rt?.capacity },
+            image: (Array.isArray(r.images) && r.images.length > 0) ? r.images[0] : undefined,
+            amenities: Array.isArray(rt?.amenities) ? rt.amenities : [],
+          } as RoomCard;
+        });
+        setRooms(mapped);
+        const uniqueTypes = new Map<string, string>();
+        mapped.forEach((m) => { if (m.roomType.id) uniqueTypes.set(m.roomType.id, m.roomType.name); });
+        setRoomTypes(Array.from(uniqueTypes.entries()).map(([id, name]) => ({ id, name })));
+      } catch (e: any) {
+        console.error('Fetch rooms failed:', e);
+        setError(e?.response?.data?.message || e?.message || 'Failed to load rooms');
+      } finally {
+        setLoading(false);
+      }
+    };
+    doFetch();
+  }, []);
+
   // Snackbar
   const [snack, setSnack] = useState<{ open: boolean; msg: string; severity: "success" | "info" | "warning" | "error" }>({
     open: false,
@@ -194,7 +205,7 @@ const StaffRooms: React.FC = () => {
 
   // Assign / Reserve dialog
   const [assignOpen, setAssignOpen] = useState(false);
-  const [assignRoom, setAssignRoom] = useState<Room | null>(null);
+  const [assignRoom, setAssignRoom] = useState<RoomCard | null>(null);
   const [assignMode, setAssignMode] = useState<"reserve" | "checkin">("reserve");
   const [guestName, setGuestName] = useState("");
   const [ci, setCi] = useState("");
@@ -202,66 +213,59 @@ const StaffRooms: React.FC = () => {
   const [sellPrice, setSellPrice] = useState<number>(0);
 
   // Action dialogs for Reserved / Occupied
-  const [reservedDlg, setReservedDlg] = useState<Room | null>(null);
-  const [occupiedDlg, setOccupiedDlg] = useState<Room | null>(null);
+  const [reservedDlg, setReservedDlg] = useState<RoomCard | null>(null);
+  const [occupiedDlg, setOccupiedDlg] = useState<RoomCard | null>(null);
 
   // Maintenance menu
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
-  const [menuRoom, setMenuRoom] = useState<Room | null>(null);
+  const [menuRoom, setMenuRoom] = useState<RoomCard | null>(null);
 
-  // join & filter theo ERD
+  // filter for UI
   const data = useMemo(() => {
-    const enriched = rooms.map((r) => {
-      const type = ROOM_TYPES.find((t) => t.RoomType_ID === r.RoomType_ID)!;
-      const imgs = ROOM_IMAGES.filter((i) => i.Room_ID === r.Room_ID);
-      const facs = ROOM_FACILITIES.filter((f) => f.Room_ID === r.Room_ID).map((f) => f.Name);
-      return { room: r, type, imgs, facs };
-    });
-
-    return enriched.filter(({ room, type }) => {
+    return rooms.filter((room) => {
       const kw = keyword.trim().toLowerCase();
       const matchKw =
         !kw ||
-        room.Number.toLowerCase().includes(kw) ||
-        room.Name.toLowerCase().includes(kw) ||
-        type.Name.toLowerCase().includes(kw);
-      const matchStatus = status === "ALL" || room.Status === status;
-      const matchType = typeId === "ALL" || type.RoomType_ID === typeId;
+        room.number.toLowerCase().includes(kw) ||
+        room.name.toLowerCase().includes(kw) ||
+        room.roomType.name.toLowerCase().includes(kw);
+      const matchStatus = status === "ALL" || room.status === status;
+      const matchType = typeId === "ALL" || room.roomType.id === typeId;
       return matchKw && matchStatus && matchType;
     });
   }, [keyword, status, typeId, rooms]);
 
-  const updateRoomStatus = (id: number, s: RoomStatus) => {
-    setRooms((arr) => arr.map((r) => (r.Room_ID === id ? { ...r, Status: s } : r)));
+  const updateRoomStatus = (id: string, s: RoomStatusUI) => {
+    setRooms((arr) => arr.map((r) => (r.id === id ? { ...r, status: s } : r)));
   };
 
-  const openAssignDialog = (r: Room) => {
+  const openAssignDialog = (r: RoomCard) => {
     setAssignRoom(r);
     setAssignMode("reserve");
     setGuestName("");
     setCi("");
     setCo("");
-    setSellPrice(r.Price);
+    setSellPrice(r.price);
     setAssignOpen(true);
   };
 
   const confirmAssign = () => {
     if (!assignRoom) return;
     // UI only: cập nhật trạng thái
-    updateRoomStatus(assignRoom.Room_ID, assignMode === "reserve" ? "Reserved" : "Occupied");
+  updateRoomStatus(assignRoom.id, assignMode === "reserve" ? "Reserved" : "Occupied");
     setAssignOpen(false);
     setSnack({
       open: true,
       msg:
         assignMode === "reserve"
-          ? `Đã giữ chỗ phòng ${assignRoom.Number} cho ${guestName || "khách"}`
-          : `Đã check-in phòng ${assignRoom.Number} cho ${guestName || "khách"}`,
+          ? `Đã giữ chỗ phòng ${assignRoom.number} cho ${guestName || "khách"}`
+          : `Đã check-in phòng ${assignRoom.number} cho ${guestName || "khách"}`,
       severity: "success",
     });
   };
 
-  const onReservedAction = (r: Room) => setReservedDlg(r);
-  const onOccupiedAction = (r: Room) => setOccupiedDlg(r);
+  const onReservedAction = (r: RoomCard) => setReservedDlg(r);
+  const onOccupiedAction = (r: RoomCard) => setOccupiedDlg(r);
 
   return (
     <Box sx={{ flexGrow: 1 }}>
@@ -271,10 +275,10 @@ const StaffRooms: React.FC = () => {
           Rooms
         </Typography>
         <Stack direction="row" spacing={1}>
-          <Button variant="outlined" color="inherit" startIcon={<Build />}>
+          <Button variant="outlined" color="inherit" startIcon={<Build />} disabled>
             Bulk Actions
           </Button>
-          <Button variant="contained" sx={{ backgroundColor: "#b8192b" }}>
+          <Button variant="contained" sx={{ backgroundColor: "#b8192b" }} disabled>
             Add Room
           </Button>
         </Stack>
@@ -290,6 +294,9 @@ const StaffRooms: React.FC = () => {
               onChange={(e) => setKeyword(e.target.value)}
               fullWidth
             />
+            <Button variant="text" color="inherit" onClick={resetFilters}>
+              Xóa bộ lọc
+            </Button>
 
             <ToggleButtonGroup
               exclusive
@@ -304,9 +311,7 @@ const StaffRooms: React.FC = () => {
                   "Reserved",
                   "Occupied",
                   "Under Maintenance",
-                  "Out of Order",
-                  "Closed",
-                ] as RoomStatus[]
+                ] as RoomStatusUI[]
               ).map((s) => (
                 <ToggleButton key={s} value={s}>
                   {STATUS_META[s].label}
@@ -320,13 +325,13 @@ const StaffRooms: React.FC = () => {
                 label="Loại phòng"
                 value={typeId}
                 onChange={(e) =>
-                  setTypeId((e.target.value as number) || "ALL")
+                  setTypeId((e.target.value as string) || "ALL")
                 }
               >
                 <MenuItem value={"ALL" as any}>Tất cả</MenuItem>
-                {ROOM_TYPES.map((t) => (
-                  <MenuItem key={t.RoomType_ID} value={t.RoomType_ID}>
-                    {t.Name}
+                {roomTypes.map((t) => (
+                  <MenuItem key={t.id} value={t.id}>
+                    {t.name}
                   </MenuItem>
                 ))}
               </Select>
@@ -335,9 +340,9 @@ const StaffRooms: React.FC = () => {
 
           <Divider sx={{ my: 1.5 }} />
 
-          {/* Legend */}
-          <Stack direction="row" gap={1} flexWrap="wrap">
-            {(Object.keys(STATUS_META) as RoomStatus[]).map((k) => (
+              {/* Legend + Debug */}
+              <Stack direction="row" gap={1} flexWrap="wrap" alignItems="center">
+            {(Object.keys(STATUS_META) as RoomStatusUI[]).map((k) => (
               <Chip
                 key={k}
                 size="small"
@@ -347,9 +352,45 @@ const StaffRooms: React.FC = () => {
                 variant="outlined"
               />
             ))}
+                <Box sx={{ flex: 1 }} />
+                {/* Lightweight debug info to help diagnose empty results */}
+                <Chip size="small" label={`Tổng: ${rooms.length}`} />
+                <Chip size="small" label={`Hiển thị: ${data.length}`} />
+                {(keyword || status !== 'ALL' || typeId !== 'ALL') && (
+                  <Chip size="small" color="info" label="Đang lọc" />
+                )}
           </Stack>
         </CardContent>
       </Card>
+
+      {/* Loading / Error states */}
+      {loading && (
+        <Stack alignItems="center" justifyContent="center" sx={{ py: 6 }}>
+          <CircularProgress />
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            Đang tải danh sách phòng...
+          </Typography>
+        </Stack>
+      )}
+      {!!error && !loading && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Empty state */}
+      {!loading && !error && data.length === 0 && (
+        <Stack spacing={1.5} sx={{ mb: 2 }}>
+          <Alert severity="info">
+            Không có phòng nào phù hợp với bộ lọc hiện tại.
+          </Alert>
+          {(keyword || status !== 'ALL' || typeId !== 'ALL') && (
+            <Button variant="outlined" color="inherit" onClick={resetFilters} sx={{ alignSelf: 'start' }}>
+              Xóa tất cả bộ lọc
+            </Button>
+          )}
+        </Stack>
+      )}
 
       {/* Grid */}
       <Box
@@ -359,13 +400,13 @@ const StaffRooms: React.FC = () => {
           gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "repeat(3, 1fr)" },
         }}
       >
-  {data.map(({ room, type, imgs }) => {
-          const firstImg = imgs[0]?.URL;
-          const meta = STATUS_META[room.Status];
+  {data.map((room) => {
+    const firstImg = room.image;
+    const meta = STATUS_META[room.status];
 
           return (
             <Card
-              key={room.Room_ID}
+              key={room.id}
               sx={{
                 display: "flex",
                 flexDirection: "column",
@@ -381,7 +422,7 @@ const StaffRooms: React.FC = () => {
                   component="img"
                   height="148"
                   image={firstImg}
-                  alt={room.Name}
+                  alt={room.name}
                   sx={{ objectFit: "cover" }}
                 />
               )}
@@ -390,7 +431,7 @@ const StaffRooms: React.FC = () => {
                 <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
                   <MeetingRoom sx={{ color: "#b8192b" }} />
                   <Typography variant="h6" fontWeight={700}>
-                    Phòng {room.Number}
+                    Phòng {room.number}
                   </Typography>
                   <Box sx={{ flex: 1 }} />
                   <Chip
@@ -403,31 +444,29 @@ const StaffRooms: React.FC = () => {
                 </Stack>
 
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  {type.Name}
+                  {room.roomType.name}
                 </Typography>
 
                 <Stack direction="row" spacing={2} sx={{ mb: 1 }}>
                   <Stack direction="row" spacing={0.5} alignItems="center">
                     <KingBed fontSize="small" />
-                    <Typography variant="body2">{type.Number_of_Bed} giường</Typography>
+                    <Typography variant="body2">{Math.max(1, Math.ceil((room.roomType.capacity ?? 2) / 2))} giường</Typography>
                   </Stack>
                   <Stack direction="row" spacing={0.5} alignItems="center">
                     <People fontSize="small" />
-                    <Typography variant="body2">{type.Capacity} người</Typography>
+                    <Typography variant="body2">{room.roomType.capacity ?? 2} người</Typography>
                   </Stack>
                 </Stack>
 
                 <Typography variant="h6" sx={{ color: "#b8192b", mb: 1 }}>
-                  {formatVND(room.Price)}/đêm
+                  {formatVND(room.price)}/đêm
                 </Typography>
 
                 {/* Facilities (top 3 + more) */}
                 <Stack direction="row" gap={0.75} flexWrap="wrap">
-                  {ROOM_FACILITIES.filter((f) => f.Room_ID === room.Room_ID)
-                    .slice(0, 3)
-                    .map((f) => (
-                      <Chip key={f.Room_Facility_ID} size="small" label={f.Name} variant="outlined" />
-                    ))}
+                  {(room.amenities || []).slice(0, 3).map((a, idx) => (
+                    <Chip key={`${room.id}-amenity-${idx}`} size="small" label={a} variant="outlined" />
+                  ))}
                 </Stack>
               </CardContent>
 
@@ -439,12 +478,17 @@ const StaffRooms: React.FC = () => {
                     variant="outlined"
                     endIcon={<ChevronRight />}
                     fullWidth
-                    onClick={() => navigate(`/staff/rooms/${room.Room_ID}`)}
+                    onClick={() => {
+                      if (location.pathname.startsWith('/staff')) {
+                        navigate(`/staff/rooms/${room.id}`);
+                      }
+                    }}
+                    disabled={!location.pathname.startsWith('/staff')}
                   >
                     Chi tiết
                   </Button>
 
-                  {room.Status === "Available" ? (
+                  {room.status === "Available" ? (
                     <Button
                       size="small"
                       variant="contained"
@@ -454,7 +498,7 @@ const StaffRooms: React.FC = () => {
                     >
                       Đặt / Gán
                     </Button>
-                  ) : room.Status === "Reserved" ? (
+                  ) : room.status === "Reserved" ? (
                     <Tooltip title="Khách đã giữ chỗ — có thể nhận phòng khi tới">
                       <span style={{ width: "100%" }}>
                         <Button
@@ -468,7 +512,7 @@ const StaffRooms: React.FC = () => {
                         </Button>
                       </span>
                     </Tooltip>
-                  ) : room.Status === "Occupied" ? (
+                  ) : room.status === "Occupied" ? (
                     <Button
                       size="small"
                       variant="contained"
@@ -506,7 +550,7 @@ const StaffRooms: React.FC = () => {
 
       {/* Dialog: Assign / Reserve */}
       <Dialog open={assignOpen} onClose={() => setAssignOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Đặt / Gán phòng {assignRoom?.Number}</DialogTitle>
+        <DialogTitle>Đặt / Gán phòng {assignRoom?.number}</DialogTitle>
         <DialogContent dividers>
           <RadioGroup
             row
@@ -565,7 +609,7 @@ const StaffRooms: React.FC = () => {
 
       {/* Dialog: room Reserved actions */}
       <Dialog open={!!reservedDlg} onClose={() => setReservedDlg(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Phòng {reservedDlg?.Number} đang giữ chỗ</DialogTitle>
+        <DialogTitle>Phòng {reservedDlg?.number} đang giữ chỗ</DialogTitle>
         <DialogContent dividers>
           <Alert severity="info" sx={{ mb: 2 }}>
             Bạn muốn làm gì tiếp theo?
@@ -575,7 +619,7 @@ const StaffRooms: React.FC = () => {
               variant="contained"
               onClick={() => {
                 setReservedDlg(null);
-                navigate(`/staff/check-in?room=${reservedDlg?.Number}`);
+                navigate(`/staff/check-in?room=${reservedDlg?.number}`);
               }}
             >
               Đi tới Check-in
@@ -584,7 +628,7 @@ const StaffRooms: React.FC = () => {
               variant="outlined"
               color="inherit"
               onClick={() => {
-                if (reservedDlg) updateRoomStatus(reservedDlg.Room_ID, "Available");
+                if (reservedDlg) updateRoomStatus(reservedDlg.id, "Available");
                 setReservedDlg(null);
                 setSnack({ open: true, msg: "Đã hủy giữ chỗ (trả phòng về Trống).", severity: "success" });
               }}
@@ -600,7 +644,7 @@ const StaffRooms: React.FC = () => {
 
       {/* Dialog: room Occupied actions */}
       <Dialog open={!!occupiedDlg} onClose={() => setOccupiedDlg(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Phòng {occupiedDlg?.Number} đang lưu trú</DialogTitle>
+        <DialogTitle>Phòng {occupiedDlg?.number} đang lưu trú</DialogTitle>
         <DialogContent dividers>
           <Alert severity="info" sx={{ mb: 2 }}>
             Chọn thao tác:
@@ -611,7 +655,7 @@ const StaffRooms: React.FC = () => {
               color="error"
               onClick={() => {
                 setOccupiedDlg(null);
-                navigate(`/staff/check-out?room=${occupiedDlg?.Number}`);
+                navigate(`/staff/check-out?room=${occupiedDlg?.number}`);
               }}
             >
               Đi tới Check-out
@@ -620,7 +664,7 @@ const StaffRooms: React.FC = () => {
               variant="outlined"
               color="inherit"
               onClick={() => {
-                if (occupiedDlg) updateRoomStatus(occupiedDlg.Room_ID, "Available");
+                if (occupiedDlg) updateRoomStatus(occupiedDlg.id, "Available");
                 setOccupiedDlg(null);
                 setSnack({ open: true, msg: "Đã đổi trạng thái về Trống (mock).", severity: "success" });
               }}
@@ -645,7 +689,7 @@ const StaffRooms: React.FC = () => {
       >
         <MenuItem
           onClick={() => {
-            if (menuRoom) updateRoomStatus(menuRoom.Room_ID, "Under Maintenance");
+            if (menuRoom) updateRoomStatus(menuRoom.id, "Under Maintenance");
             setMenuAnchor(null);
             setMenuRoom(null);
             setSnack({ open: true, msg: "Đã đánh dấu Bảo trì.", severity: "info" });
@@ -655,17 +699,17 @@ const StaffRooms: React.FC = () => {
         </MenuItem>
         <MenuItem
           onClick={() => {
-            if (menuRoom) updateRoomStatus(menuRoom.Room_ID, "Out of Order");
+            if (menuRoom) updateRoomStatus(menuRoom.id, "Under Maintenance");
             setMenuAnchor(null);
             setMenuRoom(null);
-            setSnack({ open: true, msg: "Đã đánh dấu OOO (Hỏng).", severity: "warning" });
+            setSnack({ open: true, msg: "Đã đánh dấu bảo trì.", severity: "warning" });
           }}
         >
           Out of Order
         </MenuItem>
         <MenuItem
           onClick={() => {
-            if (menuRoom) updateRoomStatus(menuRoom.Room_ID, "Available");
+            if (menuRoom) updateRoomStatus(menuRoom.id, "Available");
             setMenuAnchor(null);
             setMenuRoom(null);
             setSnack({ open: true, msg: "Đã đổi về Trống.", severity: "success" });
