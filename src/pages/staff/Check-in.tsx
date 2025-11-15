@@ -213,7 +213,9 @@ export default function CheckIn() {
 
   /** --------- FACE VERIFY (UI ONLY) --------- */
   const [faceScore, setFaceScore] = useState<number | null>(null); // 0..100
-  const faceOK = (faceScore ?? 0) >= MATCH_THRESHOLD;
+  const [faceVerified, setFaceVerified] = useState(false); // Track if face was verified via API (success: true)
+  const [faceUserData, setFaceUserData] = useState<any>(null); // Store matched user data
+  const faceOK = faceVerified; // Chỉ cần API trả về success là được
 
   /** --------- EXTRAS (nâng hạng & cọc thêm optional) --------- */
   const [earlyCheckin, setEarlyCheckin] = useState(false);
@@ -343,12 +345,15 @@ export default function CheckIn() {
       return true;
     } else {
       // Face
-      if (activeStep === 1) return faceOK; // face verify
+      if (activeStep === 1) {
+        // Chỉ cần API verify thành công (success: true) hoặc score >= 40% (mapped to 80%+)
+        return faceVerified;
+      }
       if (activeStep === 2) return true; // ngoại lệ & ghi chú
   if (activeStep === 3) return isRoomValidForTarget; // backend will validate
       return true;
     }
-  }, [activeStep, tab, faceOK, isRoomValidForTarget, allSelectedRooms, idDocs, verifiedRooms]);
+  }, [activeStep, tab, faceVerified, isRoomValidForTarget, allSelectedRooms, idDocs, verifiedRooms]);
 
   const handleNext = () => {
     // Additional validation for manual check-in ID step
@@ -368,6 +373,17 @@ export default function CheckIn() {
       }
     }
     
+    // Additional validation for face check-in
+    if (tab === 1 && activeStep === 1) {
+      if (!faceVerified) {
+        toast.error(`⚠️ Vui lòng quét khuôn mặt để xác thực thành công`, {
+          position: "top-center",
+          autoClose: 5000,
+        });
+        return;
+      }
+    }
+    
     setActiveStep((s) => Math.min(s + 1, steps.length - 1));
   };
   const handleBack = () => setActiveStep((s) => Math.max(s - 1, 0));
@@ -380,6 +396,8 @@ export default function CheckIn() {
     setIdDocs({});
     setVerifiedRooms(new Set());
     setFaceScore(null);
+    setFaceVerified(false);
+    setFaceUserData(null);
     setEarlyCheckin(false);
     setUpgrade("none");
     setAddAdult(0);
@@ -533,7 +551,17 @@ export default function CheckIn() {
               step="face"
               selected={selected}
               faceScore={faceScore}
-              onResult={(percent) => setFaceScore(percent)}
+              onResult={(percent, userData) => {
+                setFaceScore(percent);
+                // Pass nếu score >= 80% trên UI (tương ứng với actualScore >= 40%)
+                if (percent >= 80) {
+                  setFaceVerified(true);
+                  setFaceUserData(userData);
+                } else {
+                  setFaceVerified(false);
+                  setFaceUserData(null);
+                }
+              }}
             />
           )}
 

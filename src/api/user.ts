@@ -74,6 +74,14 @@ export const checkCitizenIdentification = async (value: string) => {
   return res.data;
 };
 
+export const getUsersWithPhotoFace = async () => {
+  // Get all users and filter those with photoFace
+  const res = await instance.get('/users');
+  const users = Array.isArray(res.data) ? res.data : (res.data?.users || res.data?.data || []);
+  // Filter users that have photoFace
+  return users.filter((user: any) => user.photoFace);
+};
+
 export const deleteUser = async (id: string) => {
   const res = await instance.delete<{ message?: string }>(`/users/${id}`);
   return res.data;
@@ -140,6 +148,7 @@ export default {
   uploadPhotoFace,
   uploadCitizenIdentification,
   checkCitizenIdentification,
+  getUsersWithPhotoFace,
   deleteUser,
   suspendUser,
   unsuspendUser,

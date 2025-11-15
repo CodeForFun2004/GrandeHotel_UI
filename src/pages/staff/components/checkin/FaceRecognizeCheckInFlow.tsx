@@ -9,7 +9,7 @@ interface FaceRecognizeCheckInFlowProps {
   step: "face" | "extras" | "assign" | "review";
   selected: any | null; // Can be any booking object, we only check if it exists
   faceScore: number | null;
-  onResult: (percent: number) => void;
+  onResult: (percent: number, userData?: any) => void;
 }
 
 export function FaceRecognizeCheckInFlow({
@@ -37,13 +37,6 @@ export function FaceRecognizeCheckInFlow({
             matchThreshold={MATCH_THRESHOLD}
             onResult={onResult}
           />
-
-          {faceScore !== null && faceScore < MATCH_THRESHOLD && (
-            <Alert severity="warning" sx={{ mt: 2 }}>
-              Điểm khớp chưa đạt ngưỡng. Bạn có thể quét lại hoặc chuyển sang
-              Manual check-in.
-            </Alert>
-          )}
         </CardContent>
       </Card>
     );
