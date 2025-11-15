@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -26,6 +26,7 @@ import {
   InputLabel,
   Select,
   Tooltip,
+  CircularProgress,
   Alert,
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material";
@@ -45,6 +46,7 @@ import {
   ArrowBack,
   UploadFile,
 } from "@mui/icons-material";
+import api from "../../api/axios";
 
 /* =========================
    Helpers & Types
@@ -84,7 +86,6 @@ type Room = {
   Hotel_ID: number;
 };
 
-type FacilityType = { FacilityType_ID: number; Name: string; Description?: string };
 type RoomFacility = {
   Room_Facility_ID: number;
   Room_ID: number;
@@ -109,45 +110,10 @@ const STATUS_META: Record<
 };
 
 /* =========================
-   Mock data (UI only)
+   Live data from backend
+   (replaces former mock arrays)
 ========================= */
-const ROOM_TYPES: RoomType[] = [
-  { RoomType_ID: 1, Name: "Standard", Number_of_Bed: 1, Capacity: 2, Base_price: 900_000 },
-  { RoomType_ID: 2, Name: "Deluxe", Number_of_Bed: 1, Capacity: 3, Base_price: 1_500_000 },
-  { RoomType_ID: 3, Name: "Suite", Number_of_Bed: 2, Capacity: 4, Base_price: 2_500_000 },
-];
-
-const ROOMS: Room[] = [
-  { Room_ID: 1, RoomType_ID: 1, Number: "101", Name: "Standard 101", Price: 1_100_000, Status: "Available", Hotel_ID: 1 },
-  { Room_ID: 2, RoomType_ID: 2, Number: "102", Name: "Deluxe 102", Price: 1_800_000, Status: "Occupied", Hotel_ID: 1 },
-  { Room_ID: 3, RoomType_ID: 1, Number: "103", Name: "Standard 103", Price: 1_000_000, Status: "Reserved", Hotel_ID: 1 },
-  { Room_ID: 4, RoomType_ID: 3, Number: "201", Name: "Suite 201", Price: 2_700_000, Status: "Available", Hotel_ID: 1 },
-  { Room_ID: 5, RoomType_ID: 2, Number: "202", Name: "Deluxe 202", Price: 1_900_000, Status: "Under Maintenance", Hotel_ID: 1 },
-  { Room_ID: 6, RoomType_ID: 1, Number: "203", Name: "Standard 203", Price: 1_050_000, Status: "Out of Order", Hotel_ID: 1 },
-];
-
-const ROOM_IMAGES: RoomImage[] = [
-  { Room_Image_ID: 1, URL: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=1600&auto=format&fit=crop", Room_ID: 1 },
-  { Room_Image_ID: 2, URL: "https://images.unsplash.com/photo-1493809842364-78817add7ffb?q=80&w=1600&auto=format&fit=crop", Room_ID: 1 },
-  { Room_Image_ID: 3, URL: "https://images.unsplash.com/photo-1505691938895-1758d7feb511?q=80&w=1600&auto=format&fit=crop", Room_ID: 2 },
-  { Room_Image_ID: 4, URL: "https://images.unsplash.com/photo-1505691723518-36a5ac3b2b8f?q=80&w=1600&auto=format&fit=crop", Room_ID: 4 },
-];
-
-const FACILITY_TYPES: FacilityType[] = [
-  { FacilityType_ID: 1, Name: "A/C" },
-  { FacilityType_ID: 2, Name: "Wi-Fi" },
-  { FacilityType_ID: 3, Name: "TV" },
-  { FacilityType_ID: 4, Name: "Bathtub" },
-  { FacilityType_ID: 5, Name: "Balcony" },
-];
-
-const ROOM_FACILITIES: RoomFacility[] = [
-  { Room_Facility_ID: 1, Room_ID: 1, FacilityType_ID: 1, Name: "A/C", Status: "Available" },
-  { Room_Facility_ID: 2, Room_ID: 1, FacilityType_ID: 2, Name: "Wi-Fi", Status: "Available" },
-  { Room_Facility_ID: 3, Room_ID: 1, FacilityType_ID: 3, Name: "TV", Status: "Available" },
-  { Room_Facility_ID: 4, Room_ID: 1, FacilityType_ID: 4, Name: "Bathtub", Status: "Available" },
-  { Room_Facility_ID: 5, Room_ID: 2, FacilityType_ID: 2, Name: "Wi-Fi", Status: "Available" },
-];
+const EMPTY_ROOM_TYPE: RoomType = { RoomType_ID: 0, Name: "Unknown", Number_of_Bed: 1, Capacity: 2, Base_price: 0 };
 
 /* =========================
    Component
@@ -155,49 +121,115 @@ const ROOM_FACILITIES: RoomFacility[] = [
 export default function StaffRoomDetail() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
+  // fetch live data
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // join data
-  const roomPack = useMemo(() => {
-    const id = Number(roomId ?? 1);
-    const room = ROOMS.find((r) => r.Room_ID === id) ?? ROOMS[0];
-    const type = ROOM_TYPES.find((t) => t.RoomType_ID === room.RoomType_ID)!;
-    const images = ROOM_IMAGES.filter((i) => i.Room_ID === room.Room_ID);
-    const facilities = ROOM_FACILITIES.filter((f) => f.Room_ID === room.Room_ID);
-    return { room, type, images, facilities };
-  }, [roomId]);
-
-  // local UI state
   const [tab, setTab] = useState(0);
-  const [status, setStatus] = useState<RoomStatus>(roomPack.room.Status);
   const [openStatusDlg, setOpenStatusDlg] = useState(false);
 
-  // facilities mock editing
-  const [facList, setFacList] = useState<RoomFacility[]>(roomPack.facilities);
-  const [openFacDlg, setOpenFacDlg] = useState(false);
-  const [facToAdd, setFacToAdd] = useState<number>(FACILITY_TYPES[0].FacilityType_ID);
+  const [room, setRoom] = useState<Room | null>(null);
+  const [roomType, setRoomType] = useState<RoomType | null>(null);
+  const [imgList, setImgList] = useState<RoomImage[]>([]);
+  const [facList, setFacList] = useState<RoomFacility[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<any[]>([]);
 
-  // images mock editing
-  const [imgList, setImgList] = useState<RoomImage[]>(
-    ROOM_IMAGES.filter((i) => i.Room_ID === roomPack.room.Room_ID)
-  );
+  const [openFacDlg, setOpenFacDlg] = useState(false);
+  const [facToAdd, setFacToAdd] = useState<string>("");
   const [openImgDlg, setOpenImgDlg] = useState(false);
   const [newImgUrl, setNewImgUrl] = useState("");
+
+  // status follows loaded room
+  const [status, setStatus] = useState<RoomStatus>("Available");
+  useEffect(() => {
+    if (room) setStatus(room.Status ?? "Available");
+  }, [room]);
+
+  const roomPack = useMemo(() => {
+    const r: Room =
+      room ?? ({ Room_ID: Number(roomId ?? 1), RoomType_ID: roomType?.RoomType_ID ?? 0, Number: String(roomId ?? ""), Name: "", Description: "", Price: 0, Status: "Available", Hotel_ID: 0 } as Room);
+    const t: RoomType = roomType ?? EMPTY_ROOM_TYPE;
+    return { room: r, type: t, images: imgList, facilities: facList };
+  }, [room, roomType, imgList, facList, roomId]);
+
+  useEffect(() => {
+    const doFetch = async () => {
+      if (!roomId) return;
+      try {
+        setLoading(true);
+        setError(null);
+        // Use the public endpoint to avoid role-based 403 for staff/manager UI
+        const res = await api.get(`/rooms/public/${roomId}`);
+        const payload = res.data?.data || res.data || {};
+
+        // Map backend fields into our UI types (best-effort)
+        const mappedRoom: Room = {
+          Room_ID: Number(payload._id ?? payload.id ?? roomId),
+          RoomType_ID: Number(payload.roomType?._id ?? payload.roomType?.id ?? payload.roomType ?? 0),
+          Number: String(payload.roomNumber ?? payload.number ?? payload.code ?? payload.name ?? roomId),
+          Name: payload.name ?? payload.title ?? `Room ${payload.roomNumber ?? roomId}`,
+          Description: payload.description ?? payload.note,
+          Price: Number(payload.pricePerNight ?? payload.price ?? payload.roomType?.basePrice ?? 0),
+          Status: (payload.status as RoomStatus) ?? (payload.state as RoomStatus) ?? "Available",
+          Hotel_ID: Number(payload.hotel?._id ?? payload.hotel?.id ?? payload.hotelId ?? 0),
+        };
+
+        const rt = payload.roomType || {};
+        const mappedType: RoomType = {
+          RoomType_ID: Number(rt._id ?? rt.id ?? mappedRoom.RoomType_ID ?? 0),
+          Name: rt.name ?? rt.title ?? (rt.typeName || "Unknown"),
+          Number_of_Bed: Number(rt.numberOfBed ?? rt.beds ?? 1),
+          Capacity: Number(rt.capacity ?? 2),
+          Base_price: Number(rt.basePrice ?? rt.base_price ?? rt.price ?? 0),
+        };
+
+        const images: RoomImage[] = Array.isArray(payload.images)
+          ? payload.images.map((u: any, i: number) => ({ Room_Image_ID: i + 1, URL: u, Room_ID: mappedRoom.Room_ID }))
+          : Array.isArray(payload.imagesInfo)
+          ? payload.imagesInfo.map((it: any, i: number) => ({ Room_Image_ID: i + 1, URL: it.url ?? it.URL, Room_ID: mappedRoom.Room_ID }))
+          : [];
+
+        const facilities: RoomFacility[] = Array.isArray(payload.amenities)
+          ? payload.amenities.map((a: any, i: number) => ({ Room_Facility_ID: i + 1, Room_ID: mappedRoom.Room_ID, FacilityType_ID: i + 1, Name: a, Status: "Available" }))
+          : [];
+
+        const acts = Array.isArray(payload.activities) ? payload.activities : Array.isArray(payload.history) ? payload.history : [];
+        const bks = Array.isArray(payload.bookings) ? payload.bookings : Array.isArray(payload.reservations) ? payload.reservations : [];
+
+        setRoom(mappedRoom);
+        setRoomType(mappedType);
+        setImgList(images);
+        setFacList(facilities);
+        setActivities(acts);
+        setBookings(bks);
+      } catch (e: any) {
+        console.error('Fetch room failed', e);
+        setError(e?.response?.data?.message || e?.message || 'Failed to load room');
+      } finally {
+        setLoading(false);
+      }
+    };
+    doFetch();
+  }, [roomId]);
 
   const meta = STATUS_META[status];
   const cover = imgList[0]?.URL;
 
   const addFacility = () => {
-    const ft = FACILITY_TYPES.find((x) => x.FacilityType_ID === facToAdd)!;
+    const name = facToAdd?.trim();
+    if (!name) return setOpenFacDlg(false);
     setFacList((arr) => [
       ...arr,
       {
         Room_Facility_ID: Date.now(),
         Room_ID: roomPack.room.Room_ID,
-        FacilityType_ID: ft.FacilityType_ID,
-        Name: ft.Name,
+        FacilityType_ID: Date.now() % 100000,
+        Name: name,
         Status: "Available",
       },
     ]);
+    setFacToAdd("");
     setOpenFacDlg(false);
   };
 
@@ -231,6 +263,17 @@ export default function StaffRoomDetail() {
           <Typography color="text.primary">Phòng {roomPack.room.Number}</Typography>
         </Breadcrumbs>
       </Stack>
+
+      {/* Loading / Error */}
+      {loading && (
+        <Stack alignItems="center" sx={{ py: 4 }}>
+          <CircularProgress />
+          <Typography variant="body2" sx={{ mt: 1 }}>Đang tải thông tin phòng...</Typography>
+        </Stack>
+      )}
+      {!!error && (
+        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+      )}
 
       {/* Header card */}
       <Card sx={{ mb: 2, overflow: "hidden", boxShadow: "0 4px 8px rgba(0,0,0,0.06)" }}>
@@ -327,9 +370,15 @@ export default function StaffRoomDetail() {
                   Lịch sử nhanh
                 </Typography>
                 <Stack spacing={1}>
-                  <Alert severity="info">10/10: Vệ sinh phòng hoàn tất.</Alert>
-                  <Alert severity="success">08/10: Khách check-out, không phát sinh.</Alert>
-                  <Alert severity="warning">05/10: Bảo trì vòi sen — đã xử lý.</Alert>
+                  {activities.length > 0 ? (
+                    activities.slice(0, 5).map((a, idx) => (
+                      <Alert key={idx} severity={a.severity || 'info'}>
+                        {a.text ?? a.message ?? JSON.stringify(a)}
+                      </Alert>
+                    ))
+                  ) : (
+                    <Alert severity="info">Chưa có hoạt động gần đây.</Alert>
+                  )}
                 </Stack>
               </CardContent>
             </Card>
@@ -444,19 +493,20 @@ export default function StaffRoomDetail() {
                 <Typography variant="h6" gutterBottom>
                   Lịch đặt (minimap — UI demo)
                 </Typography>
-                <Box
-                  sx={{
-                    height: 180,
-                    borderRadius: 1,
-                    border: "1px dashed #ddd",
-                    bgcolor: "#fafafa",
-                    display: "grid",
-                    placeItems: "center",
-                    color: "text.secondary",
-                  }}
-                >
-                  Calendar preview (mock)
-                </Box>
+                {bookings.length > 0 ? (
+                  <Stack spacing={1}>
+                    {bookings.map((b: any, i: number) => (
+                      <Box key={i} sx={{ borderRadius: 1, p: 1, border: '1px solid #eee' }}>
+                        <Typography variant="body2">{b.guestName ?? b.name ?? b.customer ?? 'Khách'}</Typography>
+                        <Typography variant="caption" color="text.secondary">{`${b.checkIn ?? b.start ?? ''} → ${b.checkOut ?? b.end ?? ''}`}</Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Box sx={{ height: 180, borderRadius: 1, border: '1px dashed #ddd', bgcolor: '#fafafa', display: 'grid', placeItems: 'center', color: 'text.secondary' }}>
+                    Không có lịch đặt để hiển thị.
+                  </Box>
+                )}
               </CardContent>
             </Card>
           </Box>
@@ -489,10 +539,20 @@ export default function StaffRoomDetail() {
           </Alert>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenStatusDlg(false)}>Hủy</Button>
-          <Button variant="contained" onClick={() => setOpenStatusDlg(false)}>
-            Lưu
-          </Button>
+            <Button onClick={() => setOpenStatusDlg(false)}>Hủy</Button>
+            <Button variant="contained" onClick={async () => {
+              try {
+                setOpenStatusDlg(false);
+                if (!room) return;
+                const payload = { status };
+                await api.put(`/rooms/${room.Room_ID}`, payload);
+                setStatus(status);
+              } catch (e) {
+                console.error('Failed to update room status', e);
+              }
+            }}>
+              Lưu
+            </Button>
         </DialogActions>
       </Dialog>
 
@@ -500,20 +560,13 @@ export default function StaffRoomDetail() {
       <Dialog open={openFacDlg} onClose={() => setOpenFacDlg(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Thêm tiện nghi</DialogTitle>
         <DialogContent dividers>
-          <FormControl fullWidth>
-            <InputLabel>Loại tiện nghi</InputLabel>
-            <Select
-              label="Loại tiện nghi"
+            <TextField
+              fullWidth
+              label="Tên tiện nghi"
               value={facToAdd}
-              onChange={(e) => setFacToAdd(Number(e.target.value))}
-            >
-              {FACILITY_TYPES.map((f) => (
-                <MenuItem key={f.FacilityType_ID} value={f.FacilityType_ID}>
-                  {f.Name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              onChange={(e) => setFacToAdd(e.target.value)}
+              placeholder="Ví dụ: Wi-Fi, A/C, Tủ lạnh"
+            />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenFacDlg(false)}>Hủy</Button>
