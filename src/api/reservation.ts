@@ -36,6 +36,25 @@ export const deleteReservation = async (id: string) => {
   return res.data;
 };
 
+// Get all reservations for the current authenticated user
+export const getUserReservations = async (filters?: {
+  stayStatus?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  hotelName?: string;
+}) => {
+  const params = new URLSearchParams();
+  if (filters?.stayStatus) params.append('stayStatus', filters.stayStatus);
+  if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+  if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+  if (filters?.hotelName) params.append('hotelName', filters.hotelName);
+  
+  const queryString = params.toString();
+  const url = `/reservations/me${queryString ? `?${queryString}` : ''}`;
+  const res = await instance.get(url);
+  return res.data;
+};
+
 // Payment related APIs
 // POST /:id/payment-options - Select payment option and get QR code
 export const selectPaymentOption = async (id: string, paymentType: 'full' | 'deposit') => {
@@ -61,6 +80,7 @@ export default {
   getReservationById,
   updateReservationStatus,
   deleteReservation,
+  getUserReservations,
   selectPaymentOption,
   handlePayment,
   approveReservation,
