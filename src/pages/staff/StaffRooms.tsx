@@ -9,12 +9,6 @@ import {
   Button,
   Stack,
   TextField,
-  ToggleButtonGroup,
-  ToggleButton,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Divider,
   Tooltip,
   IconButton,
@@ -28,6 +22,9 @@ import {
   Snackbar,
   Alert,
   Menu,
+  MenuItem,
+  Pagination,
+  Fab,
   CircularProgress,
 } from "@mui/material";
 import {
@@ -39,6 +36,7 @@ import {
   DoNotDisturb,
   Build,
   ChevronRight,
+  KeyboardArrowUp,
 } from "@mui/icons-material";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../../api/axios";
@@ -56,31 +54,7 @@ const formatVND = (n: number) =>
 /* ----------------------------
    Types
 ---------------------------- */
-type BackendRoomStatus = 'Reserved' | 'Available' | 'Maintenance' | 'Cleaning' | 'Occupied' | string;
 type RoomStatusUI = 'Available' | 'Reserved' | 'Occupied' | 'Under Maintenance';
-
-type ApiRoomType = {
-  _id: string;
-  name: string;
-  capacity?: number;
-  amenities?: string[];
-};
-
-type ApiHotel = {
-  _id: string;
-  name?: string;
-};
-
-type ApiRoom = {
-  _id: string;
-  roomType: ApiRoomType;
-  hotel?: ApiHotel;
-  roomNumber: string;
-  status: BackendRoomStatus;
-  description?: string;
-  pricePerNight: number;
-  images?: string[];
-};
 
 type RoomCard = {
   id: string;
@@ -116,13 +90,15 @@ const mapBackendStatusToUI = (s: string): RoomStatusUI => {
    UI Config
 ---------------------------- */
 const STATUS_META: Record<
-  RoomStatusUI,
-  { color: "default" | "success" | "warning" | "error"; label: string; icon: React.ReactNode }
+  string,
+  { color: "default" | "primary" | "secondary" | "success" | "warning" | "error" | "info"; label: string; icon: React.ReactNode }
 > = {
+  "ALL": { color: "primary", label: "Tất cả", icon: <CheckCircle fontSize="small" /> },
   "Available": { color: "success", label: "Trống", icon: <CheckCircle fontSize="small" /> },
   "Reserved": { color: "warning", label: "Giữ chỗ", icon: <EventBusy fontSize="small" /> },
   "Occupied": { color: "error", label: "Đang ở", icon: <DoNotDisturb fontSize="small" /> },
-  "Under Maintenance": { color: "warning", label: "Bảo trì/Vệ sinh", icon: <Build fontSize="small" /> },
+  // Use secondary (purple) for maintenance/cleaning to get a violet tone
+  "Under Maintenance": { color: "secondary", label: "Bảo trì", icon: <Build fontSize="small" /> },
 };
 
 const StaffRooms: React.FC = () => {
@@ -133,16 +109,14 @@ const StaffRooms: React.FC = () => {
   const [rooms, setRooms] = useState<RoomCard[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [roomTypes, setRoomTypes] = useState<{ id: string; name: string }[]>([]);
+  
 
   /* Filters */
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState<RoomStatusUI | "ALL">("ALL");
-  const [typeId, setTypeId] = useState<string | "ALL">("ALL");
   const resetFilters = () => {
     setKeyword("");
     setStatus("ALL");
-    setTypeId("ALL");
   };
 
   // If navigated with a specific room filter (from Calendar or other pages), apply it once on mount
@@ -183,9 +157,6 @@ const StaffRooms: React.FC = () => {
           } as RoomCard;
         });
         setRooms(mapped);
-        const uniqueTypes = new Map<string, string>();
-        mapped.forEach((m) => { if (m.roomType.id) uniqueTypes.set(m.roomType.id, m.roomType.name); });
-        setRoomTypes(Array.from(uniqueTypes.entries()).map(([id, name]) => ({ id, name })));
       } catch (e: any) {
         console.error('Fetch rooms failed:', e);
         setError(e?.response?.data?.message || e?.message || 'Failed to load rooms');
@@ -230,10 +201,33 @@ const StaffRooms: React.FC = () => {
         room.name.toLowerCase().includes(kw) ||
         room.roomType.name.toLowerCase().includes(kw);
       const matchStatus = status === "ALL" || room.status === status;
-      const matchType = typeId === "ALL" || room.roomType.id === typeId;
-      return matchKw && matchStatus && matchType;
+      return matchKw && matchStatus;
     });
-  }, [keyword, status, typeId, rooms]);
+  }, [keyword, status, rooms]);
+
+  // Pagination
+  const itemsPerPage = 15;
+  const [page, setPage] = useState<number>(1);
+  useEffect(() => {
+    // Reset to first page when filters change
+    setPage(1);
+  }, [keyword, status]);
+
+  const pageCount = Math.max(1, Math.ceil(data.length / itemsPerPage));
+  const displayed = useMemo(() => {
+    const start = (page - 1) * itemsPerPage;
+    return data.slice(start, start + itemsPerPage);
+  }, [data, page]);
+
+  // Return-to-top FAB
+  const [showTop, setShowTop] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShowTop((window.scrollY || window.pageYOffset) > 240);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
   const updateRoomStatus = (id: string, s: RoomStatusUI) => {
     setRooms((arr) => arr.map((r) => (r.id === id ? { ...r, status: s } : r)));
@@ -284,6 +278,8 @@ const StaffRooms: React.FC = () => {
         </Stack>
       </Box>
 
+      {/* (pagination moved below the grid to keep header compact) */}
+
       {/* Filters */}
       <Card sx={{ mb: 2 }}>
         <CardContent>
@@ -297,66 +293,48 @@ const StaffRooms: React.FC = () => {
             <Button variant="text" color="inherit" onClick={resetFilters}>
               Xóa bộ lọc
             </Button>
-
-            <ToggleButtonGroup
-              exclusive
-              value={status}
-              onChange={(_, v) => v && setStatus(v)}
-              size="small"
-            >
-              <ToggleButton value="ALL">Tất cả</ToggleButton>
-              {(
-                [
-                  "Available",
-                  "Reserved",
-                  "Occupied",
-                  "Under Maintenance",
-                ] as RoomStatusUI[]
-              ).map((s) => (
-                <ToggleButton key={s} value={s}>
-                  {STATUS_META[s].label}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-
-            <FormControl size="small" sx={{ minWidth: 180 }}>
-              <InputLabel>Loại phòng</InputLabel>
-              <Select
-                label="Loại phòng"
-                value={typeId}
-                onChange={(e) =>
-                  setTypeId((e.target.value as string) || "ALL")
-                }
-              >
-                <MenuItem value={"ALL" as any}>Tất cả</MenuItem>
-                {roomTypes.map((t) => (
-                  <MenuItem key={t.id} value={t.id}>
-                    {t.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
           </Stack>
 
           <Divider sx={{ my: 1.5 }} />
 
               {/* Legend + Debug */}
               <Stack direction="row" gap={1} flexWrap="wrap" alignItems="center">
-            {(Object.keys(STATUS_META) as RoomStatusUI[]).map((k) => (
-              <Chip
-                key={k}
-                size="small"
-                icon={STATUS_META[k].icon as any}
-                color={STATUS_META[k].color}
-                label={STATUS_META[k].label}
-                variant="outlined"
-              />
-            ))}
+            {(
+              ["ALL", "Available", "Reserved", "Occupied", "Under Maintenance"]
+            ).map((k) => {
+              const meta = (STATUS_META as any)[k];
+              const isSelected = k === 'ALL' ? status === 'ALL' : status === k;
+              const handleClick = () => {
+                if (k === 'ALL') setStatus('ALL');
+                else setStatus(isSelected ? 'ALL' : (k as RoomStatusUI));
+              };
+              const handleKey = (e: React.KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleClick();
+                }
+              };
+              return (
+                <Chip
+                  key={k}
+                  size="small"
+                  icon={meta.icon as any}
+                  color={meta.color as any}
+                  label={meta.label}
+                  clickable
+                  tabIndex={0}
+                  onKeyDown={handleKey}
+                  onClick={handleClick}
+                  variant={isSelected ? undefined : 'outlined'}
+                  sx={{ cursor: 'pointer', ...(k === 'ALL' ? { ml: 0 } : {}), ...(isSelected ? { bgcolor: `${meta.color}.main`, color: '#fff' } : {}) }}
+                />
+              );
+            })}
                 <Box sx={{ flex: 1 }} />
                 {/* Lightweight debug info to help diagnose empty results */}
                 <Chip size="small" label={`Tổng: ${rooms.length}`} />
                 <Chip size="small" label={`Hiển thị: ${data.length}`} />
-                {(keyword || status !== 'ALL' || typeId !== 'ALL') && (
+                {(keyword || status !== 'ALL') && (
                   <Chip size="small" color="info" label="Đang lọc" />
                 )}
           </Stack>
@@ -384,7 +362,7 @@ const StaffRooms: React.FC = () => {
           <Alert severity="info">
             Không có phòng nào phù hợp với bộ lọc hiện tại.
           </Alert>
-          {(keyword || status !== 'ALL' || typeId !== 'ALL') && (
+          {(keyword || status !== 'ALL') && (
             <Button variant="outlined" color="inherit" onClick={resetFilters} sx={{ alignSelf: 'start' }}>
               Xóa tất cả bộ lọc
             </Button>
@@ -400,7 +378,7 @@ const StaffRooms: React.FC = () => {
           gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "repeat(3, 1fr)" },
         }}
       >
-  {data.map((room) => {
+  {displayed.map((room) => {
     const firstImg = room.image;
     const meta = STATUS_META[room.status];
 
@@ -547,6 +525,13 @@ const StaffRooms: React.FC = () => {
           );
         })}
       </Box>
+
+      {/* Pagination (placed after grid so it appears near page bottom) */}
+      {pageCount > 1 && (
+        <Stack alignItems="center" sx={{ mt: 2, mb: 2 }}>
+          <Pagination page={page} count={pageCount} onChange={(_e, p) => setPage(p)} color="primary" />
+        </Stack>
+      )}
 
       {/* Dialog: Assign / Reserve */}
       <Dialog open={assignOpen} onClose={() => setAssignOpen(false)} maxWidth="sm" fullWidth>
@@ -697,16 +682,7 @@ const StaffRooms: React.FC = () => {
         >
           Bảo trì
         </MenuItem>
-        <MenuItem
-          onClick={() => {
-            if (menuRoom) updateRoomStatus(menuRoom.id, "Under Maintenance");
-            setMenuAnchor(null);
-            setMenuRoom(null);
-            setSnack({ open: true, msg: "Đã đánh dấu bảo trì.", severity: "warning" });
-          }}
-        >
-          Out of Order
-        </MenuItem>
+        
         <MenuItem
           onClick={() => {
             if (menuRoom) updateRoomStatus(menuRoom.id, "Available");
@@ -730,6 +706,19 @@ const StaffRooms: React.FC = () => {
           {snack.msg}
         </Alert>
       </Snackbar>
+
+      {/* Return to top FAB (avoid overlapping chat: offset from bottom) */}
+      {showTop && (
+        <Fab
+          size="small"
+          color="primary"
+          aria-label="scroll to top"
+          onClick={scrollToTop}
+          sx={{ position: 'fixed', bottom: { xs: 88, sm: 88 }, right: 16, zIndex: 1400 }}
+        >
+          <KeyboardArrowUp />
+        </Fab>
+      )}
     </Box>
   );
 };
