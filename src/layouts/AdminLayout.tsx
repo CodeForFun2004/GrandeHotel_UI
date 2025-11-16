@@ -37,10 +37,10 @@ const collapsedDrawerWidth = 80;
 
 const adminNavigationItems = [
   { title: "Dashboard", icon: <BarChartIcon />, path: ADMIN_PATHS.DASHBOARD },
-  { title: "Quản lý người dùng", icon: <GroupIcon />, path: ADMIN_PATHS.USER_MANAGEMENT },
-  { title: "Danh sách Khách sạn", icon: <HotelIcon />, path: ADMIN_PATHS.HOTEL_LIST },
-  { title: "Quản lý liên hệ", icon: <Feedback/>, path: ADMIN_PATHS.CONTACT_MANAGEMENT},
-  { title: "Đăng xuất", icon: <LogoutIcon />, path: "/logout" },
+  { title: "User Management", icon: <GroupIcon />, path: ADMIN_PATHS.USER_MANAGEMENT },
+  { title: "Hotel List", icon: <HotelIcon />, path: ADMIN_PATHS.HOTEL_LIST },
+  { title: "Contact Management", icon: <Feedback/>, path: ADMIN_PATHS.CONTACT_MANAGEMENT},
+  { title: "Logout", icon: <LogoutIcon />, path: "/logout" },
 ];
 
 const theme = createTheme({
