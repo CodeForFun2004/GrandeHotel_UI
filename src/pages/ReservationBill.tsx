@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Container, Row, Col, Card, Button, Alert, Spinner } from 'react-bootstrap';
 import { 
@@ -6,6 +6,8 @@ import {
   Download,
   Home
 } from '@mui/icons-material';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 import * as reservationApi from '../api/reservation';
 import * as hotelApi from '../api/hotel';
@@ -18,7 +20,7 @@ interface Reservation {
   checkInDate: string;
   checkOutDate: string;
   numberOfGuests: number;
-  rooms: Array<{
+  rooms?: Array<{
     roomTypeId: string;
     quantity: number;
     adults: number;
@@ -29,10 +31,25 @@ interface Reservation {
       basePrice: number;
     };
   }>;
+  details?: Array<{
+    _id?: string;
+    id?: string;
+    quantity?: number;
+    adults?: number;
+    children?: number;
+    infants?: number;
+    roomType?: {
+      _id?: string;
+      id?: string;
+      name: string;
+      basePrice: number;
+      description?: string;
+    } | string;
+  }>;
   status: string;
   totalAmount: number;
   paymentType: 'full' | 'deposit';
-  paymentStatus: 'pending' | 'completed' | 'refunded';
+  paymentStatus: 'pending' | 'completed' | 'refunded' | 'fully_paid' | 'deposit_paid';
   createdAt: string;
   paymentConfirmedAt?: string;
 }
@@ -41,6 +58,7 @@ const ReservationBill: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const reservationId = searchParams.get('reservation');
+  const billCardRef = useRef<HTMLDivElement>(null);
   
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [hotelName, setHotelName] = useState<string>('—');
@@ -52,6 +70,7 @@ const ReservationBill: React.FC = () => {
     phone: '—',
     email: '—'
   });
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   useEffect(() => {
     if (!reservationId) {
@@ -98,23 +117,34 @@ const ReservationBill: React.FC = () => {
       });
       
       // Fetch customer info
-      const customerId = data?.customer?._id || data?.customer;
-      if (customerId && customerId !== 'guest') {
-        try {
-          // Get from localStorage first
-          const rawUser = localStorage.getItem('user');
-          if (rawUser) {
-            const user = JSON.parse(rawUser);
-            if (user?._id === customerId || user?.id === customerId) {
-              setCustomerInfo({
-                name: user?.username || user?.fullname || user?.fullName || user?.name || 'Khách lẻ',
-                phone: user?.phone || user?.phoneNumber || '—',
-                email: user?.email || '—'
-              });
+      // First, try to get from API response data.customer (may be populated object)
+      const customerData = data?.customer;
+      if (customerData && typeof customerData === 'object') {
+        // Customer is already populated as an object
+        setCustomerInfo({
+          name: customerData?.fullname || customerData?.fullName || customerData?.username || customerData?.name || 'Khách lẻ',
+          phone: customerData?.phone || customerData?.phoneNumber || '—',
+          email: customerData?.email || '—'
+        });
+      } else {
+        // Customer is just an ID, try to get from localStorage
+        const customerId = data?.customer?._id || data?.customer;
+        if (customerId && customerId !== 'guest') {
+          try {
+            const rawUser = localStorage.getItem('user');
+            if (rawUser) {
+              const user = JSON.parse(rawUser);
+              if (user?._id === customerId || user?.id === customerId) {
+                setCustomerInfo({
+                  name: user?.username || user?.fullname || user?.fullName || user?.name || 'Khách lẻ',
+                  phone: user?.phone || user?.phoneNumber || '—',
+                  email: user?.email || '—'
+                });
+              }
             }
+          } catch (err) {
+            console.error('[BILL] Failed to get customer info:', err);
           }
-        } catch (err) {
-          console.error('[BILL] Failed to get customer info:', err);
         }
       }
       
@@ -161,9 +191,288 @@ const ReservationBill: React.FC = () => {
     window.print();
   };
 
-  const handleDownload = () => {
-    // In real app, this would generate and download PDF
-    alert('Tính năng tải xuống PDF sẽ được triển khai');
+  const handleDownload = async () => {
+    if (!billCardRef.current || !reservation) return;
+
+    try {
+      setIsGeneratingPDF(true);
+
+      // Store original styles
+      const billCard = document.querySelector('.bill-card') as HTMLElement;
+      const billCardBody = billCardRef.current;
+      const billActions = document.querySelector('.bill-actions') as HTMLElement;
+      const heroWrap = document.querySelector('.hero-wrap') as HTMLElement;
+      const container = document.querySelector('.bill-section .container') as HTMLElement;
+      const billSection = document.querySelector('.bill-section') as HTMLElement;
+      const billPage = document.querySelector('.bill-page') as HTMLElement;
+
+      // Apply print styles temporarily
+      if (billActions) {
+        billActions.style.display = 'none';
+      }
+      if (heroWrap) {
+        heroWrap.style.display = 'none';
+      }
+      if (billCard) {
+        billCard.style.boxShadow = 'none';
+        billCard.style.border = 'none';
+        billCard.style.margin = '0';
+      }
+      if (billCardBody) {
+        billCardBody.style.padding = '20px';
+        billCardBody.style.margin = '0';
+      }
+      if (container) {
+        container.style.maxWidth = '100%';
+        container.style.padding = '0';
+        container.style.margin = '0';
+      }
+      if (billSection) {
+        billSection.style.padding = '0';
+        billSection.style.margin = '0';
+      }
+      if (billPage) {
+        billPage.style.backgroundColor = 'white';
+        billPage.style.padding = '0';
+        billPage.style.margin = '0';
+      }
+
+      // Set fixed width for PDF generation (like print viewport)
+      const pdfContentWidth = 800; // Fixed width in pixels for consistent PDF output
+      if (billCardBody) {
+        billCardBody.style.width = `${pdfContentWidth}px`;
+        billCardBody.style.maxWidth = `${pdfContentWidth}px`;
+      }
+      if (billCard) {
+        billCard.style.width = `${pdfContentWidth}px`;
+        billCard.style.maxWidth = `${pdfContentWidth}px`;
+      }
+
+      // Wait a bit for styles to apply
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Force reflow to ensure all content is rendered
+      void billCardRef.current.offsetHeight;
+      
+      // Scroll to top first
+      window.scrollTo(0, 0);
+      if (billCardBody) {
+        billCardBody.scrollTop = 0;
+      }
+
+      // Wait for scroll to complete
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Ensure we capture the full height including all sections
+      // Force measurement by accessing offsetHeight multiple times
+      const measureHeight = () => {
+        const heights = [
+          billCardRef.current?.scrollHeight || 0,
+          billCardRef.current?.offsetHeight || 0,
+          billCardRef.current?.clientHeight || 0,
+        ];
+        // Also check if there are payment sections
+        const paymentSummary = document.querySelector('.payment-summary');
+        const paymentStatus = document.querySelector('.payment-status');
+        if (paymentSummary) {
+          const rect = paymentSummary.getBoundingClientRect();
+          heights.push(rect.bottom);
+        }
+        if (paymentStatus) {
+          const rect = paymentStatus.getBoundingClientRect();
+          heights.push(rect.bottom);
+        }
+        return Math.max(...heights);
+      };
+
+      // Measure multiple times to ensure accuracy
+      let fullHeight = measureHeight();
+      await new Promise(resolve => setTimeout(resolve, 50));
+      fullHeight = Math.max(fullHeight, measureHeight());
+      
+      // Add padding to ensure we capture everything
+      fullHeight += 100; // Extra padding
+
+      // Create canvas from HTML element with print-like settings
+      const canvas = await html2canvas(billCardRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: pdfContentWidth,
+        height: fullHeight,
+        windowWidth: pdfContentWidth,
+        windowHeight: fullHeight,
+        scrollX: 0,
+        scrollY: -window.scrollY, // Account for any scroll
+        allowTaint: true,
+        removeContainer: false,
+      });
+
+      // Restore original styles
+      if (billActions) {
+        billActions.style.display = '';
+      }
+      if (heroWrap) {
+        heroWrap.style.display = '';
+      }
+      if (billCard) {
+        billCard.style.boxShadow = '';
+        billCard.style.border = '';
+        billCard.style.margin = '';
+        billCard.style.width = '';
+        billCard.style.maxWidth = '';
+      }
+      if (billCardBody) {
+        billCardBody.style.padding = '';
+        billCardBody.style.margin = '';
+        billCardBody.style.width = '';
+        billCardBody.style.maxWidth = '';
+      }
+      if (container) {
+        container.style.maxWidth = '';
+        container.style.padding = '';
+        container.style.margin = '';
+      }
+      if (billSection) {
+        billSection.style.padding = '';
+        billSection.style.margin = '';
+      }
+      if (billPage) {
+        billPage.style.backgroundColor = '';
+        billPage.style.padding = '';
+        billPage.style.margin = '';
+      }
+
+      // Calculate PDF dimensions (A4 format with margins like print)
+      const pdfMargin = 10; // 1cm margins on all sides
+      const pageWidth = 210; // A4 width in mm
+      const pageHeight = 297; // A4 height in mm
+      const usableWidth = pageWidth - (pdfMargin * 2); // 190mm usable width
+      
+      // Calculate image dimensions maintaining aspect ratio
+      // Convert canvas pixels to PDF mm: 1mm ≈ 3.779527559 pixels at 96 DPI
+      // For better fit, use the usable width directly
+      const imgWidth = usableWidth; // Use full usable width (190mm)
+      const imgHeight = (canvas.height * imgWidth) / canvas.width; // Maintain aspect ratio
+
+      // Create PDF with margins
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      pdf.setProperties({
+        title: `Hóa đơn ${reservationId}`,
+        subject: 'Hóa đơn đặt phòng',
+      });
+      const imgData = canvas.toDataURL('image/png', 1.0);
+
+      // Calculate usable page height (minus margins)
+      const usablePageHeight = pageHeight - (pdfMargin * 2); // 277mm usable height
+
+      // If content fits in one page
+      if (imgHeight <= usablePageHeight) {
+        pdf.addImage(imgData, 'PNG', pdfMargin, pdfMargin, imgWidth, imgHeight);
+      } else {
+        // Content spans multiple pages - split correctly to avoid duplication
+        // Calculate pixels per mm for accurate cropping
+        const pixelsPerMm = canvas.width / imgWidth;
+        const totalHeightInPixels = canvas.height;
+        const heightPerPageInPixels = usablePageHeight * pixelsPerMm;
+        
+        // Try to find section boundaries to avoid cutting sections
+        const findSafeBreakPoint = (startY: number, maxHeight: number): number => {
+          // Check if we can fit the entire content in this page
+          if (startY + maxHeight >= totalHeightInPixels) {
+            return totalHeightInPixels - startY;
+          }
+          
+          // Try to avoid breaking in the middle of sections
+          // Look for a safe break point (some padding before next section)
+          const safeBreakMargin = 50 * pixelsPerMm / usablePageHeight; // ~50px buffer
+          const adjustedMaxHeight = maxHeight - safeBreakMargin;
+          
+          // Check if we can fit more content
+          if (startY + adjustedMaxHeight <= totalHeightInPixels) {
+            return adjustedMaxHeight;
+          }
+          
+          return maxHeight;
+        };
+        
+        let currentY = 0; // Current position in pixels from top of canvas
+        
+        // Helper function to crop canvas and add to PDF
+        const addCroppedPage = (sourceY: number, pageHeightPx: number) => {
+          // Ensure we don't exceed canvas bounds
+          const actualPageHeightPx = Math.min(pageHeightPx, totalHeightInPixels - sourceY);
+          const actualPageHeightMm = actualPageHeightPx / pixelsPerMm;
+          
+          if (actualPageHeightPx <= 0) return;
+          
+          // Create temporary canvas for this page section
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = canvas.width;
+          tempCanvas.height = actualPageHeightPx;
+          const tempCtx = tempCanvas.getContext('2d');
+          
+          if (tempCtx) {
+            // Draw the cropped section from source canvas
+            // drawImage(source, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
+            tempCtx.drawImage(
+              canvas,
+              0,                      // Source x
+              sourceY,                // Source y
+              canvas.width,           // Source width
+              actualPageHeightPx,     // Source height
+              0,                      // Destination x
+              0,                      // Destination y
+              canvas.width,           // Destination width
+              actualPageHeightPx      // Destination height
+            );
+            // Add to PDF
+            pdf.addImage(
+              tempCanvas.toDataURL('image/png', 1.0),
+              'PNG',
+              pdfMargin,
+              pdfMargin,
+              imgWidth,
+              actualPageHeightMm
+            );
+          }
+        };
+        
+        // First page - try to fit as much as possible while avoiding section breaks
+        let remainingHeight = totalHeightInPixels;
+        let sourceHeight = findSafeBreakPoint(currentY, heightPerPageInPixels);
+        
+        addCroppedPage(currentY, sourceHeight);
+        
+        currentY += sourceHeight;
+        remainingHeight -= sourceHeight;
+        
+        // Additional pages
+        while (remainingHeight > 0) {
+          pdf.addPage();
+          
+          // Find safe break point for this page
+          sourceHeight = findSafeBreakPoint(currentY, heightPerPageInPixels);
+          
+          addCroppedPage(currentY, sourceHeight);
+          
+          currentY += sourceHeight;
+          remainingHeight -= sourceHeight;
+        }
+      }
+
+      // Generate filename
+      const filename = `Hoa_don_${reservationId}_${formatDate(reservation.createdAt).replace(/\//g, '-')}.pdf`;
+
+      // Download PDF
+      pdf.save(filename);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Có lỗi xảy ra khi tạo PDF. Vui lòng thử lại.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   };
 
   const handleBackToHome = () => {
@@ -238,7 +547,7 @@ const ReservationBill: React.FC = () => {
           <Row className="justify-content-center">
             <Col lg={10}>
               <Card className="bill-card">
-                <Card.Body className="p-4">
+                <Card.Body className="p-4" ref={billCardRef}>
                   {/* Invoice Header */}
                   <div className="invoice-header">
                     <div className="hotel-info">
@@ -300,59 +609,111 @@ const ReservationBill: React.FC = () => {
                   {/* Room Details */}
                   <div className="room-details">
                     <h4 className="section-title">Chi tiết phòng</h4>
-                    {draft?.selected && draft.selected.length > 0 ? (
-                      <div className="room-table">
-                        <div className="room-header">
-                          <div className="room-col">Loại phòng</div>
-                          <div className="room-col">Số lượng</div>
-                          <div className="room-col">Số khách</div>
-                          <div className="room-col">Giá/đêm</div>
-                          <div className="room-col">Thành tiền</div>
-                        </div>
-                        {draft.selected.map((room: any, index: number) => (
-                          <div key={room.roomTypeId || index} className="room-row">
-                            <div className="room-col">{room.name}</div>
-                            <div className="room-col">{room.quantity}</div>
-                            <div className="room-col">
-                              {room.adults}NL, {room.children}TE, {room.infants}EB
+                    {(() => {
+                      // Priority 1: Use draft.selected if available
+                      if (draft?.selected && draft.selected.length > 0) {
+                        return (
+                          <div className="room-table">
+                            <div className="room-header">
+                              <div className="room-col">Loại phòng</div>
+                              <div className="room-col">Số lượng</div>
+                              <div className="room-col">Số khách</div>
+                              <div className="room-col">Giá/đêm</div>
+                              <div className="room-col">Thành tiền</div>
                             </div>
-                            <div className="room-col">
-                              {(room.unitPrice || 0).toLocaleString()} VNĐ
-                            </div>
-                            <div className="room-col">
-                              {((room.unitPrice || 0) * (room.quantity || 1) * nights).toLocaleString()} VNĐ
-                            </div>
+                            {draft.selected.map((room: any, index: number) => (
+                              <div key={room.roomTypeId || index} className="room-row">
+                                <div className="room-col">{room.name}</div>
+                                <div className="room-col">{room.quantity}</div>
+                                <div className="room-col">
+                                  {room.adults}NL, {room.children}TE, {room.infants}EB
+                                </div>
+                                <div className="room-col">
+                                  {(room.unitPrice || 0).toLocaleString()} VNĐ
+                                </div>
+                                <div className="room-col">
+                                  {((room.unitPrice || 0) * (room.quantity || 1) * nights).toLocaleString()} VNĐ
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="room-table">
-                        <div className="room-header">
-                          <div className="room-col">Loại phòng</div>
-                          <div className="room-col">Số lượng</div>
-                          <div className="room-col">Số khách</div>
-                          <div className="room-col">Giá/đêm</div>
-                          <div className="room-col">Thành tiền</div>
-                        </div>
-                        {(reservation.rooms || []).map((room, index) => (
-                          <div key={room.roomTypeId || index} className="room-row">
-                            <div className="room-col">
-                              {room.roomType?.name || `Phòng ${index + 1}`}
+                        );
+                      }
+                      
+                      // Priority 2: Use reservation.details array (from API)
+                      const details = (reservation as any)?.details;
+                      if (details && Array.isArray(details) && details.length > 0) {
+                        return (
+                          <div className="room-table">
+                            <div className="room-header">
+                              <div className="room-col">Loại phòng</div>
+                              <div className="room-col">Số lượng</div>
+                              <div className="room-col">Số khách</div>
+                              <div className="room-col">Giá/đêm</div>
+                              <div className="room-col">Thành tiền</div>
                             </div>
-                            <div className="room-col">{room.quantity || 0}</div>
-                            <div className="room-col">
-                              {room.adults || 0}NL, {room.children || 0}TE, {room.infants || 0}EB
-                            </div>
-                            <div className="room-col">
-                              {(room.roomType?.basePrice || 0).toLocaleString()} VNĐ
-                            </div>
-                            <div className="room-col">
-                              {((room.roomType?.basePrice || 0) * (room.quantity || 0) * nights).toLocaleString()} VNĐ
-                            </div>
+                            {details.map((detail: any, index: number) => {
+                              // Handle roomType - can be object or string ID
+                              const roomType = typeof detail?.roomType === 'object' 
+                                ? detail.roomType 
+                                : null;
+                              const roomTypeName = roomType?.name || `Phòng ${index + 1}`;
+                              const basePrice = roomType?.basePrice || 0;
+                              const quantity = detail?.quantity || 0;
+                              const adults = detail?.adults || 0;
+                              const children = detail?.children || 0;
+                              const infants = detail?.infants || 0;
+                              
+                              return (
+                                <div key={detail?._id || detail?.id || index} className="room-row">
+                                  <div className="room-col">{roomTypeName}</div>
+                                  <div className="room-col">{quantity}</div>
+                                  <div className="room-col">
+                                    {adults}NL, {children}TE, {infants}EB
+                                  </div>
+                                  <div className="room-col">
+                                    {basePrice.toLocaleString()} VNĐ
+                                  </div>
+                                  <div className="room-col">
+                                    {(basePrice * quantity * nights).toLocaleString()} VNĐ
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                        ))}
-                      </div>
-                    )}
+                        );
+                      }
+                      
+                      // Priority 3: Fallback to reservation.rooms
+                      return (
+                        <div className="room-table">
+                          <div className="room-header">
+                            <div className="room-col">Loại phòng</div>
+                            <div className="room-col">Số lượng</div>
+                            <div className="room-col">Số khách</div>
+                            <div className="room-col">Giá/đêm</div>
+                            <div className="room-col">Thành tiền</div>
+                          </div>
+                          {(reservation.rooms || []).map((room, index) => (
+                            <div key={room.roomTypeId || index} className="room-row">
+                              <div className="room-col">
+                                {room.roomType?.name || `Phòng ${index + 1}`}
+                              </div>
+                              <div className="room-col">{room.quantity || 0}</div>
+                              <div className="room-col">
+                                {room.adults || 0}NL, {room.children || 0}TE, {room.infants || 0}EB
+                              </div>
+                              <div className="room-col">
+                                {(room.roomType?.basePrice || 0).toLocaleString()} VNĐ
+                              </div>
+                              <div className="room-col">
+                                {((room.roomType?.basePrice || 0) * (room.quantity || 0) * nights).toLocaleString()} VNĐ
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Payment Summary */}
@@ -434,9 +795,19 @@ const ReservationBill: React.FC = () => {
                       variant="outline-secondary" 
                       onClick={handleDownload}
                       className="me-3"
+                      disabled={isGeneratingPDF}
                     >
-                      <Download className="me-2" />
-                      Tải PDF
+                      {isGeneratingPDF ? (
+                        <>
+                          <Spinner animation="border" size="sm" className="me-2" />
+                          Đang tạo PDF...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="me-2" />
+                          Tải PDF
+                        </>
+                      )}
                     </Button>
                     <Button 
                       variant="primary" 

@@ -129,18 +129,33 @@
 
 .info-grid,
 .details-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  background-color: #f8f9fa;
-  padding: 20px;
-  border-radius: 8px;
-}
-
-.info-item {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
+  background-color: #f8f9fa;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.info-item,
+.detail-item {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 20px;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.info-item:last-child,
+.detail-item:last-child {
+  border-bottom: none;
+}
+
+.info-item:hover,
+.detail-item:hover {
+  background-color: rgba(255, 255, 255, 0.5);
 }
 
 .info-label,
@@ -466,22 +481,89 @@
 
 /* Print styles */
 @media print {
-  .bill-page {
-    background-color: white;
+  /* Hide header and footer */
+  .hero-wrap {
+    display: none !important;
   }
 
-  .hero-wrap,
+  /* Hide action buttons */
   .bill-actions {
     display: none !important;
   }
 
+  /* Reset page styles */
+  .bill-page {
+    background-color: white;
+    padding: 0;
+    margin: 0;
+  }
+
+  .bill-section {
+    padding: 0;
+    margin: 0;
+  }
+
+  /* Remove container padding */
+  .container {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Style the bill card */
   .bill-card {
     box-shadow: none;
-    border: 1px solid #e2e8f0;
+    border: none;
+    margin: 0;
+    page-break-inside: avoid;
   }
 
   .bill-card .card-body {
     padding: 20px;
+    margin: 0;
+  }
+
+  /* Ensure proper spacing */
+  .invoice-header,
+  .customer-info,
+  .reservation-details,
+  .room-details,
+  .payment-summary,
+  .payment-status {
+    page-break-inside: avoid;
+    margin-bottom: 24px;
+  }
+
+  /* Remove browser default headers and footers (URL, date, title) */
+  @page {
+    margin: 0.5cm;
+    /* Remove browser's default header/footer */
+    size: A4;
+  }
+
+  /* Hide any other non-essential elements */
+  header,
+  footer,
+  nav,
+  aside {
+    display: none !important;
+  }
+
+  /* Remove any date/time stamps */
+  body::before,
+  body::after,
+  .bill-page::before,
+  .bill-page::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  /* Hide any development indicators */
+  [class*="vite"],
+  [class*="react"],
+  [id*="root"]::before,
+  [id*="root"]::after {
+    display: none !important;
   }
 }
 
@@ -529,9 +611,11 @@
     min-width: 600px;
   }
 
-  .info-grid,
-  .details-grid {
-    grid-template-columns: 1fr;
+  .info-item,
+  .detail-item {
+    grid-template-columns: 140px 1fr;
+    gap: 12px;
+    padding: 12px 16px;
   }
 
   .bill-actions {

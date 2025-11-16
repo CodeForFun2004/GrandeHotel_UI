@@ -91,14 +91,31 @@ export interface User {
 export interface ReservationDetail {
   _id?: string;
   id?: string;
-  reservationId?: string;
-  room?: Room | string;
+  reservation?: string; // Reservation ID
   roomType?: RoomType | string;
-  price?: number; // price per night for this detail
-  nights?: number;
-  guests?: number;
-  subtotal?: number; // price * nights + extras
-  extras?: Array<Service | string>;
+  quantity?: number;
+  adults?: number;
+  children?: number;
+  infants?: number;
+  services?: Array<{ service: Service | string; quantity: number }>;
+  reservedRooms?: Array<Room | string>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Payment {
+  _id?: string;
+  id?: string;
+  reservation?: string;
+  totalPrice?: number;
+  depositAmount?: number;
+  paymentStatus?: 'unpaid' | 'deposit_paid' | 'fully_paid' | 'partially_paid' | 'refunded';
+  paidAmount?: number;
+  paymentMethod?: 'bank_transfer' | 'cash' | 'card' | 'other';
+  paymentNotes?: string;
+  remainingAmount?: number;
+  isFullyPaid?: boolean;
+  hasDeposit?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -106,23 +123,21 @@ export interface ReservationDetail {
 export interface Reservation {
   _id?: string;
   id?: string;
-  bookingNumber?: string;
-  userId?: string;
   hotel?: Hotel | string;
+  customer?: User | string;
+  checkInDate?: string; // ISO date
+  checkOutDate?: string; // ISO date
+  numberOfGuests?: number;
+  status?: 'pending' | 'approved' | 'rejected' | 'canceled' | 'completed';
+  stayStatus?: 'not_checked_in' | 'checked_in' | 'checked_out';
+  checkedInAt?: string;
+  checkedOutAt?: string;
+  checkedInBy?: User | string;
+  checkedOutBy?: User | string;
+  qrCodeToken?: string;
+  reason?: string;
   details?: ReservationDetail[];
-  checkIn?: string; // ISO date
-  checkOut?: string; // ISO date
-  totalAmount?: number;
-  status?:
-    | 'pending'
-    | 'confirmed'
-    | 'checked-in'
-    | 'checked-out'
-    | 'cancelled'
-    | 'no-show'
-    | 'completed';
-  paymentStatus?: 'unpaid' | 'paid' | 'refunded' | 'partial';
-  notes?: string;
+  payment?: Payment;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -23,6 +23,7 @@ import VerifyEmail from "../pages/auth/VerifyEmail";
 import Profile from "../pages/customer/Profile";
 import WishLists from "../pages/customer/WishLists";
 import CustomerChat from "../pages/customer/CustomerChat";
+import BookingsHistory from "../pages/customer/BookingsHistory";
 
 import Hotels from "../pages/Hotels";
 // import RoomDetail from "../pages/RoomDetail";
@@ -36,7 +37,7 @@ import ReservationBill from "../pages/ReservationBill";
 
 import ManagerDashboard from "../pages/admin/ManagerDashboard";
 import HotelInfoForm from "../pages/admin/HotelInfoForm";
-import RoomTable from "../pages/admin/rooms/RoomTable";
+// Manager rooms uses the same page as staff's Rooms
 import RoomTypeTable from "../pages/admin/rooms/RoomTypeTable";
 import BookingManagement from "../pages/admin/BookingManagement";
 
@@ -79,6 +80,7 @@ export const routes = {
   PROFILE_PATH: "/profile",
   PROFILE_WISHLISTS_PATH: "/profile/wishlists",
   PROFILE_SUPPORT_PATH: "/profile/support",
+  PROFILE_BOOKINGS_HISTORY_PATH: "/profile/bookings-history",
   NEWSFEED_PATH: "/news-feeds",
   SHOPPING_PATH: "/shopping",
   PRODUCT_DETAIL_PATH: "/product/:id",
@@ -143,6 +145,14 @@ export const router = createBrowserRouter([
       { path: routes.PROFILE_PATH, element: <Profile /> },
       { path: routes.PROFILE_WISHLISTS_PATH, element: <WishLists /> },
       { path: routes.PROFILE_SUPPORT_PATH, element: <CustomerChat /> },
+      {
+        path: routes.PROFILE_BOOKINGS_HISTORY_PATH,
+        element: (
+          <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
+            <BookingsHistory />
+          </RoleBasedRoute>
+        ),
+      },
       { path: routes.HOTELS_PATH, element: <Hotels /> },
       { path: routes.ROOMS_PATH, element: <Rooms /> },
       {
@@ -234,7 +244,7 @@ export const router = createBrowserRouter([
       { index: true, element: <RoleBasedRedirect /> },
       { path: "dashboard", element: <ManagerDashboard /> },
       { path: "hotel-info", element: <HotelInfoForm /> },
-      { path: "rooms", element: <RoomTable /> },
+  { path: "rooms", element: <StaffRooms /> },
       { path: "room-types", element: <RoomTypeTable /> },
       { path: "bookings", element: <BookingManagement /> },
       { path: "bookings/:id", element: <BookingDetail /> },
