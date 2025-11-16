@@ -8,7 +8,7 @@ export type User = {
   fullname: string;
   email: string;
   phone?: string;
-  role: 'customer' | 'admin' | 'staff' | 'shipper';
+  role: 'customer' | 'admin' | 'staff' | 'shipper' | 'hotel-manager';
   avatar?: string;
   photoFace?: string;
   cccd?: string;
@@ -20,6 +20,7 @@ export type User = {
   country?: string;
   status?: string;
   storeId?: string;
+  hotelId?: string;
   googleId?: string;
   staffId?: string;
   isBanned?: boolean;

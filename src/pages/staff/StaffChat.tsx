@@ -440,6 +440,12 @@ const StaffChat: React.FC = () => {
               fullWidth
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  sendMessage();
+                }
+              }}
               disabled={!active}
               onFocus={() => setTyping(true)}
               onBlur={() => setTyping(false)}
