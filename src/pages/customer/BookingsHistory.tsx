@@ -462,6 +462,9 @@ const BookingsHistory: React.FC = () => {
                       : null;
                     const hotelName = hotel?.name || 'Khách sạn';
                     const hotelAddress = hotel?.address || '';
+                    const hotelImage = hotel?.images && hotel.images.length > 0 
+                      ? hotel.images[0] 
+                      : null;
                     const totalPrice = booking.payment?.totalPrice || 0;
                     const paymentStatus = booking.payment?.paymentStatus;
 
@@ -472,10 +475,11 @@ const BookingsHistory: React.FC = () => {
                         style={{
                           border: '1px solid #e5e7eb',
                           borderRadius: 12,
-                          padding: 20,
+                          padding: 0,
                           cursor: 'pointer',
                           transition: 'all 0.2s',
                           background: '#fff',
+                          overflow: 'hidden',
                         }}
                         onMouseEnter={(e) => {
                           e.currentTarget.style.borderColor = '#d1d5db';
@@ -489,104 +493,174 @@ const BookingsHistory: React.FC = () => {
                         <div
                           style={{
                             display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'flex-start',
-                            marginBottom: 12,
+                            gap: 0,
                           }}
                         >
-                          <div style={{ flex: 1 }}>
-                            <h3
-                              style={{
-                                fontSize: 18,
-                                fontWeight: 600,
-                                color: '#111827',
-                                marginBottom: 4,
-                              }}
-                            >
-                              {hotelName}
-                            </h3>
-                            {hotelAddress && (
-                              <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 8 }}>
-                                {hotelAddress}
-                              </p>
-                            )}
-                            <div
-                              style={{
-                                display: 'flex',
-                                gap: 16,
-                                flexWrap: 'wrap',
-                                marginTop: 8,
-                              }}
-                            >
-                              <div>
-                                <span style={{ fontSize: 12, color: '#9ca3af' }}>Check-in: </span>
-                                <span style={{ fontSize: 14, color: '#374151', fontWeight: 500 }}>
-                                  {formatDate(booking.checkInDate)}
-                                </span>
-                              </div>
-                              <div>
-                                <span style={{ fontSize: 12, color: '#9ca3af' }}>Check-out: </span>
-                                <span style={{ fontSize: 14, color: '#374151', fontWeight: 500 }}>
-                                  {formatDate(booking.checkOutDate)}
-                                </span>
-                              </div>
-                              <div>
-                                <span style={{ fontSize: 12, color: '#9ca3af' }}>Số khách: </span>
-                                <span style={{ fontSize: 14, color: '#374151', fontWeight: 500 }}>
-                                  {booking.numberOfGuests || '—'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <div
-                              style={{
-                                display: 'inline-block',
-                                padding: '4px 12px',
-                                borderRadius: 6,
-                                background: getStatusColor(booking.status),
-                                color: '#fff',
-                                fontSize: 12,
-                                fontWeight: 600,
-                                marginBottom: 8,
-                              }}
-                            >
-                              {getStatusLabel(booking.status)}
-                            </div>
-                            <div style={{ fontSize: 18, fontWeight: 700, color: '#111827' }}>
-                              {formatVND(totalPrice)}
-                            </div>
-                            {paymentStatus && (
+                          {/* Hotel Image - Left Side */}
+                          <div
+                            style={{
+                              width: 200,
+                              minWidth: 200,
+                              height: 'auto',
+                              background: '#f3f4f6',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {hotelImage ? (
+                              <img
+                                src={hotelImage}
+                                alt={hotelName}
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover',
+                                }}
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  (e.target as HTMLImageElement).parentElement!.style.background = '#f3f4f6';
+                                }}
+                              />
+                            ) : (
                               <div
                                 style={{
+                                  width: '100%',
+                                  height: 180,
+                                  background: '#f3f4f6',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: '#9ca3af',
+                                }}
+                              >
+                                <svg
+                                  width="48"
+                                  height="48"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="1.5"
+                                >
+                                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                                  <polyline points="9 22 9 12 15 12 15 22" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Content - Middle and Right */}
+                          <div
+                            style={{
+                              flex: 1,
+                              padding: 20,
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                            }}
+                          >
+                            {/* Middle Section - Hotel Info and Booking Details */}
+                            <div style={{ flex: 1, paddingRight: 20 }}>
+                              <h3
+                                style={{
+                                  fontSize: 18,
+                                  fontWeight: 600,
+                                  color: '#111827',
+                                  marginBottom: 4,
+                                }}
+                              >
+                                {hotelName}
+                              </h3>
+                              {hotelAddress && (
+                                <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 16 }}>
+                                  {hotelAddress}
+                                </p>
+                              )}
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  gap: 24,
+                                  justifyContent: 'center',
+                                  alignItems: 'center',
+                                  flexWrap: 'wrap',
+                                }}
+                              >
+                                <div style={{ textAlign: 'center' }}>
+                                  <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>
+                                    Check-in
+                                  </div>
+                                  <div style={{ fontSize: 14, color: '#374151', fontWeight: 600 }}>
+                                    {formatDate(booking.checkInDate)}
+                                  </div>
+                                </div>
+                                <div style={{ textAlign: 'center' }}>
+                                  <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>
+                                    Check-out
+                                  </div>
+                                  <div style={{ fontSize: 14, color: '#374151', fontWeight: 600 }}>
+                                    {formatDate(booking.checkOutDate)}
+                                  </div>
+                                </div>
+                                <div style={{ textAlign: 'center' }}>
+                                  <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>
+                                    Số khách
+                                  </div>
+                                  <div style={{ fontSize: 14, color: '#374151', fontWeight: 600 }}>
+                                    {booking.numberOfGuests || '—'}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Right Section - Status and Price */}
+                            <div
+                              style={{
+                                textAlign: 'right',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'flex-end',
+                                gap: 8,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: 'inline-block',
+                                  padding: '4px 12px',
+                                  borderRadius: 6,
+                                  background: getStatusColor(booking.status),
+                                  color: '#fff',
                                   fontSize: 12,
-                                  color: '#6b7280',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {getStatusLabel(booking.status)}
+                              </div>
+                              <div style={{ fontSize: 18, fontWeight: 700, color: '#111827' }}>
+                                {formatVND(totalPrice)}
+                              </div>
+                              {paymentStatus && (
+                                <div
+                                  style={{
+                                    fontSize: 12,
+                                    color: '#6b7280',
+                                  }}
+                                >
+                                  {getPaymentStatusLabel(paymentStatus)}
+                                </div>
+                              )}
+                              <span
+                                style={{
+                                  fontSize: 14,
+                                  color: '#3b82f6',
+                                  fontWeight: 500,
                                   marginTop: 4,
                                 }}
                               >
-                                {getPaymentStatusLabel(paymentStatus)}
-                              </div>
-                            )}
+                                Xem chi tiết →
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                        <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'flex-end',
-                            marginTop: 12,
-                            paddingTop: 12,
-                            borderTop: '1px solid #f3f4f6',
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontSize: 14,
-                              color: '#3b82f6',
-                              fontWeight: 500,
-                            }}
-                          >
-                            Xem chi tiết →
-                          </span>
                         </div>
                       </div>
                     );
