@@ -232,9 +232,10 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <RoleBasedRedirect /> },
-      { path: "dashboard", element: <ManagerDashboard /> },
-      { path: "hotel-info", element: <HotelInfoForm /> },
-  { path: "rooms", element: <StaffRooms /> },
+        { path: "dashboard", element: <ManagerDashboard /> },
+        { path: "hotel-info", element: <HotelInfoForm /> },
+      { path: "rooms", element: <StaffRooms /> },
+      { path: "rooms/:roomId", element: <StaffRoomDetail /> },
       { path: "room-types", element: <RoomTypeTable /> },
       { path: "bookings", element: <BookingManagement /> },
       { path: "bookings/:id", element: <BookingDetail /> },

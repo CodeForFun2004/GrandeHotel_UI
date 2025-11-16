@@ -12,6 +12,7 @@ import {
   Button,
   Divider,
   IconButton,
+  Snackbar,
   Tabs,
   Tab,
   ImageList,
@@ -47,6 +48,12 @@ import {
   UploadFile,
 } from "@mui/icons-material";
 import api from "../../api/axios";
+import { io as ioClient } from 'socket.io-client';
+import MiniBookingCalendar from '../../components/MiniBookingCalendar';
+
+// small helpers for calendar
+const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+const dateKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 /* =========================
    Helpers & Types
@@ -125,8 +132,14 @@ export default function StaffRoomDetail() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [tab, setTab] = useState(0);
+  // default to Activity tab
+  const [tab, setTab] = useState(3);
   const [openStatusDlg, setOpenStatusDlg] = useState(false);
+
+  // snackbar for status-change feedback + undo
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMsg, setSnackbarMsg] = useState<string | null>(null);
+  const [prevStatus, setPrevStatus] = useState<RoomStatus | null>(null);
 
   const [room, setRoom] = useState<Room | null>(null);
   const [roomType, setRoomType] = useState<RoomType | null>(null);
@@ -201,8 +214,17 @@ export default function StaffRoomDetail() {
         setRoomType(mappedType);
         setImgList(images);
         setFacList(facilities);
+        // initial activities from payload (if any)
         setActivities(acts);
         setBookings(bks);
+
+        // fetch latest activities from dedicated endpoint (paginated)
+        try {
+          const aRes = await api.get(`/rooms/${roomId}/activities?limit=20`);
+          if (aRes?.data?.data) setActivities(aRes.data.data);
+        } catch (e) {
+          // ignore; keep any activities coming from payload
+        }
       } catch (e: any) {
         console.error('Fetch room failed', e);
         setError(e?.response?.data?.message || e?.message || 'Failed to load room');
@@ -213,8 +235,72 @@ export default function StaffRoomDetail() {
     doFetch();
   }, [roomId]);
 
+  // real-time: subscribe to room activity events via socket
+  useEffect(() => {
+    if (!roomId) return;
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+
+    const socket = ioClient('http://localhost:1000', { auth: { token } });
+
+    const handler = (payload: any) => {
+      try {
+        if (!payload) return;
+        const r = payload.room || (payload.activity && payload.activity.room);
+        if (!r) return;
+        if (r.toString() === roomId.toString()) {
+          // prepend newest
+          const act = payload.activity || payload;
+          setActivities((arr) => [act, ...arr]);
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    socket.on('room_activity', handler);
+
+    return () => {
+      socket.off('room_activity', handler);
+      socket.disconnect();
+    };
+  }, [roomId]);
+
   const meta = STATUS_META[status];
   const cover = imgList[0]?.URL;
+
+  const showStatusSnackbar = (message: string, previous: RoomStatus | null) => {
+    setSnackbarMsg(message);
+    setPrevStatus(previous);
+    setSnackbarOpen(true);
+  };
+
+  const handleChangeStatus = async (newStatus: RoomStatus) => {
+    if (!room) return;
+    const old = status;
+    try {
+      // optimistic UI update
+      setStatus(newStatus);
+      await api.put(`/rooms/${room.Room_ID}`, { status: newStatus });
+      showStatusSnackbar(`Trạng thái đã đổi thành “${STATUS_META[newStatus].label}”`, old);
+    } catch (e) {
+      console.error('Failed to update room status', e);
+      // revert on error
+      setStatus(old);
+      showStatusSnackbar('Không thể thay đổi trạng thái (lỗi).', old);
+    }
+  };
+
+  const handleUndoStatus = async () => {
+    if (!room || prevStatus == null) return;
+    try {
+      await api.put(`/rooms/${room.Room_ID}`, { status: prevStatus });
+      setStatus(prevStatus);
+      setSnackbarOpen(false);
+    } catch (e) {
+      console.error('Failed to undo status', e);
+    }
+  };
 
   const addFacility = () => {
     const name = facToAdd?.trim();
@@ -291,11 +377,15 @@ export default function StaffRoomDetail() {
             </Stack>
             <Box sx={{ flex: 1 }} />
             <Chip
-              color={meta.color}
-              variant="outlined"
+              variant={status === 'Under Maintenance' ? 'filled' : 'outlined'}
               icon={meta.icon as any}
               label={meta.label}
-              sx={{ fontWeight: 600 }}
+              sx={{
+                fontWeight: 600,
+                ...(status === 'Under Maintenance'
+                  ? { backgroundColor: '#6a1b9a', color: '#fff' }
+                  : {}),
+              }}
             />
             <Button startIcon={<Edit />} onClick={() => setOpenStatusDlg(true)}>
               Đổi trạng thái
@@ -344,60 +434,94 @@ export default function StaffRoomDetail() {
         indicatorColor="primary"
         sx={{ mb: 2 }}
       >
-        <Tab label="Tổng quan" />
+        <Tab label={`Tổng quan`} />
         <Tab label={`Tiện nghi (${facList.length})`} />
         <Tab label={`Hình ảnh (${imgList.length})`} />
-        <Tab label="Hoạt động" />
+        <Tab label={`Hoạt động (${activities.length})`} />
       </Tabs>
 
       {/* Tab panels */}
       {tab === 0 && (
         <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" } }}>
           <Box>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Mô tả
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {roomPack.room.Description ||
-                    "Không có mô tả. Đây là phòng tiêu chuẩn với đầy đủ tiện nghi cơ bản, phù hợp cho 2 khách."}
-                </Typography>
+            <Stack spacing={2}>
+              {/* Tổng quan: image + status + description + quick history */}
+              <Card>
+                <CardContent>
+                  <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
+                    {/* Image */}
+                    <Box sx={{ width: { xs: '100%', md: 320 }, flexShrink: 0 }}>
+                      {cover ? (
+                        <CardMedia
+                          component="img"
+                          image={cover}
+                          alt={roomPack.room.Name}
+                          sx={{ width: '100%', height: 200, objectFit: 'cover', borderRadius: 1 }}
+                        />
+                      ) : (
+                        <Box sx={{ width: '100%', height: 200, bgcolor: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 1 }}>
+                          <Typography variant="subtitle2" color="text.secondary">No image</Typography>
+                        </Box>
+                      )}
+                    </Box>
 
-                <Divider sx={{ my: 2 }} />
+                    {/* Summary: title + status + description + quick history */}
+                    <Box sx={{ flex: 1 }}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography variant="h6" fontWeight={700}>Phòng {roomPack.room.Number}</Typography>
+                        <Chip
+                          size="small"
+                          label={meta.label}
+                          variant={status === 'Under Maintenance' ? 'filled' : 'outlined'}
+                          sx={{ ml: 1, ...(status === 'Under Maintenance' ? { backgroundColor: '#6a1b9a', color: '#fff' } : {}) }}
+                        />
+                        <Box sx={{ flex: 1 }} />
+                      </Stack>
 
-                <Typography variant="h6" gutterBottom>
-                  Lịch sử nhanh
-                </Typography>
-                <Stack spacing={1}>
-                  {activities.length > 0 ? (
-                    activities.slice(0, 5).map((a, idx) => (
-                      <Alert key={idx} severity={a.severity || 'info'}>
-                        {a.text ?? a.message ?? JSON.stringify(a)}
-                      </Alert>
-                    ))
-                  ) : (
-                    <Alert severity="info">Chưa có hoạt động gần đây.</Alert>
-                  )}
-                </Stack>
-              </CardContent>
-            </Card>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{roomPack.room.Description || "Không có mô tả ngắn."}</Typography>
+
+                      <Divider sx={{ my: 2 }} />
+                      {/* Short description shown above; quick history moved below as a separate card */}
+                    </Box>
+                  </Stack>
+                </CardContent>
+              </Card>
+              {/* Lịch sử nhanh (separate card below Tổng quan) */}
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Lịch sử nhanh
+                  </Typography>
+                  <Stack spacing={1}>
+                    {activities && activities.length > 0 ? (
+                      activities.slice(0, 5).map((a, idx) => (
+                        <Alert key={idx} severity={(a.severity as any) || 'info'}>
+                          {a.text ?? a.message ?? a.note ?? JSON.stringify(a)}
+                        </Alert>
+                      ))
+                    ) : (
+                      <Alert severity="info">Chưa có hoạt động gần đây.</Alert>
+                    )}
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Stack>
           </Box>
 
-          <Box>
+          <Box sx={{ position: { md: 'sticky' }, top: 96 }}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
                   Thao tác nhanh
                 </Typography>
                 <Stack spacing={1}>
-                  <Button variant="outlined" startIcon={<Build />} disabled={status === "Under Maintenance"} onClick={() => setStatus("Under Maintenance")}>
+                  <Button variant="outlined" startIcon={<Build />} disabled={status === "Under Maintenance"} onClick={() => handleChangeStatus("Under Maintenance")}>
                     Đánh dấu bảo trì
                   </Button>
-                  <Button variant="outlined" startIcon={<ReportProblem />} disabled={status === "Out of Order"} onClick={() => setStatus("Out of Order")}>
+                  <Button variant="outlined" startIcon={<ReportProblem />} disabled={status === "Out of Order"} onClick={() => handleChangeStatus("Out of Order")}>
                     Đánh dấu OOO (hỏng)
                   </Button>
-                  <Button variant="contained" color="success" startIcon={<CheckCircle />} disabled={status === "Available"} onClick={() => setStatus("Available")}>
+                  <Button variant="contained" color="success" startIcon={<CheckCircle />} disabled={status === "Available"} onClick={() => handleChangeStatus("Available")}> 
                     Mở bán (Trống)
                   </Button>
                 </Stack>
@@ -412,7 +536,11 @@ export default function StaffRoomDetail() {
           <CardContent>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
               <Typography variant="h6">Tiện nghi</Typography>
-              <Button startIcon={<Add />} onClick={() => setOpenFacDlg(true)}>
+              <Button
+                startIcon={<Add />}
+                onClick={() => setOpenFacDlg(true)}
+                disabled={!window.location.pathname.startsWith('/manager')}
+              >
                 Thêm tiện nghi
               </Button>
             </Stack>
@@ -442,7 +570,11 @@ export default function StaffRoomDetail() {
           <CardContent>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
               <Typography variant="h6">Hình ảnh</Typography>
-              <Button startIcon={<UploadFile />} onClick={() => setOpenImgDlg(true)}>
+              <Button
+                startIcon={<UploadFile />}
+                onClick={() => setOpenImgDlg(true)}
+                disabled={!window.location.pathname.startsWith('/manager')}
+              >
                 Thêm hình
               </Button>
             </Stack>
@@ -454,7 +586,7 @@ export default function StaffRoomDetail() {
                   <img src={it.URL} alt="" loading="lazy" style={{ borderRadius: 8 }} />
                   <Box sx={{ textAlign: "right", mt: 0.5 }}>
                     <Tooltip title="Xóa ảnh">
-                      <IconButton size="small" onClick={() => removeImage(it.Room_Image_ID)}>
+                      <IconButton size="small" onClick={() => removeImage(it.Room_Image_ID)} disabled={!window.location.pathname.startsWith('/manager')}>
                         <DeleteOutline fontSize="small" />
                       </IconButton>
                     </Tooltip>
@@ -487,29 +619,18 @@ export default function StaffRoomDetail() {
               </CardContent>
             </Card>
           </Box>
-          <Box>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Lịch đặt (minimap — UI demo)
-                </Typography>
-                {bookings.length > 0 ? (
-                  <Stack spacing={1}>
-                    {bookings.map((b: any, i: number) => (
-                      <Box key={i} sx={{ borderRadius: 1, p: 1, border: '1px solid #eee' }}>
-                        <Typography variant="body2">{b.guestName ?? b.name ?? b.customer ?? 'Khách'}</Typography>
-                        <Typography variant="caption" color="text.secondary">{`${b.checkIn ?? b.start ?? ''} → ${b.checkOut ?? b.end ?? ''}`}</Typography>
-                      </Box>
-                    ))}
-                  </Stack>
-                ) : (
-                  <Box sx={{ height: 180, borderRadius: 1, border: '1px dashed #ddd', bgcolor: '#fafafa', display: 'grid', placeItems: 'center', color: 'text.secondary' }}>
-                    Không có lịch đặt để hiển thị.
+            <Box>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Lịch đặt — {new Date().toLocaleString('vi-VN', { month: 'long', year: 'numeric' })}
+                  </Typography>
+                  <Box sx={{ mt: 1 }}>
+                    <MiniBookingCalendar bookings={bookings} />
                   </Box>
-                )}
-              </CardContent>
-            </Card>
-          </Box>
+                </CardContent>
+              </Card>
+            </Box>
         </Box>
       )}
 
@@ -543,10 +664,7 @@ export default function StaffRoomDetail() {
             <Button variant="contained" onClick={async () => {
               try {
                 setOpenStatusDlg(false);
-                if (!room) return;
-                const payload = { status };
-                await api.put(`/rooms/${room.Room_ID}`, payload);
-                setStatus(status);
+                await handleChangeStatus(status);
               } catch (e) {
                 console.error('Failed to update room status', e);
               }
@@ -597,6 +715,18 @@ export default function StaffRoomDetail() {
           </Button>
         </DialogActions>
       </Dialog>
+      {/* Snackbar for status changes (with undo) */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={() => setSnackbarOpen(false)}
+        message={snackbarMsg || ''}
+        action={
+          <Button color="inherit" size="small" onClick={handleUndoStatus}>
+            HOÀN TÁC
+          </Button>
+        }
+      />
     </Box>
   );
 }

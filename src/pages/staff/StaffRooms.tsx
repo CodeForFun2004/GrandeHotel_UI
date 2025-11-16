@@ -59,6 +59,7 @@ type RoomStatusUI = 'Available' | 'Reserved' | 'Occupied' | 'Under Maintenance';
 type RoomCard = {
   id: string;
   number: string;
+  code?: string;
   name: string;
   price: number;
   status: RoomStatusUI;
@@ -132,24 +133,59 @@ const StaffRooms: React.FC = () => {
     history.replaceState && history.replaceState(null, document.title, location.pathname);
   }, [location.pathname, location.state]);
 
-  // Fetch rooms from backend (public all)
+  // Pagination state (declare before effects that use `page`)
+  const itemsPerPage = 15;
+  const [page, setPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [totalCount, setTotalCount] = useState<number>(0);
+
+  // Fetch rooms from backend (use hotel-scoped endpoints when running under /staff or /manager)
   useEffect(() => {
     const doFetch = async () => {
       try {
         setLoading(true);
         setError(null);
-  const res = await api.get('/rooms/all');
+        // Prefer hotel-scoped endpoints and pass pagination + filters
+        // - staff UI should call GET /api/rooms/staff (requires auth)
+        // - manager UI should call GET /api/rooms (requires manager auth)
+        // Fallback to GET /api/rooms/all which returns all rooms (admin view)
+        let endpoint = '/rooms/all';
+        try {
+          if (location.pathname.startsWith('/staff')) endpoint = '/rooms/staff';
+          else if (location.pathname.startsWith('/manager')) endpoint = '/rooms';
+        } catch (e) {
+          endpoint = '/rooms/all';
+        }
+
+        const params: any = { page, limit: itemsPerPage };
+        if (keyword) params.search = keyword;
+        if (status && status !== 'ALL') params.status = status;
+
+        const res = await api.get(endpoint, { params });
+        // server returns { data, pagination } or array
         const list: any[] = res.data?.data || res.data || [];
+        const pagination = res.data?.pagination;
+        if (pagination) {
+          setTotalPages(pagination.totalPages || Math.max(1, Math.ceil((pagination.total || 0) / itemsPerPage)));
+          setTotalCount(pagination.total || 0);
+        } else {
+          setTotalPages(Math.max(1, Math.ceil(list.length / itemsPerPage)));
+          setTotalCount(list.length);
+        }
+
         const mapped: RoomCard[] = list.map((r: any) => {
           const id = r.id ?? r._id ?? '';
-          const roomNumber = r.roomNumber ?? r.code ?? '';
+          const roomNumber = r.roomNumber ?? r.number ?? '';
+          const code = r.code ?? r.roomCode ?? '';
           const rt = r.roomType || {};
+          const rawStatus = r.status ?? r.state ?? r.roomStatus ?? (Array.isArray(r.reservations) && r.reservations.length ? 'reserved' : undefined);
           return {
             id,
             number: String(roomNumber),
-            name: `${rt?.name ?? r.name ?? 'Room'} ${roomNumber}`.trim(),
+            code: code ? String(code) : undefined,
+            name: `${rt?.name ?? r.name ?? 'Room'} ${code || roomNumber}`.trim(),
             price: Number(r.pricePerNight ?? rt?.basePrice ?? 0),
-            status: mapBackendStatusToUI(r.status),
+            status: mapBackendStatusToUI(rawStatus),
             hotelId: r.hotel?._id ?? r.hotel?.id,
             roomType: { id: rt?._id || rt?.id || '', name: rt?.name || 'Unknown', capacity: rt?.capacity },
             image: (Array.isArray(r.images) && r.images.length > 0) ? r.images[0] : undefined,
@@ -165,7 +201,7 @@ const StaffRooms: React.FC = () => {
       }
     };
     doFetch();
-  }, []);
+  }, [location.pathname, page, keyword, status]);
 
   // Snackbar
   const [snack, setSnack] = useState<{ open: boolean; msg: string; severity: "success" | "info" | "warning" | "error" }>({
@@ -206,18 +242,13 @@ const StaffRooms: React.FC = () => {
   }, [keyword, status, rooms]);
 
   // Pagination
-  const itemsPerPage = 15;
-  const [page, setPage] = useState<number>(1);
   useEffect(() => {
     // Reset to first page when filters change
     setPage(1);
   }, [keyword, status]);
 
-  const pageCount = Math.max(1, Math.ceil(data.length / itemsPerPage));
-  const displayed = useMemo(() => {
-    const start = (page - 1) * itemsPerPage;
-    return data.slice(start, start + itemsPerPage);
-  }, [data, page]);
+  // displayed uses server-provided page in `rooms`
+  const displayed = data;
 
   // Return-to-top FAB
   const [showTop, setShowTop] = useState(false);
@@ -269,11 +300,16 @@ const StaffRooms: React.FC = () => {
           Rooms
         </Typography>
         <Stack direction="row" spacing={1}>
-          <Button variant="outlined" color="inherit" startIcon={<Build />} disabled>
-            Bulk Actions
+          <Button variant="outlined" color="inherit" startIcon={<Build />} disabled={!location.pathname.startsWith('/manager')}>
+            Thao tác hàng loạt
           </Button>
-          <Button variant="contained" sx={{ backgroundColor: "#b8192b" }} disabled>
-            Add Room
+          <Button
+            variant="contained"
+            sx={{ backgroundColor: "#b8192b" }}
+            disabled={!location.pathname.startsWith('/manager')}
+            onClick={() => navigate('/manager/rooms/create')}
+          >
+            Thêm phòng
           </Button>
         </Stack>
       </Box>
@@ -319,20 +355,20 @@ const StaffRooms: React.FC = () => {
                   key={k}
                   size="small"
                   icon={meta.icon as any}
-                  color={meta.color as any}
                   label={meta.label}
                   clickable
                   tabIndex={0}
                   onKeyDown={handleKey}
                   onClick={handleClick}
+                  color={meta.color as any}
                   variant={isSelected ? undefined : 'outlined'}
-                  sx={{ cursor: 'pointer', ...(k === 'ALL' ? { ml: 0 } : {}), ...(isSelected ? { bgcolor: `${meta.color}.main`, color: '#fff' } : {}) }}
+                  sx={{ cursor: 'pointer', ...(k === 'ALL' ? { ml: 0 } : {}) }}
                 />
               );
             })}
                 <Box sx={{ flex: 1 }} />
                 {/* Lightweight debug info to help diagnose empty results */}
-                <Chip size="small" label={`Tổng: ${rooms.length}`} />
+                <Chip size="small" label={`Tổng: ${totalCount || rooms.length}`} />
                 <Chip size="small" label={`Hiển thị: ${data.length}`} />
                 {(keyword || status !== 'ALL') && (
                   <Chip size="small" color="info" label="Đang lọc" />
@@ -409,7 +445,7 @@ const StaffRooms: React.FC = () => {
                 <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
                   <MeetingRoom sx={{ color: "#b8192b" }} />
                   <Typography variant="h6" fontWeight={700}>
-                    Phòng {room.number}
+                    Phòng {room.code ?? room.number}
                   </Typography>
                   <Box sx={{ flex: 1 }} />
                   <Chip
@@ -457,11 +493,13 @@ const StaffRooms: React.FC = () => {
                     endIcon={<ChevronRight />}
                     fullWidth
                     onClick={() => {
-                      if (location.pathname.startsWith('/staff')) {
-                        navigate(`/staff/rooms/${room.id}`);
-                      }
-                    }}
-                    disabled={!location.pathname.startsWith('/staff')}
+                        if (location.pathname.startsWith('/staff')) {
+                          navigate(`/staff/rooms/${room.id}`);
+                        } else if (location.pathname.startsWith('/manager')) {
+                          navigate(`/manager/rooms/${room.id}`);
+                        }
+                      }}
+                    disabled={!(location.pathname.startsWith('/staff') || location.pathname.startsWith('/manager'))}
                   >
                     Chi tiết
                   </Button>
@@ -527,9 +565,9 @@ const StaffRooms: React.FC = () => {
       </Box>
 
       {/* Pagination (placed after grid so it appears near page bottom) */}
-      {pageCount > 1 && (
+      {totalPages > 1 && (
         <Stack alignItems="center" sx={{ mt: 2, mb: 2 }}>
-          <Pagination page={page} count={pageCount} onChange={(_e, p) => setPage(p)} color="primary" />
+          <Pagination page={page} count={totalPages} onChange={(_e, p) => setPage(p)} color="primary" />
         </Stack>
       )}
 
