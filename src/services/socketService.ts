@@ -19,6 +19,7 @@ class SocketService {
   private isConnected = false;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
+  private isRefreshingToken = false;
 
   // Event callbacks
   private onNewMessageCallback?: (message: Message) => void;
@@ -70,13 +71,81 @@ class SocketService {
       this.onDisconnectCallback?.();
     });
 
-    this.socket.on('connect_error', (error) => {
+    this.socket.on('connect_error', async (error) => {
       console.error('🚫 Socket connection error:', error);
-      this.reconnectAttempts++;
 
-      if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-        console.error('Max reconnection attempts reached');
-        this.onErrorCallback?.('Không thể kết nối đến máy chủ chat');
+      // Check if this is an authentication error (token expired)
+      const isAuthError = error.message === 'Authentication failed';
+      console.log('🔍 Is authentication error?', isAuthError);
+
+      // Try to refresh token if authentication failed and not already refreshing
+      if (isAuthError && !this.isRefreshingToken) {
+        this.isRefreshingToken = true;
+        console.log('🔄 Attempting to refresh token for WebSocket...');
+
+        try {
+          const refreshToken = localStorage.getItem('refreshToken');
+          if (!refreshToken) {
+            console.error('❌ No refresh token found for WebSocket');
+            this.isRefreshingToken = false;
+            this.onErrorCallback?.('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+            return;
+          }
+
+          // Call refresh endpoint directly (avoid using axios instance to prevent infinite loops)
+          const response = await fetch('http://localhost:1000/api/auth/refresh', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ refreshToken }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Refresh failed: ${response.status}`);
+          }
+
+          const data = await response.json();
+          const newAccessToken = data.accessToken;
+
+          if (!newAccessToken) {
+            throw new Error('No access token in refresh response');
+          }
+
+          console.log('✅ WebSocket token refreshed successfully');
+
+          // Update localStorage
+          localStorage.setItem('accessToken', newAccessToken);
+
+          // Reset retry attempts since we now have a fresh token
+          this.reconnectAttempts = 0;
+
+          // Disconnect current socket and reconnect with new token
+          console.log('🔌 Reconnecting WebSocket with new token...');
+          this.disconnect();
+
+          // Reconnect with new token (will get it from localStorage)
+          const newToken = localStorage.getItem('accessToken');
+          if (newToken) {
+            this.connect(newToken);
+          }
+
+        } catch (refreshErr) {
+          console.error('❌ Token refresh failed for WebSocket:', refreshErr);
+          this.onErrorCallback?.('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+          // Disconnect permanently since refresh failed
+          this.disconnect();
+        } finally {
+          this.isRefreshingToken = false;
+        }
+      } else {
+        // Regular reconnection attempt for network errors
+        this.reconnectAttempts++;
+
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          console.error('Max reconnection attempts reached');
+          this.onErrorCallback?.('Không thể kết nối đến máy chủ chat sau nhiều lần thử');
+        }
       }
     });
 

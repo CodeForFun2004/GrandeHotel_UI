@@ -21,6 +21,11 @@ export const getAllReservations = async () => {
   return res.data;
 };
 
+export const getReservationsByUser = async (userId: string) => {
+  const res = await instance.get(`/reservations/user/${userId}`);
+  return res.data;
+};
+
 export const getReservationById = async (id: string) => {
   const res = await instance.get(`/reservations/${id}`);
   return res.data;
