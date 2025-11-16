@@ -208,15 +208,39 @@ export default function StaffRoomDetail() {
           : [];
 
         const acts = Array.isArray(payload.activities) ? payload.activities : Array.isArray(payload.history) ? payload.history : [];
-        const bks = Array.isArray(payload.bookings) ? payload.bookings : Array.isArray(payload.reservations) ? payload.reservations : [];
+        const bks = Array.isArray(payload.bookings)
+          ? payload.bookings
+          : Array.isArray(payload.reservations)
+          ? payload.reservations
+          : [];
+
+        // Normalize bookings so the calendar can reliably pick dates regardless of field names or nesting
+        const normalizeBooking = (raw: any) => {
+          if (!raw) return null;
+          const b: any = { ...raw };
+          // prefer top-level canonical fields
+          b.checkInDate = b.checkInDate ?? b.checkIn ?? b.start ?? b.from ?? b.arrival ?? b.check_in_date ?? null;
+          b.checkOutDate = b.checkOutDate ?? b.checkOut ?? b.end ?? b.to ?? b.departure ?? b.check_out_date ?? null;
+          // some responses put reservation inside a `reservation` key
+          if ((!b.checkInDate || !b.checkOutDate) && b.reservation) {
+            b.checkInDate = b.checkInDate ?? b.reservation.checkInDate ?? b.reservation.checkIn ?? b.reservation.start ?? b.checkInDate;
+            b.checkOutDate = b.checkOutDate ?? b.reservation.checkOutDate ?? b.reservation.checkOut ?? b.reservation.end ?? b.checkOutDate;
+          }
+          // ensure dates are strings or numbers (MiniBookingCalendar will handle Mongo $date shapes)
+          return b;
+        };
+
+        const normalizedBookings = bks.map(normalizeBooking).filter(Boolean);
 
         setRoom(mappedRoom);
+        console.log('Room (after fetch):', mappedRoom);
         setRoomType(mappedType);
         setImgList(images);
         setFacList(facilities);
         // initial activities from payload (if any)
         setActivities(acts);
-        setBookings(bks);
+        setBookings(normalizedBookings);
+        console.log('room payload bookings (after fetch):', normalizedBookings);
 
         // fetch latest activities from dedicated endpoint (paginated)
         try {
@@ -395,7 +419,7 @@ export default function StaffRoomDetail() {
           <Divider sx={{ my: 1.5 }} />
 
           <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" } }}>
-            <Box>
+          <Box>
               <Stack direction="row" spacing={2} flexWrap="wrap">
                 <Stack direction="row" spacing={1} alignItems="center">
                   <KingBed fontSize="small" />
@@ -512,19 +536,11 @@ export default function StaffRoomDetail() {
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
-                  Thao tác nhanh
+                  Lịch đặt — {new Date().toLocaleString('vi-VN', { month: 'long', year: 'numeric' })}
                 </Typography>
-                <Stack spacing={1}>
-                  <Button variant="outlined" startIcon={<Build />} disabled={status === "Under Maintenance"} onClick={() => handleChangeStatus("Under Maintenance")}>
-                    Đánh dấu bảo trì
-                  </Button>
-                  <Button variant="outlined" startIcon={<ReportProblem />} disabled={status === "Out of Order"} onClick={() => handleChangeStatus("Out of Order")}>
-                    Đánh dấu OOO (hỏng)
-                  </Button>
-                  <Button variant="contained" color="success" startIcon={<CheckCircle />} disabled={status === "Available"} onClick={() => handleChangeStatus("Available")}> 
-                    Mở bán (Trống)
-                  </Button>
-                </Stack>
+                <Box sx={{ mt: 1 }}>
+                  <MiniBookingCalendar bookings={bookings} roomStatus={status} />
+                </Box>
               </CardContent>
             </Card>
           </Box>
@@ -626,7 +642,7 @@ export default function StaffRoomDetail() {
                     Lịch đặt — {new Date().toLocaleString('vi-VN', { month: 'long', year: 'numeric' })}
                   </Typography>
                   <Box sx={{ mt: 1 }}>
-                    <MiniBookingCalendar bookings={bookings} />
+                    <MiniBookingCalendar bookings={bookings} roomStatus={status} />
                   </Box>
                 </CardContent>
               </Card>
