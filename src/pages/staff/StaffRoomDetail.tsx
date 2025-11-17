@@ -29,9 +29,11 @@ import {
   Tooltip,
   CircularProgress,
   Alert,
+  useMediaQuery,
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material";
 import { useParams, Link as RouterLink, useNavigate } from "react-router-dom";
+import { useTheme } from '@mui/material/styles';
 import {
   MeetingRoom,
   KingBed,
@@ -135,6 +137,7 @@ export default function StaffRoomDetail() {
   // default to Activity tab
   const [tab, setTab] = useState(3);
   const [openStatusDlg, setOpenStatusDlg] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   // snackbar for status-change feedback + undo
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -152,6 +155,30 @@ export default function StaffRoomDetail() {
   const [facToAdd, setFacToAdd] = useState<string>("");
   const [openImgDlg, setOpenImgDlg] = useState(false);
   const [newImgUrl, setNewImgUrl] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedPreviews, setSelectedPreviews] = useState<string[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [deletingImageIds, setDeletingImageIds] = useState<number[]>([]);
+
+  const theme = useTheme();
+  const upSm = useMediaQuery(theme.breakpoints.up('sm'));
+  const upMd = useMediaQuery(theme.breakpoints.up('md'));
+  const upLg = useMediaQuery(theme.breakpoints.up('lg'));
+  const isManager = typeof window !== 'undefined' && window.location.pathname.startsWith('/manager');
+  const cols = upLg ? 5 : upMd ? 4 : upSm ? 3 : 2;
+
+  // create and revoke object URLs for previews
+  useEffect(() => {
+    if (!selectedFiles || selectedFiles.length === 0) {
+      setSelectedPreviews([]);
+      return;
+    }
+    const urls = selectedFiles.map((f) => URL.createObjectURL(f));
+    setSelectedPreviews(urls);
+    return () => {
+      urls.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [selectedFiles]);
 
   // status follows loaded room
   const [status, setStatus] = useState<RoomStatus>("Available");
@@ -304,25 +331,37 @@ export default function StaffRoomDetail() {
     const old = status;
     try {
       // optimistic UI update
+      setUpdatingStatus(true);
       setStatus(newStatus);
-      await api.put(`/rooms/${room.Room_ID}`, { status: newStatus });
+      // keep the loaded room object in sync for other UI bits
+      setRoom((r) => (r ? { ...r, Status: newStatus } : r));
+      // Use the route param `roomId` (ObjectId string) — backend expects the original id string
+      await api.put(`/rooms/${roomId}`, { status: newStatus });
       showStatusSnackbar(`Trạng thái đã đổi thành “${STATUS_META[newStatus].label}”`, old);
     } catch (e) {
       console.error('Failed to update room status', e);
       // revert on error
       setStatus(old);
+      setRoom((r) => (r ? { ...r, Status: old } : r));
       showStatusSnackbar('Không thể thay đổi trạng thái (lỗi).', old);
+    } finally {
+      setUpdatingStatus(false);
     }
   };
 
   const handleUndoStatus = async () => {
     if (!room || prevStatus == null) return;
     try {
-      await api.put(`/rooms/${room.Room_ID}`, { status: prevStatus });
+      setUpdatingStatus(true);
+      await api.put(`/rooms/${roomId}`, { status: prevStatus });
       setStatus(prevStatus);
+      setRoom((r) => (r ? { ...r, Status: prevStatus } : r));
       setSnackbarOpen(false);
     } catch (e) {
       console.error('Failed to undo status', e);
+    }
+    finally {
+      setUpdatingStatus(false);
     }
   };
 
@@ -347,17 +386,72 @@ export default function StaffRoomDetail() {
     setFacList((arr) => arr.filter((x) => x.Room_Facility_ID !== id));
 
   const addImage = () => {
-    if (!newImgUrl.trim()) return;
-    setImgList((arr) => [
-      ...arr,
-      { Room_Image_ID: Date.now(), Room_ID: roomPack.room.Room_ID, URL: newImgUrl.trim() },
-    ]);
-    setNewImgUrl("");
-    setOpenImgDlg(false);
+    // If a file is selected, upload via API
+    (async () => {
+      try {
+        if (selectedFiles && selectedFiles.length > 0) {
+          const fd = new FormData();
+          selectedFiles.forEach((f) => fd.append('images', f));
+          setUploadingImages(true);
+          const res = await api.put(`/rooms/${roomId}/images/batch`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+          const roomPayload = res.data?.data || res.data || {};
+          const imgs: RoomImage[] = Array.isArray(roomPayload.images)
+            ? roomPayload.images.map((u: any, i: number) => ({ Room_Image_ID: i + 1, URL: u, Room_ID: Number(roomId) }))
+            : [];
+          setImgList(imgs);
+          setSelectedFiles([]);
+          setSelectedPreviews([]);
+          setNewImgUrl("");
+          setOpenImgDlg(false);
+          setUploadingImages(false);
+          return;
+        }
+
+        // Fallback: if user provided a URL, append it via room update
+        if (!newImgUrl.trim()) return;
+        const currentUrls = imgList.map((it) => it.URL);
+        const next = [...currentUrls, newImgUrl.trim()];
+        const res = await api.put(`/rooms/${roomId}`, { images: next });
+        const roomPayload = res.data || res.data?.data || {};
+        const imgs: RoomImage[] = Array.isArray(roomPayload.images)
+          ? roomPayload.images.map((u: any, i: number) => ({ Room_Image_ID: i + 1, URL: u, Room_ID: Number(roomId) }))
+          : [];
+        setImgList(imgs);
+        setNewImgUrl("");
+        setOpenImgDlg(false);
+      } catch (err) {
+        console.error('Failed to upload/add image', err);
+      }
+    })();
   };
 
-  const removeImage = (id: number) =>
-    setImgList((arr) => arr.filter((x) => x.Room_Image_ID !== id));
+  const removeImage = async (id: number) => {
+    const item = imgList.find((x) => x.Room_Image_ID === id);
+    if (!item) return;
+    const imageUrl = item.URL;
+    if (!isManager) {
+      // staff are not allowed to delete images
+      alert('Bạn không có quyền xóa ảnh.');
+      return;
+    }
+
+    try {
+      // mark deleting state for this tile
+      setDeletingImageIds((s) => [...s, id]);
+      // call backend to delete image (body: { image })
+      const res = await api.delete(`/rooms/${roomId}/images`, { data: { image: imageUrl } });
+      const roomPayload = res.data?.data || res.data || {};
+      const imgs: RoomImage[] = Array.isArray(roomPayload.images)
+        ? roomPayload.images.map((u: any, i: number) => ({ Room_Image_ID: i + 1, URL: u, Room_ID: Number(roomId) }))
+        : [];
+      setImgList(imgs);
+    } catch (err) {
+      console.error('Failed to delete image', err);
+      alert('Xóa ảnh thất bại. Vui lòng thử lại.');
+    } finally {
+      setDeletingImageIds((s) => s.filter((x) => x !== id));
+    }
+  };
 
   return (
     <Box>
@@ -595,26 +689,49 @@ export default function StaffRoomDetail() {
               </Button>
             </Stack>
 
-            <ImageList cols={3} gap={12} sx={{ m: 0 }}>
-              {imgList.map((it) => (
-                <ImageListItem key={it.Room_Image_ID}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={it.URL} alt="" loading="lazy" style={{ borderRadius: 8 }} />
-                  <Box sx={{ textAlign: "right", mt: 0.5 }}>
-                    <Tooltip title="Xóa ảnh">
-                      <IconButton size="small" onClick={() => removeImage(it.Room_Image_ID)} disabled={!window.location.pathname.startsWith('/manager')}>
-                        <DeleteOutline fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                </ImageListItem>
-              ))}
-              {imgList.length === 0 && (
-                <Typography variant="body2" color="text.secondary">
-                  Chưa có hình cho phòng này.
-                </Typography>
-              )}
-            </ImageList>
+            <Box sx={{ maxHeight: 420, overflowY: 'auto', pr: 1 }}>
+              <ImageList cols={cols} gap={12} sx={{ m: 0, gridAutoRows: '140px' }}>
+                {imgList.map((it) => (
+                  <ImageListItem
+                    key={it.Room_Image_ID}
+                    sx={{
+                      position: 'relative',
+                      borderRadius: 1,
+                      overflow: 'hidden',
+                      // ensure consistent tile height in css grid
+                      '& img': { width: '100%', height: '100%', objectFit: 'cover', display: 'block' }
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={it.URL} alt="" loading="lazy" />
+
+                    <Box sx={{ position: 'absolute', top: 6, right: 6 }}>
+                      <Tooltip title="Xóa ảnh">
+                        <span>
+                          <IconButton
+                            size="small"
+                            onClick={() => removeImage(it.Room_Image_ID)}
+                            disabled={!isManager || deletingImageIds.includes(it.Room_Image_ID)}
+                            sx={{ bgcolor: 'rgba(255,255,255,0.8)' }}
+                          >
+                            {deletingImageIds.includes(it.Room_Image_ID) ? (
+                              <CircularProgress size={18} />
+                            ) : (
+                              <DeleteOutline fontSize="small" />
+                            )}
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </Box>
+                  </ImageListItem>
+                ))}
+              </ImageList>
+            </Box>
+            {imgList.length === 0 && (
+              <Typography variant="body2" color="text.secondary">
+                Chưa có hình cho phòng này.
+              </Typography>
+            )}
           </CardContent>
         </Card>
       )}
@@ -627,11 +744,25 @@ export default function StaffRoomDetail() {
                 <Typography variant="h6" gutterBottom>
                   Hoạt động gần đây
                 </Typography>
-                <Stack spacing={1}>
-                  <Alert severity="success">12/10 14:10 — Đổi trạng thái sang “Trống”.</Alert>
-                  <Alert severity="info">11/10 18:30 — Upload thêm 2 ảnh phòng.</Alert>
-                  <Alert severity="warning">09/10 09:00 — Đánh dấu “Bảo trì” do rò rỉ nước.</Alert>
-                </Stack>
+                  <Stack spacing={1}>
+                    {activities && activities.length > 0 ? (
+                      activities.slice(0, 10).map((a: any, idx: number) => {
+                        const severity = (a.severity as any) ||
+                          (a.type === 'status_change' ? 'success' : 'info');
+                        const when = a.createdAt ? new Date(a.createdAt).toLocaleString('vi-VN') : '';
+                        const who = a.user?.fullname || a.user?.username || a.user || null;
+                        const text = a.text ?? a.message ?? a.note ?? (a.meta && a.meta.note) ?? JSON.stringify(a);
+                        return (
+                          <Alert key={a._id || idx} severity={severity}>
+                            <strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>{when}{who ? ` — ${who}` : ''}</strong>
+                            <span>{text}</span>
+                          </Alert>
+                        );
+                      })
+                    ) : (
+                      <Alert severity="info">Chưa có hoạt động gần đây.</Alert>
+                    )}
+                  </Stack>
               </CardContent>
             </Card>
           </Box>
@@ -670,22 +801,22 @@ export default function StaffRoomDetail() {
               ))}
             </Select>
           </FormControl>
-          <Alert severity="info" sx={{ mt: 2 }}>
-            Thao tác này chỉ thay đổi trên UI (demo). Khi nối API, hãy gọi endpoint cập nhật
-            trạng thái phòng.
-          </Alert>
         </DialogContent>
         <DialogActions>
             <Button onClick={() => setOpenStatusDlg(false)}>Hủy</Button>
-            <Button variant="contained" onClick={async () => {
-              try {
-                setOpenStatusDlg(false);
-                await handleChangeStatus(status);
-              } catch (e) {
-                console.error('Failed to update room status', e);
-              }
-            }}>
-              Lưu
+            <Button
+              variant="contained"
+              disabled={updatingStatus}
+              onClick={async () => {
+                try {
+                  setOpenStatusDlg(false);
+                  await handleChangeStatus(status);
+                } catch (e) {
+                  console.error('Failed to update room status', e);
+                }
+              }}
+            >
+              {updatingStatus ? <CircularProgress color="inherit" size={18} /> : 'Lưu'}
             </Button>
         </DialogActions>
       </Dialog>
@@ -716,18 +847,46 @@ export default function StaffRoomDetail() {
         <DialogContent dividers>
           <TextField
             fullWidth
-            label="URL hình ảnh"
+            label="URL hình ảnh (hoặc để trống và chọn file)"
             value={newImgUrl}
             onChange={(e) => setNewImgUrl(e.target.value)}
+            placeholder="https://..."
+            sx={{ mb: 2 }}
           />
-          <Alert severity="info" sx={{ mt: 2 }}>
-            UI demo — bạn có thể dán URL ảnh (Unsplash, CDN…). Khi nối API, thay bằng upload file.
+          <Button variant="outlined" component="label" startIcon={<UploadFile />} sx={{ mb: 1 }}>
+            Chọn file ảnh
+            <input
+              type="file"
+              hidden
+              accept="image/*"
+              multiple
+              disabled={uploadingImages}
+              onChange={(e) => {
+                const files = e.target.files ? Array.from(e.target.files) : [];
+                setSelectedFiles(files);
+              }}
+            />
+          </Button>
+          {selectedPreviews.length > 0 && (
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+              {selectedPreviews.map((src, i) => (
+                <Box key={i} sx={{ width: 90, height: 70, position: 'relative', borderRadius: 1, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+                  <img src={src} alt={selectedFiles[i]?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <IconButton size="small" sx={{ position: 'absolute', top: 2, right: 2, bgcolor: '#fff' }} onClick={() => setSelectedFiles((arr) => arr.filter((_, idx) => idx !== i))}>
+                    <DeleteOutline fontSize="small" />
+                  </IconButton>
+                </Box>
+              ))}
+            </Box>
+          )}
+          <Alert severity="info" sx={{ mt: 1 }}>
+            Chọn file sẽ upload trực tiếp lên server (Cloudinary). Nếu dán URL, hệ thống sẽ lưu URL đó.
           </Alert>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenImgDlg(false)}>Hủy</Button>
-          <Button variant="contained" onClick={addImage}>
-            Thêm
+          <Button onClick={() => setOpenImgDlg(false)} disabled={uploadingImages}>Hủy</Button>
+          <Button variant="contained" onClick={addImage} disabled={uploadingImages}>
+            {uploadingImages ? <CircularProgress color="inherit" size={18} /> : 'Thêm'}
           </Button>
         </DialogActions>
       </Dialog>
