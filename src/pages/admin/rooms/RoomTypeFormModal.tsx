@@ -146,14 +146,18 @@ export default function RoomTypeFormModal({ open, initial, onClose, onSubmit }: 
             value={form.amenities}
             onChange={handleAmenitiesChange}
             renderTags={(value, getTagProps) =>
-              value.map((option, index) => (
-                <Chip
-                  variant="outlined"
-                  label={option}
-                  {...getTagProps({ index })}
-                  onDelete={() => removeAmenity(option)}
-                />
-              ))
+              value.map((option, index) => {
+                const { key, ...chipProps } = getTagProps({ index });
+                return (
+                  <Chip
+                    key={key}
+                    variant="outlined"
+                    label={option}
+                    {...chipProps}
+                    onDelete={() => removeAmenity(option)}
+                  />
+                );
+              })
             }
             renderInput={(params) => (
               <TextField

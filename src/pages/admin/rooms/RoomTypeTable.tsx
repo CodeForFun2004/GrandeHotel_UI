@@ -71,6 +71,8 @@ export default function RoomTypeTable() {
           basePrice: roomType.basePrice,
           capacity: roomType.capacity,
           numberOfBeds: roomType.numberOfBeds,
+          amenities: roomType.amenities,
+          isActive: roomType.isActive,
         };
         await dispatch(updateRoomType({ roomTypeId: editing.id!, roomTypeData: updatePayload })).unwrap();
         toast.success("Cập nhật loại phòng thành công");
@@ -82,6 +84,8 @@ export default function RoomTypeTable() {
           basePrice: roomType.basePrice,
           capacity: roomType.capacity,
           numberOfBeds: roomType.numberOfBeds,
+          amenities: roomType.amenities,
+          isActive: roomType.isActive,
         };
         await dispatch(createRoomType(createPayload)).unwrap();
         toast.success("Thêm loại phòng thành công");

@@ -10,6 +10,8 @@ export interface CreateRoomTypePayload {
   basePrice: number;
   capacity: number;
   numberOfBeds: number;
+  amenities?: string[];
+  isActive?: boolean;
 }
 
 export interface UpdateRoomTypePayload extends Partial<CreateRoomTypePayload> {}
@@ -21,6 +23,8 @@ export type RoomType = {
   basePrice: number;
   capacity: number;
   numberOfBeds: number;
+  amenities?: string[];
+  isActive?: boolean;
 };
 
 type RoomTypeState = {
@@ -61,6 +65,8 @@ export const fetchRoomTypes = createAsyncThunk<
           basePrice: item.basePrice,
           capacity: item.capacity,
           numberOfBeds: item.numberOfBeds,
+          amenities: item.amenities || [],
+          isActive: item.isActive !== undefined ? item.isActive : true,
         }));
       }
       return [];
@@ -90,6 +96,8 @@ export const createRoomType = createAsyncThunk<
           basePrice: response.data.data.basePrice,
           capacity: response.data.data.capacity,
           numberOfBeds: response.data.data.numberOfBeds,
+          amenities: response.data.data.amenities || [],
+          isActive: response.data.data.isActive !== undefined ? response.data.data.isActive : true,
         };
       }
       throw new Error('Invalid response format');
@@ -119,6 +127,8 @@ export const updateRoomType = createAsyncThunk<
           basePrice: response.data.data.basePrice,
           capacity: response.data.data.capacity,
           numberOfBeds: response.data.data.numberOfBeds,
+          amenities: response.data.data.amenities || [],
+          isActive: response.data.data.isActive !== undefined ? response.data.data.isActive : true,
         };
       }
       throw new Error('Invalid response format');
