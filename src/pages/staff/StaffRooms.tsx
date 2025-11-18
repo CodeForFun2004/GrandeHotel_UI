@@ -40,6 +40,7 @@ import {
 } from "@mui/icons-material";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../../api/axios";
+import { getReservationForCheckIn as apiGetReservationForCheckIn } from "../../api/dashboard";
 
 /* ----------------------------
    Helpers
@@ -276,17 +277,17 @@ const StaffRooms: React.FC = () => {
 
   const confirmAssign = () => {
     if (!assignRoom) return;
-    // UI only: cập nhật trạng thái
-  updateRoomStatus(assignRoom.id, assignMode === "reserve" ? "Reserved" : "Occupied");
+    // If a manager is using this page, block assign/check-in actions and show message
+    if (location.pathname.startsWith('/manager')) {
+      setAssignOpen(false);
+      setSnack({ open: true, msg: 'Chỉ nhân viên lễ tân mới có thể thực hiện đặt/gán phòng trên trang Check-in. Vui lòng dùng tài khoản Staff hoặc truy cập trang Bookings của Manager.', severity: 'warning' });
+      return;
+    }
+
+    // UI only: cập nhật trạng thái (mock)
+    updateRoomStatus(assignRoom.id, assignMode === "reserve" ? "Reserved" : "Occupied");
     setAssignOpen(false);
-    setSnack({
-      open: true,
-      msg:
-        assignMode === "reserve"
-          ? `Đã giữ chỗ phòng ${assignRoom.number} cho ${guestName || "khách"}`
-          : `Đã check-in phòng ${assignRoom.number} cho ${guestName || "khách"}`,
-      severity: "success",
-    });
+    setSnack({ open: true, msg: assignMode === "reserve" ? `Đã giữ chỗ phòng ${assignRoom.number} cho ${guestName || "khách"}` : `Đã check-in phòng ${assignRoom.number} cho ${guestName || "khách"}`, severity: "success" });
   };
 
   const onReservedAction = (r: RoomCard) => setReservedDlg(r);
@@ -640,9 +641,62 @@ const StaffRooms: React.FC = () => {
           <Stack spacing={1}>
             <Button
               variant="contained"
-              onClick={() => {
-                setReservedDlg(null);
-                navigate(`/staff/check-in?room=${reservedDlg?.number}`);
+              onClick={async () => {
+                try {
+                  if (!reservedDlg) return;
+                  // If a manager clicked this, show a helpful message and redirect to manager bookings
+                  if (location.pathname.startsWith('/manager')) {
+                    setReservedDlg(null);
+                    setSnack({ open: true, msg: 'Chỉ nhân viên lễ tân mới được mở trang Check-in. Mời xem danh sách đặt phòng trong Manager Bookings.', severity: 'warning' });
+                    navigate('/manager/bookings');
+                    return;
+                  }
+                  setReservedDlg(null);
+                  // Try to resolve the reservation that reserved this room by fetching room details
+                  try {
+                    const r = await api.get(`/rooms/public/${reservedDlg.id}`);
+                    const payload = r.data?.data || r.data || {};
+                    const bookings = Array.isArray(payload.bookings) ? payload.bookings : [];
+                    // Prefer reservations that have check-in today AND are ready for check-in
+                    if (bookings.length > 0) {
+                      const todayStart = new Date();
+                      todayStart.setHours(0,0,0,0);
+                      const todayEnd = new Date();
+                      todayEnd.setHours(23,59,59,999);
+
+                      const todays = bookings.filter((b:any) => {
+                        try {
+                          const d = new Date(b.checkInDate);
+                          return d >= todayStart && d <= todayEnd;
+                        } catch(e) { return false; }
+                      }).sort((a:any,b:any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+                      for (const cand of todays) {
+                        const resId = cand._id || cand.id || cand.reservation;
+                        if (!resId) continue;
+                        try {
+                          // Verify reservation is ready for check-in via backend endpoint
+                          await apiGetReservationForCheckIn(String(resId));
+                          // success -> navigate directly to reservation check-in
+                          navigate(`/staff/checkin?reservation=${resId}`);
+                          return;
+                        } catch (e) {
+                          // reservation not ready (400) or other error -> continue to next candidate
+                          continue;
+                        }
+                      }
+                    }
+                  } catch (e) {
+                    // ignore and fallback to room-based nav
+                    console.warn('Room bookings resolution failed, falling back to room search', e);
+                  }
+                  // If we reach here: no ready today's reservation found — show message and open room-scoped list
+                  setSnack({ open: true, msg: 'Không tìm thấy đặt phòng hôm nay sẵn sàng để check-in. Hiển thị danh sách đặt phòng chứa phòng này để lựa chọn.', severity: 'info' });
+                  navigate(`/staff/checkin?room=${reservedDlg?.number}`);
+                } catch (err) {
+                  console.error('Failed to open check-in for reserved room', err);
+                  setReservedDlg(null);
+                }
               }}
             >
               Đi tới Check-in
@@ -678,7 +732,7 @@ const StaffRooms: React.FC = () => {
               color="error"
               onClick={() => {
                 setOccupiedDlg(null);
-                navigate(`/staff/check-out?room=${occupiedDlg?.number}`);
+                navigate(`/staff/checkout?room=${occupiedDlg?.number}`);
               }}
             >
               Đi tới Check-out
