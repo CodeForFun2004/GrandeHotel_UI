@@ -841,10 +841,15 @@ export default function StaffRoomDetail() {
               onClick={async () => {
                 try {
                   setOpenStatusDlg(false);
-                  // If a staff (not manager) is changing to Reserved/Occupied, open the wizard
+                  // If manager attempts to set to Reserved/Occupied, show snackbar and do not perform change
                   const isReservedOrOccupied = status === 'Reserved' || status === 'Occupied';
+                  if (isManager && isReservedOrOccupied) {
+                    setSnackbarMsg('Chỉ nhân viên lễ tân mới có quyền đặt/gán phòng (Reserved/Occupied). Vui lòng dùng tài khoản Staff để thao tác.');
+                    setSnackbarOpen(true);
+                    return;
+                  }
+                  // If staff is changing to Reserved/Occupied, open the assign wizard to attach reservation/stay
                   if (!isManager && isReservedOrOccupied) {
-                    // show assign dialog to let staff pick existing reservation/stay or create new
                     setOpenAssignDlg(true);
                     return;
                   }

@@ -646,9 +646,9 @@ const StaffRooms: React.FC = () => {
                   if (!reservedDlg) return;
                   // If a manager clicked this, show a helpful message and redirect to manager bookings
                   if (location.pathname.startsWith('/manager')) {
+                    // For managers, show a clear snackbar only and do not redirect.
                     setReservedDlg(null);
-                    setSnack({ open: true, msg: 'Chỉ nhân viên lễ tân mới được mở trang Check-in. Mời xem danh sách đặt phòng trong Manager Bookings.', severity: 'warning' });
-                    navigate('/manager/bookings');
+                    setSnack({ open: true, msg: 'Chỉ nhân viên lễ tân mới được mở trang Check-in. Vui lòng dùng tài khoản Staff để thao tác check-in.', severity: 'warning' });
                     return;
                   }
                   setReservedDlg(null);
