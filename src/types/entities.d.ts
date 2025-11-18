@@ -154,3 +154,26 @@ export interface Contact {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface Voucher {
+  _id?: string;
+  id?: string;
+  code: string; // unique, uppercase, trimmed, required
+  name: string; // required
+  description?: string;
+  discountType: 'percent' | 'fixed'; // required: enum ['percent', 'fixed']
+  discountValue: number; // required
+  maxDiscount?: number | null; // max discount for percent type, default null (0 = no limit)
+  minBookingValue?: number; // default 0
+  scope?: 'global' | 'multi-hotel'; // default 'global', enum ['global', 'multi-hotel']
+  hotelIds?: Array<string | Hotel>; // array of hotel ObjectIds or populated hotels (for multi-hotel scope)
+  startDate: string | Date; // required: ISO date
+  endDate: string | Date; // required: ISO date
+  maxUsageGlobal?: number; // default 0 (0 = unlimited)
+  maxUsagePerUser?: number; // default 0 (0 = unlimited per user)
+  status?: 'active' | 'inactive'; // default 'active', enum ['active', 'inactive']
+  isLock?: boolean; // default false - allows admin to lock voucher (prevent usage but keep for history)
+  createdBy?: string | User; // User ObjectId or populated user
+  createdAt?: string;
+  updatedAt?: string;
+}
