@@ -3,7 +3,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import heroBg from "../assets/images/login.avif";
 import "./Room.css";
 import * as roomApi from "../api/room";
+import * as voucherApi from "../api/voucher";
 import BookingForm from "./landing/components/BookingForm";
+import type { Voucher } from "../types/entities";
 // We'll navigate to a review page before creating a reservation
 //Chon phong ne
 
@@ -40,6 +42,7 @@ const RoomPage: React.FC = () => {
   const checkInDate = query.get("checkInDate") || "";
   const checkOutDate = query.get("checkOutDate") || "";
   const numberOfRoomsQuery = Number(query.get("rooms") || "");
+  const voucherCodeFromQuery = query.get("voucher") || "";
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +100,13 @@ const RoomPage: React.FC = () => {
   const [tempIn, setTempIn] = useState<string>(dateOnly(checkInDate));
   const [tempOut, setTempOut] = useState<string>(dateOnly(checkOutDate));
   const [editingQty, setEditingQty] = useState<Record<string, boolean>>({});
+  
+  // Voucher states
+  const [voucherCode, setVoucherCode] = useState<string>("");
+  const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
+  const [voucherDiscount, setVoucherDiscount] = useState<number>(0);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [validatingVoucher, setValidatingVoucher] = useState(false);
 
   useEffect(() => {
     if (!hotelId) return;
@@ -128,6 +138,16 @@ const RoomPage: React.FC = () => {
     setTempOut(dateOnly(checkOutDate));
   }, [checkInDate, checkOutDate]);
 
+  // Load voucher code from query params or localStorage
+  useEffect(() => {
+    const savedVoucher = localStorage.getItem('selectedVoucherCode');
+    const codeToUse = voucherCodeFromQuery || savedVoucher || "";
+    if (codeToUse) {
+      setVoucherCode(codeToUse);
+      localStorage.setItem('selectedVoucherCode', codeToUse);
+    }
+  }, [voucherCodeFromQuery]);
+
   const nights = useMemo(() => {
     if (!checkInDate || !checkOutDate) return 1;
     const inD = new Date(checkInDate);
@@ -144,6 +164,125 @@ const RoomPage: React.FC = () => {
       selected.reduce((acc, s) => acc + s.unitPrice * s.quantity * nights, 0),
     [selected, nights]
   );
+
+  // Calculate final price after voucher discount
+  const finalPrice = useMemo(
+    () => Math.max(0, totalPrice - voucherDiscount),
+    [totalPrice, voucherDiscount]
+  );
+
+  // Validate and apply voucher when totalPrice or voucherCode changes
+  useEffect(() => {
+    const validateAndApplyVoucher = async () => {
+      if (!voucherCode || !totalPrice || totalPrice <= 0) {
+        setAppliedVoucher(null);
+        setVoucherDiscount(0);
+        setVoucherError(null);
+        return;
+      }
+
+      setValidatingVoucher(true);
+      setVoucherError(null);
+
+      try {
+        // First, try to get voucher by code
+        const voucher = await voucherApi.getVoucherByCode(voucherCode.toUpperCase().trim());
+        
+        if (!voucher) {
+          setAppliedVoucher(null);
+          setVoucherDiscount(0);
+          setVoucherError('Mã voucher không tồn tại');
+          return;
+        }
+
+        // Validate voucher status and dates
+        const now = new Date();
+        const startDate = typeof voucher.startDate === 'string' ? new Date(voucher.startDate) : voucher.startDate;
+        const endDate = typeof voucher.endDate === 'string' ? new Date(voucher.endDate) : voucher.endDate;
+
+        if (voucher.status !== 'active') {
+          setAppliedVoucher(null);
+          setVoucherDiscount(0);
+          setVoucherError('Voucher không còn hoạt động');
+          return;
+        }
+
+        if (startDate > now) {
+          setAppliedVoucher(null);
+          setVoucherDiscount(0);
+          setVoucherError('Voucher chưa có hiệu lực');
+          return;
+        }
+
+        if (endDate < now) {
+          setAppliedVoucher(null);
+          setVoucherDiscount(0);
+          setVoucherError('Voucher đã hết hạn');
+          return;
+        }
+
+        // Check minBookingValue
+        if (voucher.minBookingValue && totalPrice < voucher.minBookingValue) {
+          setAppliedVoucher(null);
+          setVoucherDiscount(0);
+          setVoucherError(`Đơn tối thiểu: ${voucher.minBookingValue.toLocaleString('vi-VN')} ₫`);
+          return;
+        }
+
+        // Check hotel scope if multi-hotel
+        if (voucher.scope === 'multi-hotel' && voucher.hotelIds && hotelId) {
+          const hotelIds = voucher.hotelIds.map(h => typeof h === 'string' ? h : (h._id || h.id));
+          if (!hotelIds.includes(hotelId)) {
+            setAppliedVoucher(null);
+            setVoucherDiscount(0);
+            setVoucherError('Voucher không áp dụng cho khách sạn này');
+            return;
+          }
+        }
+
+        // Calculate discount amount
+        let discountAmount = 0;
+        if (voucher.discountType === 'percent') {
+          discountAmount = (totalPrice * voucher.discountValue) / 100;
+          // Apply maxDiscount if exists
+          if (voucher.maxDiscount && discountAmount > voucher.maxDiscount) {
+            discountAmount = voucher.maxDiscount;
+          }
+        } else {
+          // Fixed discount
+          discountAmount = voucher.discountValue;
+        }
+
+        // Ensure discount doesn't exceed total price
+        discountAmount = Math.min(discountAmount, totalPrice);
+
+        setAppliedVoucher(voucher);
+        setVoucherDiscount(discountAmount);
+        setVoucherError(null);
+        console.log('✅ Voucher applied:', {
+          code: voucher.code,
+          discountAmount: discountAmount,
+          originalPrice: totalPrice,
+          finalPrice: totalPrice - discountAmount
+        });
+      } catch (err: any) {
+        setAppliedVoucher(null);
+        setVoucherDiscount(0);
+        if (err?.response?.status === 404) {
+          setVoucherError('Mã voucher không tồn tại');
+        } else {
+          setVoucherError(err?.response?.data?.message || err?.message || 'Không thể kiểm tra voucher');
+        }
+        console.error('❌ Error validating voucher:', err);
+      } finally {
+        setValidatingVoucher(false);
+      }
+    };
+
+    // Debounce validation to avoid too many API calls
+    const timeoutId = setTimeout(validateAndApplyVoucher, 500);
+    return () => clearTimeout(timeoutId);
+  }, [voucherCode, totalPrice, hotelId]);
 
   const removeSelected = (roomTypeId: string) =>
     setSelected((prev) => prev.filter((x) => x.roomTypeId !== roomTypeId));
@@ -244,7 +383,10 @@ const RoomPage: React.FC = () => {
         checkOutDate,
         nights,
         selected,
-        total: totalPrice,
+        total: finalPrice, // Use final price after discount
+        originalTotal: totalPrice, // Keep original for reference
+        voucherDiscount: voucherDiscount,
+        voucherCode: voucherCode || undefined,
         queryString: window.location.search,
       };
       sessionStorage.setItem("reservationDraft", JSON.stringify(draft));
@@ -876,9 +1018,64 @@ const RoomPage: React.FC = () => {
                     </div>
                   ))}
                   <hr />
-                  <div style={{ fontWeight: 700 }}>
+                  <div style={{ fontWeight: 700, marginBottom: '8px' }}>
                     Tổng: {totalPrice.toLocaleString()} VNĐ
                   </div>
+                  
+                  {/* Voucher input and display */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                      Mã khuyến mãi/Voucher:
+                    </label>
+                    <input
+                      type="text"
+                      value={voucherCode}
+                      onChange={(e) => {
+                        const code = e.target.value.toUpperCase().trim();
+                        setVoucherCode(code);
+                        if (code) {
+                          localStorage.setItem('selectedVoucherCode', code);
+                        } else {
+                          localStorage.removeItem('selectedVoucherCode');
+                        }
+                      }}
+                      placeholder="Nhập mã voucher"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        fontSize: '14px'
+                      }}
+                    />
+                    {validatingVoucher && (
+                      <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                        Đang kiểm tra voucher...
+                      </div>
+                    )}
+                    {voucherError && (
+                      <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '4px' }}>
+                        {voucherError}
+                      </div>
+                    )}
+                    {appliedVoucher && !voucherError && (
+                      <div style={{ fontSize: '12px', color: '#16a34a', marginTop: '4px' }}>
+                        ✅ Voucher {appliedVoucher.code} đã được áp dụng
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Discount and final price display */}
+                  {appliedVoucher && voucherDiscount > 0 && (
+                    <div style={{ marginBottom: '8px', padding: '8px', backgroundColor: '#f0fdf4', borderRadius: '4px' }}>
+                      <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
+                        Giảm giá: -{voucherDiscount.toLocaleString()} VNĐ
+                      </div>
+                      <div style={{ fontSize: '16px', fontWeight: 700, color: '#16a34a' }}>
+                        Tổng sau giảm: {finalPrice.toLocaleString()} VNĐ
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {bookingError && (
                   <div className="text-danger">{bookingError}</div>

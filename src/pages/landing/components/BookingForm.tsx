@@ -21,6 +21,23 @@ export default function BookingForm() {
   const [voucher, setVoucher] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
+  // Load voucher from localStorage on mount
+  useEffect(() => {
+    const savedVoucher = localStorage.getItem('selectedVoucherCode');
+    if (savedVoucher) {
+      setVoucher(savedVoucher);
+    }
+  }, []);
+
+  // Save voucher to localStorage when it changes
+  useEffect(() => {
+    if (voucher) {
+      localStorage.setItem('selectedVoucherCode', voucher);
+    } else {
+      localStorage.removeItem('selectedVoucherCode');
+    }
+  }, [voucher]);
+
   const cities = [
     'Hanoi',
     'Ho Chi Minh',
