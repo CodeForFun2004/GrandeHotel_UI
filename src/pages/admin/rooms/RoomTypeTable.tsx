@@ -1,17 +1,18 @@
 import { useMemo, useState, useEffect } from "react";
-import { Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography, Pagination, Stack, CircularProgress, Alert } from "@mui/material";
+import { Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography, Pagination, Stack } from "@mui/material";
 import RoomTypeFormModal, { type RoomType } from "./RoomTypeFormModal";
 import type { RoomType as ReduxRoomType } from "../../../redux/slices/roomTypeSlice";
 import { toast } from "react-toastify";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
-import { fetchRoomTypes, createRoomType, updateRoomType, deleteRoomType, clearError } from "../../../redux/slices/roomTypeSlice";
+import { fetchRoomTypes, createRoomType, updateRoomType, deleteRoomType } from "../../../redux/slices/roomTypeSlice";
 import type { CreateRoomTypePayload, UpdateRoomTypePayload } from "../../../redux/slices/roomTypeSlice";
+import { formatVND } from "../../../utils/formatCurrency";
 
 
 
 export default function RoomTypeTable() {
   const dispatch = useAppDispatch();
-  const { roomTypes, loading, error, creating, updating, deleting } = useAppSelector((state) => state.roomType);
+  const { roomTypes } = useAppSelector((state) => state.roomType);
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("All");
 
@@ -33,8 +34,10 @@ export default function RoomTypeTable() {
     return roomTypes.filter((rt) => {
       const matchesKw = rt.name.toLowerCase().includes(keyword.toLowerCase()) ||
                        rt.description?.toLowerCase().includes(keyword.toLowerCase());
-      // Since Redux type doesn't have isActive, always treat as active
-      const matchesStatus = statusFilter === "All" || statusFilter === "Active";
+      // Filter by isActive status
+      const matchesStatus = statusFilter === "All" || 
+                          (statusFilter === "Active" && rt.isActive !== false) ||
+                          (statusFilter === "Inactive" && rt.isActive === false);
       return matchesKw && matchesStatus;
     });
   }, [roomTypes, keyword, statusFilter]);
@@ -56,9 +59,24 @@ export default function RoomTypeTable() {
       basePrice: roomType.basePrice,
       capacity: roomType.capacity,
       numberOfBeds: roomType.numberOfBeds,
+      amenities: roomType.amenities,
+      isActive: roomType.isActive,
     };
     setEditing(formRoomType);
     setModalOpen(true);
+  };
+
+  const handleToggleStatus = async (roomType: ReduxRoomType) => {
+    try {
+      const updatePayload: UpdateRoomTypePayload = {
+        isActive: !roomType.isActive,
+      };
+      await dispatch(updateRoomType({ roomTypeId: roomType.id, roomTypeData: updatePayload })).unwrap();
+      toast.success(`Đã ${roomType.isActive ? 'vô hiệu hóa' : 'kích hoạt'} loại phòng thành công`);
+    } catch (error) {
+      console.error('Toggle status error:', error);
+      toast.error("Có lỗi xảy ra");
+    }
   };
 
   const handleSubmit = async (roomType: RoomType) => {
@@ -71,6 +89,8 @@ export default function RoomTypeTable() {
           basePrice: roomType.basePrice,
           capacity: roomType.capacity,
           numberOfBeds: roomType.numberOfBeds,
+          amenities: roomType.amenities,
+          isActive: roomType.isActive,
         };
         await dispatch(updateRoomType({ roomTypeId: editing.id!, roomTypeData: updatePayload })).unwrap();
         toast.success("Cập nhật loại phòng thành công");
@@ -82,6 +102,8 @@ export default function RoomTypeTable() {
           basePrice: roomType.basePrice,
           capacity: roomType.capacity,
           numberOfBeds: roomType.numberOfBeds,
+          amenities: roomType.amenities,
+          isActive: roomType.isActive,
         };
         await dispatch(createRoomType(createPayload)).unwrap();
         toast.success("Thêm loại phòng thành công");
@@ -177,7 +199,7 @@ export default function RoomTypeTable() {
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#1976d2' }}>
-                    ${rt.basePrice}
+                    {formatVND(rt.basePrice)}
                   </Typography>
                 </TableCell>
                 <TableCell>{rt.capacity} người</TableCell>
@@ -185,8 +207,10 @@ export default function RoomTypeTable() {
                 <TableCell>
                   <Chip
                     size="small"
-                    label="Hoạt động"
-                    color="success"
+                    label={rt.isActive !== false ? "Hoạt động" : "Không hoạt động"}
+                    color={rt.isActive !== false ? "success" : "default"}
+                    onClick={() => handleToggleStatus(rt)}
+                    style={{ cursor: 'pointer' }}
                   />
                 </TableCell>
                 <TableCell align="right">
