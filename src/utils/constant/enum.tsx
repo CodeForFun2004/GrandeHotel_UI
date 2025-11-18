@@ -16,7 +16,8 @@ export const ADMIN_PATHS = {
   CONTACT_MANAGEMENT: '/admin/contact-management',
   PROJECTS: '/admin/projects',
   PROJECTS_CREATE: '/admin/projects/create',
-  PROFILE: '/admin/profile'
+  PROFILE: '/admin/profile',
+  VOUCHER_MANAGEMENT: '/admin/voucher-management'
 } as const;
 
 export const MANAGER_PATHS = {

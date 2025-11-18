@@ -67,6 +67,7 @@ import {
   MANAGER_PATHS,
   STAFF_PATHS,
 } from "../utils/constant/enum";
+import VoucherManagementPage from "../pages/voucher/VoucherManagementPage.tsx";
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const routes = {
@@ -223,6 +224,7 @@ export const router = createBrowserRouter([
       { path: "dashboard", element: <AdminDashboard /> },
       { path: "user-management", element: <AdminUserManagement /> },
       { path: "hotel-list", element: <AdminHotelList /> },
+      { path: "voucher-management", element: <VoucherManagementPage /> },
       { path: "contact-management", element: <ContactManagement /> },
       { path: "projects", element: <AdminDashboard /> },
       { path: "projects/create", element: <AdminDashboard /> },
