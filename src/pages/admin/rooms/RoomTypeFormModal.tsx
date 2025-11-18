@@ -45,7 +45,16 @@ export default function RoomTypeFormModal({ open, initial, onClose, onSubmit }: 
   }, [initial, open]);
 
   const change = (key: keyof RoomType) => (e: any) => {
-    const value = key === "basePrice" || key === "capacity" || key === "numberOfBeds" ? Number(e.target.value) : e.target.value;
+    let value: any;
+    if (key === "basePrice" || key === "capacity" || key === "numberOfBeds") {
+      // Remove leading zeros and convert to number
+      const inputValue = e.target.value.toString().replace(/^0+/, '') || '0';
+      value = Number(inputValue);
+      // Prevent negative numbers
+      if (value < 0) value = 0;
+    } else {
+      value = e.target.value;
+    }
     setForm({ ...form, [key]: value } as RoomType);
   };
 
@@ -91,10 +100,11 @@ export default function RoomTypeFormModal({ open, initial, onClose, onSubmit }: 
           />
           <TextField 
             type="number" 
-            label="Giá cơ bản" 
+            label="Giá cơ bản (VNĐ)" 
             fullWidth 
-            value={form.basePrice} 
+            value={form.basePrice || ''} 
             onChange={change("basePrice")}
+            inputProps={{ min: 0, step: 1000 }}
             required
           />
           <TextField
