@@ -1,5 +1,5 @@
 // src/pages/staff/StaffCalendar.tsx
-import React from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Box,
   Card,
@@ -24,6 +24,8 @@ import {
   Fade,
   alpha,
   useMediaQuery,
+  CircularProgress,
+  Alert,
 } from "@mui/material";
 import {
   ChevronLeft,
@@ -37,6 +39,9 @@ import {
   MeetingRoom as MeetingRoomIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
+import { getCalendarEvents, type CalendarEvent } from "../../api/staff";
+import { getAllRooms } from "../../api/room";
+import type { Room } from "../../types/entities";
 
 /* ----------------------------
    Helpers
@@ -67,74 +72,7 @@ const sameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 const toISODate = (d: Date) => d.toISOString().slice(0, 10);
 
-/* ----------------------------
-   Mock data (UI only)
----------------------------- */
-const ROOMS = [
-  { Room_ID: 1, Number: "101", RoomType: "Standard" },
-  { Room_ID: 2, Number: "102", RoomType: "Deluxe" },
-  { Room_ID: 3, Number: "201", RoomType: "Suite" },
-];
-
 const TODAY = startOfDay(new Date());
-
-const MOCK_EVENTS: CalEvent[] = [
-  // Reservations
-  {
-    id: "rs1",
-    type: "reservation",
-    title: "Reservation RSV-1001 • John Doe",
-    roomNumber: "101",
-    reservationId: "RSV-1001",
-    startsAt: addDays(TODAY, 0).toISOString(),
-    endsAt: addDays(TODAY, 2).toISOString(),
-    status: "confirmed",
-  },
-  {
-    id: "rs2",
-    type: "reservation",
-    title: "Reservation RSV-1004 • Alice Brown",
-    roomNumber: "103",
-    reservationId: "RSV-1004",
-    startsAt: addDays(TODAY, 1).toISOString(),
-    endsAt: addDays(TODAY, 3).toISOString(),
-    status: "pending",
-  },
-  // Stays
-  {
-    id: "st1",
-    type: "stay",
-    title: "Stay STAY-1101 • Nguyen A",
-    roomNumber: "102",
-    roomId: 2,
-    stayId: 1101,
-    startsAt: addDays(TODAY, -1).toISOString(),
-    endsAt: addDays(TODAY, 1).toISOString(),
-    status: "checked-in",
-  },
-  // Maintenance
-  {
-    id: "mt1",
-    type: "maintenance",
-    title: "Bảo trì phòng 201 (A/C)",
-    roomNumber: "201",
-    roomId: 3,
-    startsAt: addDays(TODAY, 0).toISOString(),
-    endsAt: addDays(TODAY, 0).toISOString(),
-    status: "in-progress",
-  },
-  // Task
-  {
-    id: "tk1",
-    type: "task",
-    title: "Chuẩn bị giường phụ phòng 101",
-    roomNumber: "101",
-    roomId: 1,
-    startsAt: addDays(TODAY, 0).toISOString(),
-    endsAt: addDays(TODAY, 0).toISOString(),
-    status: "pending",
-  },
-];
 
 /* ----------------------------
    Color / Icon meta
@@ -194,16 +132,110 @@ const StaffCalendar: React.FC = () => {
   const navigate = useNavigate();
   const isMdDown = useMediaQuery("(max-width:900px)");
 
-  const [view, setView] = React.useState<ViewMode>("week");
-  const [cursor, setCursor] = React.useState<Date>(TODAY);
-  const [keyword, setKeyword] = React.useState("");
-  const [typeFilter, setTypeFilter] = React.useState<EventType | "ALL">("ALL");
-  const [roomFilter, setRoomFilter] = React.useState<number | "ALL">("ALL");
+  const [view, setView] = useState<ViewMode>("week");
+  const [cursor, setCursor] = useState<Date>(TODAY);
+  const [keyword, setKeyword] = useState("");
+  const [typeFilter, setTypeFilter] = useState<EventType | "ALL">("ALL");
+  const [roomFilter, setRoomFilter] = useState<string | "ALL">("ALL");
 
-  const [openEvt, setOpenEvt] = React.useState(false);
-  const [activeEvt, setActiveEvt] = React.useState<CalEvent | null>(null);
+  const [openEvt, setOpenEvt] = useState(false);
+  const [activeEvt, setActiveEvt] = useState<CalEvent | null>(null);
+  const [openDayEvents, setOpenDayEvents] = useState(false);
+  const [selectedDayEvents, setSelectedDayEvents] = useState<{ date: Date; events: CalEvent[] } | null>(null);
 
-  const headerLabel = React.useMemo(() => {
+  // API states
+  const [events, setEvents] = useState<CalEvent[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Calculate date range based on view mode
+  const dateRange = useMemo(() => {
+    if (view === "day") {
+      const start = startOfDay(cursor);
+      const end = startOfDay(cursor);
+      return { start, end };
+    }
+    if (view === "week") {
+      const start = addDays(cursor, -cursor.getDay());
+      const end = addDays(start, 6);
+      return { start, end };
+    }
+    // month: get first and last day of visible calendar grid
+    const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    const start = addDays(first, -first.getDay());
+    const end = addDays(start, 41); // 6 weeks * 7 days - 1
+    return { start, end };
+  }, [cursor, view]);
+
+  // Fetch rooms on mount
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const roomsData = await getAllRooms();
+        setRooms(Array.isArray(roomsData) ? roomsData : []);
+      } catch (err) {
+        console.error("Failed to fetch rooms:", err);
+        setRooms([]);
+      }
+    };
+    fetchRooms();
+  }, []);
+
+  // Fetch calendar events when date range or filters change
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const params: any = {
+          startDate: toISODate(dateRange.start),
+          endDate: toISODate(dateRange.end),
+        };
+
+        if (typeFilter !== "ALL") {
+          params.type = typeFilter;
+        }
+
+        if (roomFilter !== "ALL") {
+          // Try to find room by ID or number
+          const room = rooms.find(
+            (r) => r._id === roomFilter || r.id === roomFilter || r.number === roomFilter
+          );
+          if (room) {
+            params.roomId = room._id || room.id;
+          } else if (roomFilter) {
+            params.roomNumber = roomFilter;
+          }
+        }
+
+        if (keyword.trim()) {
+          params.keyword = keyword.trim();
+        }
+
+        const response = await getCalendarEvents(params);
+        
+        if (response.success && response.data) {
+          setEvents(response.data.events || []);
+        } else {
+          setEvents([]);
+          setError(response.message || "Không thể tải sự kiện");
+        }
+      } catch (err: any) {
+        console.error("Failed to fetch calendar events:", err);
+        setEvents([]);
+        setError(err?.response?.data?.message || err?.message || "Không thể tải sự kiện");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toISODate(dateRange.start), toISODate(dateRange.end), typeFilter, roomFilter, keyword]);
+
+  const headerLabel = useMemo(() => {
     if (view === "day") {
       return cursor.toLocaleDateString("vi-VN", {
         weekday: "long",
@@ -220,7 +252,7 @@ const StaffCalendar: React.FC = () => {
     return cursor.toLocaleDateString("vi-VN", { month: "long", year: "numeric" });
   }, [cursor, view]);
 
-  const rangeDays = React.useMemo(() => {
+  const rangeDays = useMemo(() => {
     if (view === "day") return [cursor];
     if (view === "week") {
       const start = addDays(cursor, -cursor.getDay());
@@ -232,21 +264,18 @@ const StaffCalendar: React.FC = () => {
     return Array.from({ length: 42 }, (_, i) => addDays(start, i));
   }, [cursor, view]);
 
-  const filtered = React.useMemo(() => {
+  // Client-side filtering for keyword (backend already filters by type and room)
+  const filtered = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
-    return MOCK_EVENTS.filter((ev) => {
-      const inType = typeFilter === "ALL" || ev.type === typeFilter;
-      const inRoom =
-        roomFilter === "ALL" ||
-        ev.roomId === roomFilter ||
-        ev.roomNumber === ROOMS.find((r) => r.Room_ID === roomFilter)?.Number;
-      const text = `${ev.title} ${ev.roomNumber || ""} ${ev.reservationId || ""} ${ev.stayId || ""}`.toLowerCase();
-      const inKw = !kw || text.includes(kw);
-      return inType && inRoom && inKw;
+    if (!kw) return events;
+    
+    return events.filter((ev) => {
+      const text = `${ev.title} ${ev.roomNumber || ""} ${ev.reservationId || ""} ${ev.stayId || ""} ${ev.customerName || ""}`.toLowerCase();
+      return text.includes(kw);
     });
-  }, [keyword, typeFilter, roomFilter]);
+  }, [events, keyword]);
 
-  const eventsByDay = React.useMemo(() => {
+  const eventsByDay = useMemo(() => {
     const groups = new Map<string, CalEvent[]>();
     for (const ev of filtered) {
       const s = startOfDay(new Date(ev.startsAt));
@@ -280,6 +309,15 @@ const StaffCalendar: React.FC = () => {
   const closeEvent = () => {
     setOpenEvt(false);
     setActiveEvt(null);
+  };
+
+  const openDayEventsDialog = (date: Date, events: CalEvent[]) => {
+    setSelectedDayEvents({ date, events });
+    setOpenDayEvents(true);
+  };
+  const closeDayEventsDialog = () => {
+    setOpenDayEvents(false);
+    setSelectedDayEvents(null);
   };
 
   /* ----------------------------
@@ -407,7 +445,19 @@ const StaffCalendar: React.FC = () => {
               })
             )}
             {items.length > (compact ? 5 : 7) && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                onClick={() => openDayEventsDialog(date, items)}
+                sx={{
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  "&:hover": {
+                    color: "primary.main",
+                    fontWeight: 600,
+                  },
+                }}
+              >
                 +{items.length - (compact ? 5 : 7)} more
               </Typography>
             )}
@@ -486,9 +536,9 @@ const StaffCalendar: React.FC = () => {
                   onChange={(e) => setRoomFilter(e.target.value as any)}
                 >
                   <MenuItem value={"ALL" as any}>Tất cả</MenuItem>
-                  {ROOMS.map((r) => (
-                    <MenuItem key={r.Room_ID} value={r.Room_ID}>
-                      {r.Number} • {r.RoomType}
+                  {rooms.map((r) => (
+                    <MenuItem key={r._id || r.id} value={r._id || r.id || r.number}>
+                      {r.number || r._id || r.id}
                     </MenuItem>
                   ))}
                 </Select>
@@ -534,14 +584,28 @@ const StaffCalendar: React.FC = () => {
         </Stack>
       </Stack>
 
+      {/* Loading state */}
+      {loading && (
+        <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 4 }}>
+          <CircularProgress />
+        </Box>
+      )}
+
+      {/* Error state */}
+      {error && !loading && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
       {/* Calendar board */}
-      {view === "day" && (
+      {!loading && view === "day" && (
         <Box>
           <DayCell date={cursor} />
         </Box>
       )}
 
-      {view === "week" && (
+      {!loading && view === "week" && (
         <>
           <WeekdayHeader />
           <Box
@@ -558,7 +622,7 @@ const StaffCalendar: React.FC = () => {
         </>
       )}
 
-      {view === "month" && (
+      {!loading && view === "month" && (
         <>
           {!isMdDown && <WeekdayHeader />}
           <Box
@@ -574,6 +638,107 @@ const StaffCalendar: React.FC = () => {
           </Box>
         </>
       )}
+
+      {/* All events of a day dialog */}
+      <Dialog open={openDayEvents} onClose={closeDayEventsDialog} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          Tất cả sự kiện ngày {selectedDayEvents?.date.toLocaleDateString("vi-VN", {
+            weekday: "long",
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          })}
+        </DialogTitle>
+        <DialogContent dividers sx={{ background: alpha("#000", 0.015) }}>
+          {selectedDayEvents && selectedDayEvents.events.length > 0 ? (
+            <Stack spacing={1.5}>
+              {selectedDayEvents.events.map((ev) => {
+                const meta = TYPE_META[ev.type];
+                return (
+                  <Card
+                    key={ev.id}
+                    elevation={0}
+                    onClick={() => {
+                      closeDayEventsDialog();
+                      openEvent(ev);
+                    }}
+                    sx={{
+                      borderRadius: 2,
+                      border: "1px solid",
+                      borderColor: meta.border,
+                      background: meta.gradient,
+                      cursor: "pointer",
+                      transition: "all .15s ease",
+                      "&:hover": {
+                        transform: "translateY(-2px)",
+                        boxShadow: `0 4px 12px ${alpha(meta.color, 0.2)}`,
+                      },
+                    }}
+                  >
+                    <CardContent sx={{ py: 1.5 }}>
+                      <Stack direction="row" spacing={1.5} alignItems="center">
+                        <Box
+                          sx={{
+                            width: 12,
+                            height: 12,
+                            borderRadius: 1,
+                            bgcolor: meta.color,
+                            boxShadow: `0 0 0 3px ${alpha(meta.color, 0.18)} inset`,
+                            flexShrink: 0,
+                          }}
+                        />
+                        <Box sx={{ flex: 1 }}>
+                          <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
+                            {meta.icon}
+                            <Typography variant="subtitle2" fontWeight={700} sx={{ color: meta.color }}>
+                              {meta.label}
+                            </Typography>
+                            {ev.roomNumber && (
+                              <Chip size="small" label={`Phòng ${ev.roomNumber}`} sx={{ ml: "auto" }} />
+                            )}
+                          </Stack>
+                          <Typography variant="body2" fontWeight={600}>
+                            {ev.title}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {new Date(ev.startsAt).toLocaleString("vi-VN")} → {new Date(ev.endsAt).toLocaleString("vi-VN")}
+                          </Typography>
+                          {ev.status && (
+                            <Chip
+                              size="small"
+                              label={
+                                ev.status === "pending"
+                                  ? "Chờ xử lý"
+                                  : ev.status === "confirmed"
+                                  ? "Đã xác nhận"
+                                  : ev.status === "checked-in"
+                                  ? "Đã check-in"
+                                  : ev.status === "checked-out"
+                                  ? "Đã check-out"
+                                  : ev.status === "in-progress"
+                                  ? "Đang xử lý"
+                                  : "Hoàn thành"
+                              }
+                              sx={{ mt: 0.5 }}
+                            />
+                          )}
+                        </Box>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </Stack>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              Không có sự kiện.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDayEventsDialog}>Đóng</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Event detail dialog */}
       <Dialog open={openEvt} onClose={closeEvent} maxWidth="sm" fullWidth>
