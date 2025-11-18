@@ -139,6 +139,49 @@ export const getAvailableManagers = async () => {
   return res.data;
 };
 
+// Manager Hotel APIs
+export const getManagerHotel = async () => {
+  const res = await instance.get<{ success: boolean; data: Hotel; message: string }>('/manager/hotel/me');
+  return res.data;
+};
+
+export const updateManagerHotel = async (payload: Partial<Hotel>, images?: File[]) => {
+  const formData = new FormData();
+
+  // Add hotel data
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      if (Array.isArray(value)) {
+        // Handle amenities array - send as JSON string or multiple entries
+        if (key === 'amenities') {
+          // Send as JSON string for backend to parse
+          formData.append(key, JSON.stringify(value));
+        } else {
+          value.forEach((item) => {
+            formData.append(`${key}[]`, item.toString());
+          });
+        }
+      } else {
+        formData.append(key, value.toString());
+      }
+    }
+  });
+
+  // Add images
+  if (images && images.length > 0) {
+    images.forEach((image) => {
+      formData.append('images', image);
+    });
+  }
+
+  const res = await instance.put<{ success: boolean; data: Hotel; message: string }>('/manager/hotel/me', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return res.data;
+};
+
 export default {
   getAllHotels,
   getHotelById,

@@ -203,9 +203,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({
         {Item(Ic.user, "Personal Data", isActive('/profile'))}
       </Link>
       {Item(Ic.card, "Payment Account")}
-      <Link to="/profile/bookings-history" style={{ textDecoration: 'none' }}>
-        {Item(Ic.bag, "Bookings History", isActive('/profile/bookings-history'))}
-      </Link>
+      {Item(Ic.bag, "Trips", false, true)}
       <Link to="/profile/wishlists" style={{ textDecoration: 'none' }}>
         {Item(Ic.heart, "Wish Lists", isActive('/profile/wishlists'))}
       </Link>

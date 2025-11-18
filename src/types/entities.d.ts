@@ -55,6 +55,7 @@ export interface Hotel {
   manager?: User | string;
   status?: 'available' | 'full' | 'closed';
   images?: string[];
+  amenities?: string[];
   rating?: number; // average rating
   services?: Array<Service | string>;
   roomTypes?: Array<RoomType | string>;
@@ -63,7 +64,6 @@ export interface Hotel {
   updatedAt?: string;
   // optional fields returned by search API
   minPricePerNight?: number;
-  images?: string[];
 }
 
 export interface User {
