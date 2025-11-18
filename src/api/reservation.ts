@@ -7,8 +7,9 @@ export type CreateReservationPayload = {
   checkInDate: string;
   checkOutDate: string;
   numberOfGuests: number;
-  rooms: Array<{ roomTypeId: string; quantity: number; adults?: number; children?: number; infants?: number }>;
+  rooms: Array<{ roomTypeId: string; quantity: number; adults?: number; children?: number; infants?: number; services?: Array<{ serviceId: string; quantity: number }> }>;
   voucherCode?: string;
+  isFullPayment?: boolean; // true nếu khách chọn thanh toán 100%, false nếu thanh toán cọc (50%)
 };
 
 export const createReservation = async (payload: CreateReservationPayload) => {
