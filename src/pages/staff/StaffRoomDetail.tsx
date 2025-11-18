@@ -35,7 +35,7 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material";
-import { useParams, Link as RouterLink, useNavigate } from "react-router-dom";
+import { useParams, Link as RouterLink, useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from '@mui/material/styles';
 import {
   MeetingRoom,
@@ -56,6 +56,7 @@ import api from "../../api/axios";
 import { io as ioClient } from 'socket.io-client';
 import MiniBookingCalendar from '../../components/MiniBookingCalendar';
 import GuestReservationWizard from '../../components/GuestReservationWizard';
+import RoomImageUpload from '../../components/RoomImageUpload';
 
 // small helpers for calendar
 const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
@@ -134,6 +135,7 @@ const EMPTY_ROOM_TYPE: RoomType = { RoomType_ID: 0, Name: "Unknown", Number_of_B
 export default function StaffRoomDetail() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   // fetch live data
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -188,6 +190,7 @@ export default function StaffRoomDetail() {
 
   // create and revoke object URLs for previews
   useEffect(() => {
+    // preview management kept for legacy selectedFiles usage
     if (!selectedFiles || selectedFiles.length === 0) {
       setSelectedPreviews([]);
       return;
@@ -288,6 +291,16 @@ export default function StaffRoomDetail() {
         setActivities(acts);
         setBookings(normalizedBookings);
         console.log('room payload bookings (after fetch):', normalizedBookings);
+
+        // If URL requests to open image dialog immediately (wizard flow)
+        try {
+          const qp = new URLSearchParams(location.search);
+          if (qp.get('openImg') === 'true') {
+            setOpenImgDlg(true);
+          }
+        } catch (e) {
+          // ignore parse errors
+        }
 
         // fetch latest activities from dedicated endpoint (paginated)
         try {
@@ -417,28 +430,9 @@ export default function StaffRoomDetail() {
     setFacList((arr) => arr.filter((x) => x.Room_Facility_ID !== id));
 
   const addImage = () => {
-    // If a file is selected, upload via API
     (async () => {
       try {
-        if (selectedFiles && selectedFiles.length > 0) {
-          const fd = new FormData();
-          selectedFiles.forEach((f) => fd.append('images', f));
-          setUploadingImages(true);
-          const res = await api.put(`/rooms/${roomId}/images/batch`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-          const roomPayload = res.data?.data || res.data || {};
-          const imgs: RoomImage[] = Array.isArray(roomPayload.images)
-            ? roomPayload.images.map((u: any, i: number) => ({ Room_Image_ID: i + 1, URL: u, Room_ID: Number(roomId) }))
-            : [];
-          setImgList(imgs);
-          setSelectedFiles([]);
-          setSelectedPreviews([]);
-          setNewImgUrl("");
-          setOpenImgDlg(false);
-          setUploadingImages(false);
-          return;
-        }
-
-        // Fallback: if user provided a URL, append it via room update
+        // Only handle URL fallback here; file uploads are handled by RoomImageUpload when roomId is present
         if (!newImgUrl.trim()) return;
         const currentUrls = imgList.map((it) => it.URL);
         const next = [...currentUrls, newImgUrl.trim()];
@@ -451,7 +445,8 @@ export default function StaffRoomDetail() {
         setNewImgUrl("");
         setOpenImgDlg(false);
       } catch (err) {
-        console.error('Failed to upload/add image', err);
+        console.error('Failed to add image URL', err);
+        alert('Thêm URL hình thất bại');
       }
     })();
   };
@@ -1051,32 +1046,11 @@ export default function StaffRoomDetail() {
             placeholder="https://..."
             sx={{ mb: 2 }}
           />
-          <Button variant="outlined" component="label" startIcon={<UploadFile />} sx={{ mb: 1 }}>
-            Chọn file ảnh
-            <input
-              type="file"
-              hidden
-              accept="image/*"
-              multiple
-              disabled={uploadingImages}
-              onChange={(e) => {
-                const files = e.target.files ? Array.from(e.target.files) : [];
-                setSelectedFiles(files);
-              }}
-            />
-          </Button>
-          {selectedPreviews.length > 0 && (
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-              {selectedPreviews.map((src, i) => (
-                <Box key={i} sx={{ width: 90, height: 70, position: 'relative', borderRadius: 1, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                  <img src={src} alt={selectedFiles[i]?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  <IconButton size="small" sx={{ position: 'absolute', top: 2, right: 2, bgcolor: '#fff' }} onClick={() => setSelectedFiles((arr) => arr.filter((_, idx) => idx !== i))}>
-                    <DeleteOutline fontSize="small" />
-                  </IconButton>
-                </Box>
-              ))}
-            </Box>
-          )}
+          <RoomImageUpload roomId={roomId} onUploaded={(imgs) => {
+            const images = Array.isArray(imgs) ? imgs.map((u, i) => ({ Room_Image_ID: i + 1, URL: u, Room_ID: Number(roomId) })) : [];
+            setImgList(images);
+            setOpenImgDlg(false);
+          }} />
           <Alert severity="info" sx={{ mt: 1 }}>
             Chọn file sẽ upload trực tiếp lên server (Cloudinary). Nếu dán URL, hệ thống sẽ lưu URL đó.
           </Alert>
