@@ -1,6 +1,9 @@
 import React, { useMemo, useState, useEffect } from "react";
 import {
   Box,
+  List,
+  ListItem,
+  ListItemText,
   Typography,
   Breadcrumbs,
   Link as MUILink,
@@ -52,6 +55,7 @@ import {
 import api from "../../api/axios";
 import { io as ioClient } from 'socket.io-client';
 import MiniBookingCalendar from '../../components/MiniBookingCalendar';
+import GuestReservationWizard from '../../components/GuestReservationWizard';
 
 // small helpers for calendar
 const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
@@ -146,6 +150,7 @@ export default function StaffRoomDetail() {
 
   const [room, setRoom] = useState<Room | null>(null);
   const [roomType, setRoomType] = useState<RoomType | null>(null);
+  const [rawPayload, setRawPayload] = useState<any>(null);
   const [imgList, setImgList] = useState<RoomImage[]>([]);
   const [facList, setFacList] = useState<RoomFacility[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
@@ -159,6 +164,20 @@ export default function StaffRoomDetail() {
   const [selectedPreviews, setSelectedPreviews] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [deletingImageIds, setDeletingImageIds] = useState<number[]>([]);
+
+  // wizard for reservation/stay creation
+  const [openWizard, setOpenWizard] = useState(false);
+  const [wizardMode, setWizardMode] = useState<'reserve' | 'occupy'>('reserve');
+  // assign dialog: choose existing reservation/stay or create new
+  const [openAssignDlg, setOpenAssignDlg] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [reservationResults, setReservationResults] = useState<any[]>([]);
+  const [stayResults, setStayResults] = useState<any[]>([]);
+  const [searchingReservations, setSearchingReservations] = useState(false);
+  const [loadingStays, setLoadingStays] = useState(false);
+  const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null);
+  const [selectedStayId, setSelectedStayId] = useState<string | null>(null);
+  const [assigning, setAssigning] = useState(false);
 
   const theme = useTheme();
   const upSm = useMediaQuery(theme.breakpoints.up('sm'));
@@ -262,6 +281,7 @@ export default function StaffRoomDetail() {
         setRoom(mappedRoom);
         console.log('Room (after fetch):', mappedRoom);
         setRoomType(mappedType);
+        setRawPayload(payload);
         setImgList(images);
         setFacList(facilities);
         // initial activities from payload (if any)
@@ -310,6 +330,17 @@ export default function StaffRoomDetail() {
     };
 
     socket.on('room_activity', handler);
+    // Request to join the room-specific channel so server can emit scoped events
+    socket.on('connect', () => {
+      try {
+        socket.emit('join_room', { roomId });
+      } catch (e) {
+        // ignore
+      }
+    });
+    socket.on('joined_room', (d) => {
+      console.log('Joined room channel', d);
+    });
 
     return () => {
       socket.off('room_activity', handler);
@@ -810,6 +841,13 @@ export default function StaffRoomDetail() {
               onClick={async () => {
                 try {
                   setOpenStatusDlg(false);
+                  // If a staff (not manager) is changing to Reserved/Occupied, open the wizard
+                  const isReservedOrOccupied = status === 'Reserved' || status === 'Occupied';
+                  if (!isManager && isReservedOrOccupied) {
+                    // show assign dialog to let staff pick existing reservation/stay or create new
+                    setOpenAssignDlg(true);
+                    return;
+                  }
                   await handleChangeStatus(status);
                 } catch (e) {
                   console.error('Failed to update room status', e);
@@ -820,6 +858,161 @@ export default function StaffRoomDetail() {
             </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Dialog: assign/attach to existing reservation or stay */}
+      <Dialog open={openAssignDlg} onClose={() => setOpenAssignDlg(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Gán phòng vào đơn / stay hiện có</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ mb: 1 }}>Chọn một tuỳ chọn hoặc tạo đặt phòng mới.</Typography>
+          <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+            <TextField
+              label="Tìm reservation (tên, phone, mã)"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              size="small"
+              sx={{ flex: 1 }}
+            />
+            <Button variant="outlined" onClick={async () => {
+              try {
+                setSearchingReservations(true);
+                const res = await api.get(`/dashboard/checkin/search`, { params: { query: searchQuery } });
+                setReservationResults(res.data?.results || []);
+              } catch (err) {
+                console.error('Reservation search failed', err);
+                setReservationResults([]);
+              } finally { setSearchingReservations(false); }
+            }}>Tìm</Button>
+            <Button variant="text" onClick={async () => {
+              // load in-house stays
+              try {
+                setLoadingStays(true);
+                const r = await api.get(`/dashboard/checkout/inhouse`);
+                setStayResults(r.data?.inHouse || []);
+              } catch (e) { console.error('Load stays failed', e); setStayResults([]); }
+              finally { setLoadingStays(false); }
+            }}>Tải stays</Button>
+          </Stack>
+
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="subtitle2">Reservations</Typography>
+              <Box sx={{ maxHeight: 300, overflow: 'auto', border: '1px solid #eee', borderRadius: 1, p: 1 }}>
+                {searchingReservations ? <CircularProgress size={20} /> : (
+                  reservationResults.length === 0 ? <Typography variant="body2" color="text.secondary">Không tìm thấy.</Typography> : (
+                    <List dense>
+                      {reservationResults.map((r:any) => (
+                        <ListItem key={r.id} button selected={selectedReservationId === String(r.id)} onClick={() => { setSelectedReservationId(String(r.id)); setSelectedStayId(null); }}>
+                          <ListItemText primary={r.customer?.fullname || (r.customer && `${r.customer.fullname}`) || String(r.id)} secondary={`${new Date(r.checkInDate).toLocaleDateString()} → ${new Date(r.checkOutDate).toLocaleDateString()}`} />
+                        </ListItem>
+                      ))}
+                    </List>
+                  )
+                )}
+              </Box>
+            </Box>
+
+            <Box sx={{ width: 360 }}>
+              <Typography variant="subtitle2">In-house stays</Typography>
+              <Box sx={{ maxHeight: 300, overflow: 'auto', border: '1px solid #eee', borderRadius: 1, p: 1 }}>
+                {loadingStays ? <CircularProgress size={20} /> : (
+                  stayResults.length === 0 ? <Typography variant="body2" color="text.secondary">Chưa có khách đang trọ.</Typography> : (
+                    <List dense>
+                      {stayResults.map((s:any, idx:number) => (
+                        <ListItem key={s.stayId || idx} button selected={selectedStayId === String(s.stayId)} onClick={() => { setSelectedStayId(String(s.stayId)); setSelectedReservationId(null); }}>
+                          <ListItemText primary={`${s.roomNumber || s.roomNumber || s.roomId || s.roomNumber || 'Room'}`} secondary={`${s.guestName || 'Khách'} — ${s.roomType || ''}`} />
+                        </ListItem>
+                      ))}
+                    </List>
+                  )
+                )}
+              </Box>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setOpenAssignDlg(false); }}>Hủy</Button>
+          <Button onClick={() => { setOpenAssignDlg(false); setWizardMode(status === 'Reserved' ? 'reserve' : 'occupy'); setOpenWizard(true); }}>
+            Tạo mới
+          </Button>
+          <Button variant="contained" disabled={assigning || (!selectedReservationId && !selectedStayId)} onClick={async () => {
+            try {
+              setAssigning(true);
+              if (selectedReservationId) {
+                await api.post(`/reservations/${selectedReservationId}/assign-room`, { roomId, status: status });
+              } else if (selectedStayId) {
+                await api.post(`/dashboard/stays/${selectedStayId}/rooms`, { roomId, guests: [] });
+              }
+              setOpenAssignDlg(false);
+              // refresh room data and activities (reuse existing refresh logic)
+              try {
+                const res = await api.get(`/rooms/public/${roomId}`);
+                const payload = res.data?.data || res.data || {};
+                setRawPayload(payload);
+                const mappedRoom = {
+                  Room_ID: Number(payload._id ?? payload.id ?? roomId),
+                  RoomType_ID: Number(payload.roomType?._id ?? payload.roomType?.id ?? payload.roomType ?? 0),
+                  Number: String(payload.roomNumber ?? payload.number ?? payload.code ?? payload.name ?? roomId),
+                  Name: payload.name ?? payload.title ?? `Room ${payload.roomNumber ?? roomId}`,
+                  Description: payload.description ?? payload.note,
+                  Price: Number(payload.pricePerNight ?? payload.price ?? payload.roomType?.basePrice ?? 0),
+                  Status: (payload.status as RoomStatus) ?? (payload.state as RoomStatus) ?? 'Available',
+                  Hotel_ID: Number(payload.hotel?._id ?? payload.hotel?.id ?? payload.hotelId ?? 0),
+                };
+                setRoom(mappedRoom as any);
+                const imgs: any[] = Array.isArray(payload.images) ? payload.images.map((u: any, i: number) => ({ Room_Image_ID: i + 1, URL: u, Room_ID: mappedRoom.Room_ID })) : [];
+                setImgList(imgs);
+                try { const aRes = await api.get(`/rooms/${roomId}/activities?limit=20`); if (aRes?.data?.data) setActivities(aRes.data.data); } catch (e) {}
+              } catch (e) { console.warn('Failed refresh after assign', e); }
+              setSnackbarMsg('Gán phòng thành công');
+              setSnackbarOpen(true);
+            } catch (err) {
+              console.error('Assign failed', err);
+              alert('Gán phòng thất bại. Vui lòng thử lại.');
+            } finally { setAssigning(false); }
+          }}>
+            {assigning ? <CircularProgress size={18} color="inherit" /> : 'Gán phòng'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Reservation / Stay wizard for staff */}
+      <GuestReservationWizard
+        open={openWizard}
+        mode={wizardMode}
+        roomId={roomId ?? ''}
+        roomPayload={rawPayload}
+        onClose={() => setOpenWizard(false)}
+        onSuccess={(data) => {
+          // refresh room data and activities
+          (async () => {
+            try {
+              const res = await api.get(`/rooms/public/${roomId}`);
+              const payload = res.data?.data || res.data || {};
+              setRawPayload(payload);
+              // update mapped room and lists similar to initial fetch
+              const mappedRoom = {
+                Room_ID: Number(payload._id ?? payload.id ?? roomId),
+                RoomType_ID: Number(payload.roomType?._id ?? payload.roomType?.id ?? payload.roomType ?? 0),
+                Number: String(payload.roomNumber ?? payload.number ?? payload.code ?? payload.name ?? roomId),
+                Name: payload.name ?? payload.title ?? `Room ${payload.roomNumber ?? roomId}`,
+                Description: payload.description ?? payload.note,
+                Price: Number(payload.pricePerNight ?? payload.price ?? payload.roomType?.basePrice ?? 0),
+                Status: (payload.status as RoomStatus) ?? (payload.state as RoomStatus) ?? 'Available',
+                Hotel_ID: Number(payload.hotel?._id ?? payload.hotel?.id ?? payload.hotelId ?? 0),
+              };
+              setRoom(mappedRoom as any);
+              const images: any[] = Array.isArray(payload.images) ? payload.images.map((u: any, i: number) => ({ Room_Image_ID: i + 1, URL: u, Room_ID: mappedRoom.Room_ID })) : [];
+              setImgList(images);
+              // pull latest activities
+              try { const aRes = await api.get(`/rooms/${roomId}/activities?limit=20`); if (aRes?.data?.data) setActivities(aRes.data.data); } catch (e) {}
+            } catch (e) {
+              console.warn('Failed refresh after wizard success', e);
+            }
+          })();
+          setSnackbarMsg('Tạo đặt phòng / check-in thành công');
+          setSnackbarOpen(true);
+        }}
+      />
 
       {/* Dialog: thêm tiện nghi */}
       <Dialog open={openFacDlg} onClose={() => setOpenFacDlg(false)} maxWidth="xs" fullWidth>
