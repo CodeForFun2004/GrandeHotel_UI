@@ -3,7 +3,6 @@ import { Box, Typography, Button } from "@mui/material";
 import RoomFormModal, { type Room as FormRoom } from "./RoomFormModal";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { createRoom } from "../../../redux/slices/roomSlice";
-import { getHotelPerformance } from "../../../api/dashboard";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import api from "../../../api/axios";
@@ -18,51 +17,11 @@ export default function ManagerCreateRoom() {
 
   // Determine a default hotel id from existing rooms if available. If not available,
   // attempt to fetch manager hotel(s) via dashboard API as a fallback.
-  const [defaultHotelId, setDefaultHotelId] = React.useState<string | undefined>(
-    rooms.length > 0 ? ((rooms[0].hotel && ((rooms[0].hotel as any)._id || (rooms[0].hotel as any).id)) || (rooms[0].hotel as any) || undefined) : undefined
-  );
+  const authUser = useAppSelector((s: any) => s.auth?.user);
 
-  useEffect(() => {
-    if (defaultHotelId) return;
-    (async () => {
-      try {
-        const perf = await getHotelPerformance();
-        if (Array.isArray(perf) && perf.length > 0) {
-          const hid = (perf[0] as any).id || (perf[0] as any)._id;
-          if (hid) setDefaultHotelId(hid);
-        }
-      } catch (e) {
-        console.warn('ManagerCreateRoom: could not resolve hotelId from dashboard performance', e);
-        // Try to recover hotelId from localStorage-stored user as a fallback (helps in dev/debug)
-        try {
-          const raw = localStorage.getItem('user');
-          if (raw) {
-            const u = JSON.parse(raw) as any;
-            console.log('ManagerCreateRoom: parsed localStorage user', u);
-            const hid = u?.hotelId || (u?.hotel && (u.hotel._id || u.hotel.id)) || u?.hotel;
-            if (hid) {
-              console.log('ManagerCreateRoom: recovered hotelId from localStorage user ->', hid);
-              setDefaultHotelId(hid);
-            } else {
-              console.log('ManagerCreateRoom: localStorage user does not include hotelId/hotel');
-            }
-          } else {
-            console.log('ManagerCreateRoom: no user in localStorage');
-          }
-        } catch (ex) {
-          console.warn('ManagerCreateRoom: failed parsing localStorage user', ex);
-        }
-        // If the error is permission-related, notify the user
-        try {
-          const axiosErr = e as any;
-          if (axiosErr?.response?.status === 403) {
-            toast.warn('Không có quyền truy cập thông tin khách sạn — đăng nhập bằng tài khoản Manager hoặc set `user` trong localStorage.');
-          }
-        } catch (_) {}
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rooms]);
+  const [defaultHotelId] = React.useState<string | undefined>(
+    authUser?.hotelId || (rooms.length > 0 ? ((rooms[0].hotel && ((rooms[0].hotel as any)._id || (rooms[0].hotel as any).id)) || (rooms[0].hotel as any) || undefined) : undefined)
+  );
 
   useEffect(() => {
     // If modal closed (back button), navigate back to manager rooms
@@ -73,14 +32,18 @@ export default function ManagerCreateRoom() {
   const mapFormToBackendCreate = (formRoom: FormRoom) => {
     const roomType = roomTypes.find((rt: any) => rt.name === formRoom.type);
     if (!roomType) throw new Error('Room type not found');
-    if (!defaultHotelId) return null;
+    // ensure hotel id is a plain string when available
+    const hotelIdString = defaultHotelId ? String(defaultHotelId) : undefined;
     return {
+      code: formRoom.code,
+      name: `${(roomType as any).name || ''} ${formRoom.code}`.trim(),
       roomType: (roomType as any).id || (roomType as any)._id || roomType.id,
-      hotel: defaultHotelId,
+      ...(hotelIdString ? { hotel: hotelIdString } : {}),
       roomNumber: formRoom.code,
-      status: 'available',
+      status: 'Available',
       // Price is derived from room type base price
-      pricePerNight: roomType.basePrice,
+      pricePerNight: (roomType as any).basePrice,
+      capacity: (roomType as any).capacity || undefined,
       description: formRoom.description,
       images: formRoom.images,
       services: formRoom.services,
@@ -89,10 +52,6 @@ export default function ManagerCreateRoom() {
 
   const handleSubmit = async (form: FormRoom) => {
     try {
-      if (!defaultHotelId) {
-        toast.error('Không thể tạo phòng - Hotel ID không hợp lệ');
-        return;
-      }
       const payload = mapFormToBackendCreate(form);
       if (!payload) {
         toast.error('Không thể tạo phòng');
@@ -123,7 +82,14 @@ export default function ManagerCreateRoom() {
       }
     } catch (err: any) {
       console.error('Create room failed', err);
-      toast.error(err?.message || 'Có lỗi xảy ra khi tạo phòng');
+      // thunk throws a string message when rejectWithValue is used
+      if (typeof err === 'string') {
+        toast.error(err);
+      } else if (err && typeof err === 'object' && (err as any).message) {
+        toast.error((err as any).message);
+      } else {
+        toast.error('Có lỗi xảy ra khi tạo phòng');
+      }
     }
   };
 

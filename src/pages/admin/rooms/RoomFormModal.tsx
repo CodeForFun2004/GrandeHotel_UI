@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem, Box, CircularProgress, FormControl, InputLabel, Select, Stepper, Step, StepLabel } from "@mui/material";
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem, Box, CircularProgress, FormControl, InputLabel, Select, Stepper, Step, StepLabel, Checkbox, ListItemText, FormHelperText } from "@mui/material";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { fetchRoomTypes } from "../../../redux/slices/roomTypeSlice";
 import type { RoomType } from "./RoomTypeFormModal";
@@ -29,9 +29,12 @@ export default function RoomFormModal({ open, onClose, onSubmit, initial, hotelI
   const dispatch = useAppDispatch();
   const { roomTypes, loading } = useAppSelector((state) => state.roomType);
   const { rooms } = useAppSelector((s) => s.room);
-  const authUser = useAppSelector((s) => (s as any).auth?.user);
+  const authUser = useAppSelector((s: any) => s.auth?.user);
 
   const [form, setForm] = useState<Room>(initial || { code: '', type: '', status: 'Available', description: '', images: [], imagesFiles: [], services: [] });
+  const [roomNumberError, setRoomNumberError] = useState<string | null>(null);
+  const [roomTypeError, setRoomTypeError] = useState<string | null>(null);
+  const [checkingRoomNumber, setCheckingRoomNumber] = useState(false);
   const [servicesList, setServicesList] = useState<Array<{ _id: string; name: string; basePrice: number }>>([]);
   const [loadingServices, setLoadingServices] = useState(false);
   const [step, setStep] = useState(0);
@@ -43,32 +46,28 @@ export default function RoomFormModal({ open, onClose, onSubmit, initial, hotelI
     (async () => {
       try {
         setLoadingServices(true);
+        // Resolve hotelId in order: explicit prop, authenticated user's hotelId, fallback to rooms list
         const defaultHotelId = propHotelId
-          || (rooms && rooms.length > 0 ? (rooms[0].hotel?._id || (rooms[0].hotel && (rooms[0].hotel as any).id) || rooms[0].hotel) : undefined)
           || authUser?.hotelId
-          || (authUser?.hotel && (authUser.hotel._id || authUser.hotel.id));
+          || (authUser?.hotel && (authUser.hotel._id || authUser.hotel.id))
+          || (rooms && rooms.length > 0 ? (rooms[0].hotel?._id || (rooms[0].hotel && (rooms[0].hotel as any).id) || rooms[0].hotel) : undefined);
+
         if (!defaultHotelId) {
-          console.warn('RoomFormModal: no hotel id resolved; attempting server-resolved endpoint', { propHotelId, roomsLength: rooms?.length, authUser });
+          // As a last resort, try the server-resolved endpoint which uses req.user to determine hotel
           try {
-            // Try server-side resolved hotel (requires auth)
-            console.log('RoomFormModal: fetching hotel services from /dashboard/hotels/services');
             const srv = await api.get('/dashboard/hotels/services');
-            console.log('RoomFormModal: services response (server-resolved)', srv.data);
             setServicesList(srv.data?.services || []);
             setLoadingServices(false);
             return;
           } catch (e) {
-            console.warn('RoomFormModal: server-resolved services fetch failed', e);
-            // fall through to empty list
+            // give up silently; show empty list
             setServicesList([]);
             setLoadingServices(false);
             return;
           }
         }
 
-        console.log('RoomFormModal: fetching hotel services for hotelId=', defaultHotelId);
         const res = await api.get(`/dashboard/hotels/${defaultHotelId}/services`);
-        console.log('RoomFormModal: services response', { hotelId: defaultHotelId, data: res.data });
         setServicesList(res.data?.services || []);
       } catch (err) {
         console.error('Failed to load hotel services', err);
@@ -81,12 +80,6 @@ export default function RoomFormModal({ open, onClose, onSubmit, initial, hotelI
 
   const change = (k: keyof Room) => (e: any) => setForm({ ...form, [k]: e.target.value } as any);
 
-  const changeImages = (e: any) => {
-    const raw = e.target.value as string;
-    const arr = raw.split(',').map((s) => s.trim()).filter(Boolean);
-    setForm({ ...form, images: arr });
-  };
-
   const onSelectFiles = (files: FileList | null) => {
     const list = files ? Array.from(files) : [];
     setForm({ ...form, imagesFiles: list });
@@ -98,7 +91,37 @@ export default function RoomFormModal({ open, onClose, onSubmit, initial, hotelI
   };
 
   const handleSubmit = () => { if (!form.code || !form.type) return; onSubmit(form); };
-  const handleNext = () => setStep((s) => Math.min(s + 1, steps.length - 1));
+  const handleNext = async () => {
+    // when on the first step, validate required fields and uniqueness of room number
+    if (step === 0) {
+      setRoomNumberError(null);
+      setRoomTypeError(null);
+      const codeVal = (form.code || '').toString().trim();
+      if (!codeVal) {
+        setRoomNumberError('Số phòng là bắt buộc');
+        return;
+      }
+      if (!form.type) {
+        setRoomTypeError('Loại phòng là bắt buộc');
+        return;
+      }
+      try {
+        setCheckingRoomNumber(true);
+        // ask server if this room number/code exists in manager's hotel
+        const res = await api.get('/rooms/check-number', { params: { roomNumber: codeVal } });
+        if (res?.data?.exists) {
+          setRoomNumberError('Số phòng này đã tồn tại trong khách sạn');
+          return;
+        }
+      } catch (e) {
+        // if server returns 403 (no hotel) or other error, we let user proceed but show a warning
+        console.warn('Room number check failed', e);
+      } finally {
+        setCheckingRoomNumber(false);
+      }
+    }
+    setStep((s) => Math.min(s + 1, steps.length - 1));
+  };
   const handleBack = () => setStep((s) => Math.max(s - 1, 0));
 
   const steps = ['Thông tin phòng', 'Hình ảnh', 'Tiện nghi', 'Xem lại'];
@@ -119,12 +142,13 @@ export default function RoomFormModal({ open, onClose, onSubmit, initial, hotelI
 
             {step === 0 && (
               <Box sx={{ display: 'grid', gap: 2 }}>
-                <TextField label="Số phòng" fullWidth value={form.code} onChange={change('code')} />
-                <FormControl fullWidth>
+                <TextField label="Số phòng" fullWidth value={form.code} onChange={change('code')} error={!!roomNumberError} helperText={roomNumberError || ''} />
+                <FormControl fullWidth error={!!roomTypeError}>
                   <InputLabel>Loại phòng</InputLabel>
                   <Select label="Loại phòng" value={form.type} onChange={change('type')}>
                     {roomTypes.map((rt: any) => <MenuItem key={rt.id || rt._id} value={rt.name}>{rt.name}</MenuItem>)}
                   </Select>
+                  <FormHelperText>{roomTypeError || ''}</FormHelperText>
                 </FormControl>
                 <TextField multiline minRows={2} label="Mô tả" fullWidth value={form.description} onChange={change('description')} />
                 <FormControl fullWidth>
@@ -143,15 +167,34 @@ export default function RoomFormModal({ open, onClose, onSubmit, initial, hotelI
             {step === 1 && (
               <Box>
                 <RoomImageUpload onFilesSelected={(f) => setForm({ ...form, imagesFiles: f })} />
-                <TextField sx={{ mt: 2 }} label="Hình ảnh (URLs, cách nhau bằng dấu phẩy)" fullWidth value={(form.images || []).join(', ')} onChange={changeImages} helperText="Thêm nhiều URL ảnh, phân tách bằng dấu phẩy" />
               </Box>
             )}
 
             {step === 2 && (
               <FormControl fullWidth>
                 <InputLabel>Dịch vụ</InputLabel>
-                <Select multiple value={form.services || []} label="Dịch vụ" onChange={changeServices} renderValue={(selected) => (selected as string[]).join(', ')}>
-                  {loadingServices ? <MenuItem disabled>Đang tải...</MenuItem> : servicesList.map((s) => (<MenuItem key={s._id} value={String(s._id)}>{s.name}</MenuItem>))}
+                <Select
+                  multiple
+                  value={form.services || []}
+                  label="Dịch vụ"
+                  onChange={changeServices}
+                  renderValue={(selected) =>
+                    (selected as string[])
+                      .map((id) => servicesList.find((s) => String(s._id) === String(id))?.name || String(id))
+                      .join(', ')
+                  }
+                  MenuProps={{}}
+                >
+                  {loadingServices ? (
+                    <MenuItem disabled>Đang tải...</MenuItem>
+                  ) : (
+                    servicesList.map((s) => (
+                      <MenuItem key={s._id} value={String(s._id)}>
+                        <Checkbox checked={(form.services || []).indexOf(String(s._id)) > -1} />
+                        <ListItemText primary={s.name} />
+                      </MenuItem>
+                    ))
+                  )}
                 </Select>
               </FormControl>
             )}
@@ -162,9 +205,30 @@ export default function RoomFormModal({ open, onClose, onSubmit, initial, hotelI
                 <Box sx={{ mb: 1 }}><strong>Loại:</strong> {form.type}</Box>
                 <Box sx={{ mb: 1 }}><strong>Mô tả:</strong> {form.description}</Box>
                 <Box sx={{ mb: 1 }}><strong>Trạng thái:</strong> {form.status}</Box>
-                <Box sx={{ mb: 1 }}><strong>Hình (URLs):</strong> {(form.images || []).join(', ')}</Box>
-                <Box sx={{ mb: 1 }}><strong>Số file chọn:</strong> {form.imagesFiles ? form.imagesFiles.length : 0}</Box>
-                <Box sx={{ mb: 1 }}><strong>Tiện nghi:</strong> {(form.services || []).join(', ')}</Box>
+                <Box sx={{ mb: 1 }}>
+                  <strong>Hình ảnh:</strong>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+                    {(form.images || []).map((url, i) => (
+                      <Box key={"url-" + i} component="img" src={url} sx={{ width: 100, height: 70, objectFit: 'cover', borderRadius: 1 }} />
+                    ))}
+                    {(form.imagesFiles || []).map((f, i) => {
+                      try {
+                        const src = URL.createObjectURL(f);
+                        return <Box key={"file-" + i} component="img" src={src} sx={{ width: 100, height: 70, objectFit: 'cover', borderRadius: 1 }} onLoad={() => { URL.revokeObjectURL(src); }} />
+                      } catch (e) {
+                        return null;
+                      }
+                    })}
+                    {((form.images || []).length === 0 && (form.imagesFiles || []).length === 0) && (
+                      <Box sx={{ color: 'text.secondary' }}>Chưa có ảnh</Box>
+                    )}
+                  </Box>
+                </Box>
+                <Box sx={{ mb: 1 }}><strong>Tiện nghi:</strong>{' '}
+                  {(form.services || [])
+                    .map((id) => servicesList.find((s) => String(s._id) === String(id))?.name || String(id))
+                    .join(', ')}
+                </Box>
               </Box>
             )}
 
