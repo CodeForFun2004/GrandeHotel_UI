@@ -34,7 +34,7 @@ import {
   Alert,
   Avatar,
 } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import SearchIcon from "@mui/icons-material/Search";
@@ -266,6 +266,54 @@ export default function CheckIn() {
     void doSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // If a reservation id is supplied via query params, auto-load it
+  const location = useLocation();
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const reservationId = params.get('reservation') || params.get('reservationId') || null;
+    if (reservationId) {
+      (async () => {
+        try {
+          // Load details and also select the booking in UI
+          const detail = await apiGetReservationForCheckIn(reservationId);
+          // Construct a lightweight selected object similar to search result items
+          const res = detail.reservation || detail;
+          const sel = {
+            id: String(res._id || res.id),
+            customer: res.customer || (res.customer ? res.customer : null),
+            hotel: res.hotel || (res.hotel ? res.hotel : null),
+            checkInDate: res.checkInDate || res.check_in_date,
+            checkOutDate: res.checkOutDate || res.check_out_date,
+            paymentStatus: detail.payment?.paymentStatus || 'unpaid'
+          } as any;
+          setSelected(sel);
+          // populate room selections and other derived state
+          // reuse existing loader which sets available rooms and id docs
+          await loadReservationDetail(reservationId);
+          setActiveStep(1);
+        } catch (e) {
+          console.error('Failed to auto-load reservation from query param', e);
+        }
+      })();
+      return;
+    }
+    // If a room filter is provided in query params (e.g. from StaffRooms), run a room-scoped search
+    const roomParam = params.get('room') || null;
+    if (roomParam) {
+      (async () => {
+        try {
+          setSearching(true);
+          const res = await apiSearchCheckin('', { checkInDate: undefined, todayOnly: false, room: roomParam });
+          setResults(res.results || []);
+        } catch (e) {
+          console.error('Failed to search reservations by room param', e);
+        } finally {
+          setSearching(false);
+        }
+      })();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
   // auto refresh when filters change (except while typing query; explicit search triggers)
   useEffect(() => {
     if (!query.trim()) {

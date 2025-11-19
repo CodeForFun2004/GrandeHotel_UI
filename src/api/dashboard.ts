@@ -69,8 +69,19 @@ export interface CheckinSearchItem {
   };
 }
 
-export const searchReservationsForCheckIn = async (params?: { query?: string; checkInDate?: string; todayOnly?: boolean }) => {
-  const res = await instance.get<CheckinSearchItem[]>('/dashboard/checkin/search', { params });
+
+// ============ Staff Check-in APIs ============
+export const searchReservationsForCheckIn = async (
+  query: string,
+  opts?: { checkInDate?: string; todayOnly?: boolean; room?: string }
+): Promise<CheckinSearchResponse> => {
+  const params: any = { };
+  if (query != null) params.query = query;
+  if (opts?.checkInDate) params.checkInDate = opts.checkInDate;
+  if (opts?.todayOnly != null) params.todayOnly = String(opts.todayOnly);
+  if (opts?.room) params.room = opts.room;
+  const res = await instance.get('/dashboard/checkin/search', { params });
+
   return res.data;
 };
 

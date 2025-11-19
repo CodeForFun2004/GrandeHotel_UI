@@ -40,6 +40,7 @@ import HotelInfoForm from "../pages/admin/HotelInfoForm";
 // Manager rooms uses the same page as staff's Rooms
 import RoomTypeTable from "../pages/admin/rooms/RoomTypeTable";
 import BookingManagement from "../pages/admin/BookingManagement";
+import ManagerCreateRoom from "../pages/admin/rooms/ManagerCreateRoom";
 
 import BookingDetail from "../pages/admin/BookingDetail";
 
@@ -247,6 +248,7 @@ export const router = createBrowserRouter([
         { path: "dashboard", element: <ManagerDashboard /> },
         { path: "hotel-info", element: <HotelInfoForm /> },
       { path: "rooms", element: <StaffRooms /> },
+      { path: "rooms/create", element: <ManagerCreateRoom /> },
       { path: "rooms/:roomId", element: <StaffRoomDetail /> },
       { path: "room-types", element: <RoomTypeTable /> },
       { path: "bookings", element: <BookingManagement /> },

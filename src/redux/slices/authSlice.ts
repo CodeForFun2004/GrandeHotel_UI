@@ -12,6 +12,8 @@ export type User = {
   username: string;
   email: string;
   role?: string;
+  hotelId?: string | null;
+  hotel?: any;
   [k: string]: unknown;
 };
 
@@ -41,6 +43,24 @@ function safeJSONParse<T>(value: string | null): T | null {
   } catch {
     return null;
   }
+}
+
+// Normalize user object to include `hotelId` if backend returns nested `hotel` or `hotelId`.
+function normalizeUser(user: any): any {
+  if (!user) return user;
+  const copy = { ...user };
+  try {
+    if (!copy.hotelId) {
+      if (copy.hotel && (copy.hotel._id || copy.hotel.id)) {
+        copy.hotelId = String(copy.hotel._id || copy.hotel.id);
+      } else if (copy.hotelId) {
+        copy.hotelId = String(copy.hotelId);
+      }
+    }
+  } catch (e) {
+    // ignore normalization errors
+  }
+  return copy;
 }
 
 // ---- Bootstrap từ localStorage (giữ nguyên flow cũ)
@@ -87,12 +107,12 @@ const authSlice = createSlice({
     // Nhận { user, accessToken, refreshToken } từ /auth/callback
     authLoginSuccess: (state, action: PayloadAction<LoginResponse>) => {
       const { user, accessToken, refreshToken } = action.payload;
-      state.user = user ?? null;
+      state.user = user ? normalizeUser(user) : null;
       state.accessToken = accessToken ?? null;
       state.refreshToken = refreshToken ?? null;
       state.error = null;
 
-      if (user) localStorage.setItem('user', JSON.stringify(user));
+      if (user) localStorage.setItem('user', JSON.stringify(normalizeUser(user)));
       if (accessToken) localStorage.setItem('accessToken', accessToken);
       if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
     },
@@ -120,8 +140,8 @@ const authSlice = createSlice({
     ) => {
       const { user, accessToken, refreshToken } = action.payload || {};
       if (user) {
-        state.user = user;
-        localStorage.setItem('user', JSON.stringify(user));
+        state.user = normalizeUser(user);
+        localStorage.setItem('user', JSON.stringify(normalizeUser(user)));
       }
       if (accessToken) {
         state.accessToken = accessToken;
@@ -148,13 +168,13 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action: PayloadAction<LoginResponse>) => {
         state.loading = false;
-        state.user = action.payload.user;
+        state.user = normalizeUser(action.payload.user);
         state.accessToken = action.payload.accessToken;
         state.refreshToken = action.payload.refreshToken;
 
         localStorage.setItem('accessToken', action.payload.accessToken);
         localStorage.setItem('refreshToken', action.payload.refreshToken);
-        localStorage.setItem('user', JSON.stringify(action.payload.user));
+        localStorage.setItem('user', JSON.stringify(normalizeUser(action.payload.user)));
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
