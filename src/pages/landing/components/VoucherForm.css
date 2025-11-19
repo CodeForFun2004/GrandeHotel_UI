@@ -1,0 +1,375 @@
+.voucher-section {
+  padding: 60px 0;
+  background: #f8f9fa;
+}
+
+.voucher-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+  padding: 0 15px;
+}
+
+.voucher-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.voucher-icon {
+  color: #ff6b35;
+  font-size: 32px;
+}
+
+.voucher-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ff6b35;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.voucher-filter-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.voucher-filter-select {
+  min-width: 200px;
+  padding: 10px 16px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  background-color: #fff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.voucher-filter-select:focus {
+  border-color: #ff6b35;
+  box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25);
+  outline: none;
+}
+
+.voucher-filter-select:hover {
+  border-color: #ff6b35;
+}
+
+.voucher-hotel-select {
+  min-width: 220px;
+}
+
+.voucher-carousel-wrapper {
+  position: relative;
+  padding: 20px 0 50px;
+}
+
+.voucher-carousel {
+  position: relative;
+}
+
+.voucher-carousel .carousel-item {
+  padding: 0 15px;
+}
+
+.voucher-carousel .carousel-control-prev,
+.voucher-carousel .carousel-control-next {
+  width: 50px;
+  height: 50px;
+  background-color: rgba(255, 107, 53, 0.9);
+  border-radius: 50%;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 1;
+  transition: all 0.3s ease;
+}
+
+.voucher-carousel .carousel-control-prev {
+  left: -50px;
+}
+
+.voucher-carousel .carousel-control-next {
+  right: -50px;
+}
+
+.voucher-carousel .carousel-control-prev:hover,
+.voucher-carousel .carousel-control-next:hover {
+  background-color: rgba(255, 107, 53, 1);
+  opacity: 1;
+}
+
+.voucher-carousel .carousel-control-prev-icon,
+.voucher-carousel .carousel-control-next-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.voucher-carousel .carousel-indicators {
+  bottom: -40px;
+  margin-bottom: 0;
+}
+
+.voucher-carousel .carousel-indicators button {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #ccc;
+  border: none;
+  margin: 0 4px;
+  opacity: 0.5;
+  transition: all 0.3s ease;
+}
+
+.voucher-carousel .carousel-indicators button.active {
+  background-color: #ff6b35;
+  opacity: 1;
+}
+
+.voucher-cards-row {
+  margin: 0 -10px;
+}
+
+.voucher-card {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.voucher-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.voucher-card-content {
+  flex: 1;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  color: #fff;
+  position: relative;
+  height: 100%;
+}
+
+.voucher-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  min-height: 60px;
+  margin-bottom: 0;
+}
+
+.voucher-brand {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  line-height: 1.4;
+  min-height: 56px;
+  display: flex;
+  align-items: flex-start;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.voucher-gift-icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 64px;
+  margin: 20px 0;
+  opacity: 0.9;
+  flex-shrink: 0;
+}
+
+.voucher-card-body {
+  margin-top: auto;
+  padding-top: 0;
+  flex-shrink: 0;
+}
+
+.voucher-type-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.voucher-type {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.9;
+  color: rgba(255, 255, 255, 0.95);
+  flex: 1;
+}
+
+.voucher-copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: rgba(255, 255, 255, 0.95);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.voucher-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.voucher-copy-btn:active {
+  transform: translateY(0);
+}
+
+.voucher-copy-btn svg {
+  font-size: 14px !important;
+}
+
+.voucher-copy-text {
+  font-size: 11px;
+}
+
+.voucher-value {
+  font-size: 36px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  line-height: 1.1;
+}
+
+.voucher-info {
+  padding: 16px 12px;
+  background: #fff;
+  border-radius: 0 0 12px 12px;
+}
+
+.voucher-description {
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 10px;
+  line-height: 1.4;
+  font-weight: 500;
+  min-height: 40px;
+}
+
+.voucher-discount-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.voucher-discount-text {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ff6b35;
+}
+
+.voucher-min-booking {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 991.98px) {
+  .voucher-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .voucher-filter-wrapper {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .voucher-filter-select,
+  .voucher-hotel-select {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .voucher-title {
+    font-size: 24px;
+  }
+
+  .voucher-carousel .carousel-control-prev {
+    left: -30px;
+  }
+
+  .voucher-carousel .carousel-control-next {
+    right: -30px;
+  }
+
+  .voucher-card {
+    min-height: 240px;
+  }
+
+  .voucher-value {
+    font-size: 28px;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .voucher-section {
+    padding: 40px 0;
+  }
+
+  .voucher-title {
+    font-size: 20px;
+  }
+
+  .voucher-filter-select {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+
+  .voucher-carousel-wrapper {
+    padding: 20px 0 40px;
+  }
+
+  .voucher-carousel .carousel-control-prev,
+  .voucher-carousel .carousel-control-next {
+    display: none;
+  }
+
+  .voucher-carousel .carousel-indicators {
+    bottom: -30px;
+  }
+
+  .voucher-card {
+    min-height: 220px;
+  }
+
+  .voucher-value {
+    font-size: 24px;
+  }
+
+  .voucher-description {
+    font-size: 13px;
+  }
+}
+

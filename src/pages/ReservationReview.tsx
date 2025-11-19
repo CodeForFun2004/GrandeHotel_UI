@@ -51,7 +51,10 @@ const ReservationReview: React.FC = () => {
     fetchHotel();
   }, [draft?.hotelId]);
 
-  const total = useMemo(() => draft?.total ?? 0, [draft]);
+  const originalTotal = useMemo(() => draft?.originalTotal ?? draft?.total ?? 0, [draft]);
+  const voucherDiscount = useMemo(() => draft?.voucherDiscount ?? 0, [draft]);
+  const finalTotal = useMemo(() => draft?.total ?? originalTotal, [draft, originalTotal]);
+  const voucherCode = useMemo(() => draft?.voucherCode || null, [draft]);
 
   const formatDateOnly = (s?: string) => {
     if (!s) return '—';
@@ -141,6 +144,21 @@ const ReservationReview: React.FC = () => {
         return;
       }
 
+      // Get voucher code from draft (already validated in Room.tsx) or localStorage
+      const selectedVoucherCode = draft?.voucherCode || localStorage.getItem('selectedVoucherCode');
+      
+      if (selectedVoucherCode) {
+        console.log('🎫 Voucher code found:', selectedVoucherCode);
+        console.warn('⚠️ NOTE: Voucher will be applied by backend. If backend has error with applyVoucherIfValid, please fix backend first.');
+      }
+      
+      // Calculate original total from selected rooms
+      const nights = draft.nights || 1;
+      const calculatedOriginalTotal = (draft.selected || []).reduce(
+        (acc: number, s: any) => acc + (s.unitPrice || 0) * (s.quantity || 1) * nights, 
+        0
+      );
+      
       const payload = {
         hotelId: draft.hotelId,
         customerId: customerId,
@@ -152,9 +170,30 @@ const ReservationReview: React.FC = () => {
           quantity: s.quantity, 
           adults: s.adults, 
           children: s.children, 
-          infants: s.infants 
+          infants: s.infants,
+          services: s.services || [] // Include services if any
         })),
+        // Add voucher code if available
+        // NOTE: Backend needs applyVoucherIfValid function to be imported properly
+        ...(selectedVoucherCode ? { voucherCode: selectedVoucherCode } : {}),
+        // Default to deposit payment (50%), user can choose full payment later
+        isFullPayment: false
       };
+      
+      console.log('📊 Price breakdown:', {
+        calculatedOriginalTotal,
+        draftOriginalTotal: draft?.originalTotal,
+        draftVoucherDiscount: draft?.voucherDiscount,
+        draftFinalTotal: draft?.total,
+        voucherCode: selectedVoucherCode
+      });
+      
+      console.log('📋 Reservation payload:', {
+        ...payload,
+        voucherCode: payload.voucherCode || 'none',
+        isFullPayment: payload.isFullPayment,
+        roomsCount: payload.rooms.length
+      });
 
       // Kiểm tra xem customerId có match với token id không
       if (accessToken) {
@@ -179,12 +218,43 @@ const ReservationReview: React.FC = () => {
         } catch {}
       }
       
-      // Log payload và so sánh với token
-      console.log('📤 Creating reservation with payload:', { ...payload, rooms: payload.rooms.length });
+      // Log full payload for debugging
+      console.log('📤 Creating reservation with full payload:', {
+        hotelId: payload.hotelId,
+        customerId: payload.customerId,
+        checkInDate: payload.checkInDate,
+        checkOutDate: payload.checkOutDate,
+        numberOfGuests: payload.numberOfGuests,
+        voucherCode: payload.voucherCode || 'none',
+        isFullPayment: payload.isFullPayment,
+        roomsCount: payload.rooms.length,
+        rooms: payload.rooms.map(r => ({
+          roomTypeId: r.roomTypeId,
+          quantity: r.quantity,
+          adults: r.adults,
+          children: r.children,
+          infants: r.infants
+        }))
+      });
       
       const res = await reservationApi.createReservation(payload);
       
       console.log('✅ Reservation created:', res?.reservation?._id || res?.reservation?.id);
+      
+      // Log voucher info if applied
+      if (res?.voucher) {
+        console.log('🎫 Voucher applied:', {
+          code: res.voucher.code,
+          discountAmount: res.voucher.discountAmount,
+          finalTotalPrice: res.voucher.finalTotalPrice
+        });
+      }
+      
+      // Clear voucher code from localStorage after successful reservation creation
+      if (selectedVoucherCode) {
+        localStorage.removeItem('selectedVoucherCode');
+        console.log('🗑️ Cleared voucher code from localStorage');
+      }
       
       // Keep draft in sessionStorage for pending page
       sessionStorage.setItem('reservationDraft', JSON.stringify(draft));
@@ -226,6 +296,34 @@ const ReservationReview: React.FC = () => {
         
         // Nếu không phải lỗi role, hiển thị error message thông thường
         setError(errorMessage || 'Xác thực thất bại. Vui lòng đăng nhập lại.');
+      } else if (e?.response?.status === 500) {
+        // Internal server error - log more details
+        const errorData = e?.response?.data;
+        console.error('❌ 500 Internal Server Error:', {
+          message: errorMessage,
+          error: errorData,
+          errorString: errorData ? JSON.stringify(errorData, null, 2) : 'No error data',
+          payload: {
+            hotelId: payload.hotelId,
+            voucherCode: payload.voucherCode,
+            roomsCount: payload.rooms.length,
+            checkInDate: payload.checkInDate,
+            checkOutDate: payload.checkOutDate
+          },
+          stack: e?.stack
+        });
+        
+        // Try to extract more specific error message
+        let specificError = errorMessage;
+        if (errorData?.error) {
+          specificError = errorData.error;
+        } else if (errorData?.message) {
+          specificError = errorData.message;
+        } else if (typeof errorData === 'string') {
+          specificError = errorData;
+        }
+        
+        setError(specificError || 'Lỗi máy chủ. Vui lòng thử lại sau hoặc liên hệ hỗ trợ.');
       } else {
         setError(errorMessage);
       }
@@ -293,8 +391,40 @@ const ReservationReview: React.FC = () => {
         </div>
 
         <hr />
-        <div className="review-total">Tổng cộng: {total.toLocaleString()} VNĐ</div>
-        {error && <div className="text-danger review-error">{error}</div>}
+        
+        {/* Original total */}
+        <div className="review-row" style={{ marginBottom: '8px' }}>
+          <span className="label">Tổng tiền phòng:</span>
+          <span className="value">{originalTotal.toLocaleString()} VNĐ</span>
+        </div>
+
+        {/* Voucher discount if applied */}
+        {voucherCode && voucherDiscount > 0 && (
+          <>
+            <div className="review-row" style={{ marginBottom: '8px', color: '#16a34a' }}>
+              <span className="label">Mã giảm giá ({voucherCode}):</span>
+              <span className="value" style={{ color: '#16a34a', fontWeight: 600 }}>
+                -{voucherDiscount.toLocaleString()} VNĐ
+              </span>
+            </div>
+            <div className="review-row" style={{ marginBottom: '8px', fontSize: '14px', color: '#666' }}>
+              <span className="label" style={{ fontStyle: 'italic' }}>
+                Đã áp dụng voucher {voucherCode}
+              </span>
+            </div>
+          </>
+        )}
+
+        {/* Final total */}
+        <div className="review-total" style={{ 
+          marginTop: voucherDiscount > 0 ? '12px' : '0',
+          paddingTop: voucherDiscount > 0 ? '12px' : '0',
+          borderTop: voucherDiscount > 0 ? '1px solid #e5e7eb' : 'none'
+        }}>
+          Tổng cộng: {finalTotal.toLocaleString()} VNĐ
+        </div>
+
+        {error && <div className="text-danger review-error" style={{ marginTop: '12px' }}>{error}</div>}
         <div className="review-actions">
           <button className="small-btn grey" onClick={onBack}>Quay lại</button>
           <button className="small-btn" disabled={loading} onClick={onConfirm}>{loading ? 'Đang xác nhận...' : 'Xác nhận & Thanh toán'}</button>

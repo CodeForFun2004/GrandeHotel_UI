@@ -16,7 +16,6 @@ import {
 } from "@mui/material";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import LogoutIcon from "@mui/icons-material/Logout";
-import PersonIcon from "@mui/icons-material/Person";
 import GroupIcon from "@mui/icons-material/Group";
 import HotelIcon from "@mui/icons-material/Hotel";
 import AssignmentIcon from "@mui/icons-material/Assignment";
@@ -37,10 +36,11 @@ const collapsedDrawerWidth = 80;
 
 const adminNavigationItems = [
   { title: "Dashboard", icon: <BarChartIcon />, path: ADMIN_PATHS.DASHBOARD },
-  { title: "Quản lý người dùng", icon: <GroupIcon />, path: ADMIN_PATHS.USER_MANAGEMENT },
-  { title: "Danh sách Khách sạn", icon: <HotelIcon />, path: ADMIN_PATHS.HOTEL_LIST },
-  { title: "Quản lý liên hệ", icon: <Feedback/>, path: ADMIN_PATHS.CONTACT_MANAGEMENT},
-  { title: "Đăng xuất", icon: <LogoutIcon />, path: "/logout" },
+  { title: "User Management", icon: <GroupIcon />, path: ADMIN_PATHS.USER_MANAGEMENT },
+  { title: "Hotel List", icon: <HotelIcon />, path: ADMIN_PATHS.HOTEL_LIST },
+  {title: "Voucher Management", icon: <AssignmentIcon />, path: ADMIN_PATHS.VOUCHER_MANAGEMENT},
+  { title: "Contact Management", icon: <Feedback/>, path: ADMIN_PATHS.CONTACT_MANAGEMENT},
+  { title: "Logout", icon: <LogoutIcon />, path: "/logout" },
 ];
 
 const theme = createTheme({

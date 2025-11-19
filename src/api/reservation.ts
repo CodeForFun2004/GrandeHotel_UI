@@ -7,8 +7,9 @@ export type CreateReservationPayload = {
   checkInDate: string;
   checkOutDate: string;
   numberOfGuests: number;
-  rooms: Array<{ roomTypeId: string; quantity: number; adults?: number; children?: number; infants?: number }>;
+  rooms: Array<{ roomTypeId: string; quantity: number; adults?: number; children?: number; infants?: number; services?: Array<{ serviceId: string; quantity: number }> }>;
   voucherCode?: string;
+  isFullPayment?: boolean; // true nếu khách chọn thanh toán 100%, false nếu thanh toán cọc (50%)
 };
 
 export const createReservation = async (payload: CreateReservationPayload) => {
@@ -18,6 +19,11 @@ export const createReservation = async (payload: CreateReservationPayload) => {
 
 export const getAllReservations = async () => {
   const res = await instance.get('/reservations');
+  return res.data;
+};
+
+export const getReservationsByUser = async (userId: string) => {
+  const res = await instance.get(`/reservations/user/${userId}`);
   return res.data;
 };
 
@@ -33,6 +39,25 @@ export const updateReservationStatus = async (id: string, status: string) => {
 
 export const deleteReservation = async (id: string) => {
   const res = await instance.delete(`/reservations/${id}`);
+  return res.data;
+};
+
+// Get all reservations for the current authenticated user
+export const getUserReservations = async (filters?: {
+  stayStatus?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  hotelName?: string;
+}) => {
+  const params = new URLSearchParams();
+  if (filters?.stayStatus) params.append('stayStatus', filters.stayStatus);
+  if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+  if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+  if (filters?.hotelName) params.append('hotelName', filters.hotelName);
+  
+  const queryString = params.toString();
+  const url = `/reservations/me${queryString ? `?${queryString}` : ''}`;
+  const res = await instance.get(url);
   return res.data;
 };
 
@@ -61,6 +86,7 @@ export default {
   getReservationById,
   updateReservationStatus,
   deleteReservation,
+  getUserReservations,
   selectPaymentOption,
   handlePayment,
   approveReservation,

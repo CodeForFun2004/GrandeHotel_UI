@@ -43,7 +43,7 @@ import {
   MoreVert,
   Business,
   People,
-  Hotel,
+  Hotel as HotelIcon,
   Security,
   History,
   Notifications,
@@ -52,31 +52,23 @@ import {
   Star,
   AccessTime,
   ErrorOutline,
-  Refresh
+  Refresh,
+  Edit,
+  Save
 } from "@mui/icons-material";
-import { getAllUsers, suspendUser, unsuspendUser, filterUsersByRole, type User as APIUser } from '../../api/user';
-
-// Enhanced user type
-type User = {
-  id: number;
-  name: string;
-  email: string;
-  role: 'customer' | 'staff' | 'hotel-manager' | 'admin';
-  status: 'active' | 'banned' | 'pending';
-  banned: boolean;
-  hotelId?: number;
-  hotelName?: string;
-  joinDate: string;
-  lastLogin?: string;
-  bookingsCount?: number;
-  loyaltyPoints?: number;
-};
+import { getAllUsers, suspendUser, unsuspendUser, updateUser, type User as APIUser } from '../../api/user';
+import { getAllHotels } from '../../api/hotel';
+import { getAllReservations, getReservationsByUser } from '../../api/reservation';
+import type { Hotel, Reservation } from '../../types/entities.d';
 
 
 
 const AdminUserManagement: React.FC = () => {
   // API data state
   const [allUsers, setAllUsers] = useState<APIUser[]>([]);
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [allReservations, setAllReservations] = useState<Reservation[]>([]);
+  const [userReservations, setUserReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -89,12 +81,16 @@ const AdminUserManagement: React.FC = () => {
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [bulkMode, setBulkMode] = useState(false);
   const [showStats, setShowStats] = useState(true);
+  const [userReservationsLoading, setUserReservationsLoading] = useState(false);
 
   // Menu state cho user actions
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [detailUser, setDetailUser] = useState<APIUser | null>(null);
+  const [detailTabValue, setDetailTabValue] = useState(0);
+  const [roleEditMode, setRoleEditMode] = useState(false);
+  const [newRole, setNewRole] = useState<string>('');
 
   // Snackbar state for notifications
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -141,8 +137,64 @@ const AdminUserManagement: React.FC = () => {
 
   const handleViewDetails = (user: APIUser) => {
     setDetailUser(user);
+    setDetailTabValue(0);
+    setRoleEditMode(false);
     setDetailModalOpen(true);
     handleMenuClose();
+  };
+
+  const handleTabChange = async (_event: React.SyntheticEvent, newValue: number) => {
+    setDetailTabValue(newValue);
+    setRoleEditMode(false);
+
+    // Fetch user reservations when entering activity tab for customers
+    if (newValue === 1 && detailUser && detailUser.role === 'customer') {
+      setUserReservationsLoading(true);
+      try {
+        const userId = (detailUser._id || detailUser.id)?.toString();
+        if (userId) {
+          const response = await getReservationsByUser(userId);
+          setUserReservations(Array.isArray(response.reservations) ? response.reservations : []);
+        }
+      } catch (error) {
+        console.error('Error fetching user reservations:', error);
+        setUserReservations([]);
+      } finally {
+        setUserReservationsLoading(false);
+      }
+    }
+  };
+
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    try {
+      setActionLoading(true);
+      await updateUser(userId, { role: newRole });
+
+      // Update local state
+      setAllUsers(prev => prev.map(user =>
+        (user._id === userId || user.id === userId) ? { ...user, role: newRole as any } : user
+      ));
+
+      // Update detailUser if it's currently open
+      if (detailUser && (detailUser._id === userId || detailUser.id === userId)) {
+        setDetailUser(prev => prev ? { ...prev, role: newRole as any } : null);
+      }
+
+      setSnackbarMessage('Đã cập nhật vai trò thành công');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+
+      // Reset edit mode
+      setRoleEditMode(false);
+      setNewRole('');
+    } catch (error) {
+      console.error('Error updating role:', error);
+      setSnackbarMessage('Có lỗi xảy ra khi cập nhật vai trò');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleSelectUser = (userId: string) => {
@@ -157,7 +209,7 @@ const AdminUserManagement: React.FC = () => {
     if (selectedUsers.length === filteredUsers.length) {
       setSelectedUsers([]);
     } else {
-      setSelectedUsers(filteredUsers.map(user => (user._id || user.id).toString()));
+      setSelectedUsers(filteredUsers.filter(user => user._id || user.id).map(user => (user._id || user.id).toString()));
     }
   };
 
@@ -227,16 +279,41 @@ const AdminUserManagement: React.FC = () => {
     }
   };
 
+  // Fetch hotels function
+  const fetchHotels = async () => {
+    try {
+      const hotelData = await getAllHotels({ limit: 100 });
+      const hotelsArray = (hotelData && hotelData.results) ? hotelData.results : [];
+      setHotels(Array.isArray(hotelsArray) ? hotelsArray : []);
+    } catch (error) {
+      console.error('Error fetching hotels:', error);
+      setHotels([]);
+    }
+  };
+
+  // Fetch reservations function
+  const fetchReservations = async () => {
+    try {
+      const reservationsData = await getAllReservations();
+      setAllReservations(Array.isArray(reservationsData) ? reservationsData : []);
+    } catch (error) {
+      console.error('Error fetching reservations:', error);
+      setAllReservations([]);
+    }
+  };
+
   // Initial data fetch
   useEffect(() => {
     fetchUsers();
+    fetchHotels();
   }, []);
 
   // Stats calculation
   const stats = useMemo(() => {
     const total = allUsers.length;
     const customers = allUsers.filter(u => u.role === 'customer').length;
-    const staffShippers = allUsers.filter(u => u.role === 'staff' || u.role === 'shipper').length;
+    const staff = allUsers.filter(u => u.role === 'staff' || u.role === 'shipper').length;
+    const managers = allUsers.filter(u => u.role === 'hotel-manager').length;
     const admins = allUsers.filter(u => u.role === 'admin').length;
     const active = allUsers.filter(u => !u.isBanned).length;
     const banned = allUsers.filter(u => u.isBanned).length;
@@ -244,38 +321,60 @@ const AdminUserManagement: React.FC = () => {
     return {
       total,
       customers,
-      employees: staffShippers, // map staff/shipper to employee for UI
-      managers: 0, // backend doesn't have manager role
+      employees: staff,
+      managers,
       admins,
       active,
       banned
     };
   }, [allUsers]);
 
-  const filteredUsers = allUsers.filter(user => {
-    const roleMatch = roleFilter === "all" ||
-      (roleFilter === "staff" && (user.role === 'staff' || user.role === 'shipper')) ||
-      (roleFilter === "customer" && user.role === 'customer') ||
-      (roleFilter === "admin" && user.role === 'admin') ||
-      (roleFilter === "hotel-manager" && user.role === 'hotel-manager'); // no manager in current backend
+  // Helper function to get hotel name by ID
+  const getHotelName = (hotelId?: string) => {
+    if (!hotelId) return 'Chưa chỉ định';
+    const hotel = hotels.find(h => h._id?.toString() === hotelId || h.id?.toString() === hotelId);
+    return hotel?.name || `Hotel ${hotelId}`;
+  };
 
+  const filteredUsers = allUsers.filter(user => {
+    // Must have an ID to display
+    if (!user._id && !user.id) return false;
+
+    // Role filter - match actual API roles
+    const roleMatch = roleFilter === "all" ||
+      (roleFilter === "customer" && user.role === 'customer') ||
+      (roleFilter === "staff" && (user.role === 'staff' || user.role === 'shipper')) ||
+      (roleFilter === "admin" && user.role === 'admin') ||
+      (roleFilter === "hotel-manager" && user.role === 'hotel-manager');
+
+    // Status filter
     const statusMatch = statusFilter === "all" ||
       (statusFilter === "active" && !user.isBanned) ||
       (statusFilter === "banned" && user.isBanned);
 
+    // Hotel filter - only apply for staff and hotel-manager roles
+    // For other roles, hotel filter always matches (no restriction)
+    const isStaffOrManager = user.role === 'staff' || user.role === 'shipper' || user.role === 'hotel-manager';
+    const hotelMatch = !isStaffOrManager ||
+      hotelFilter === "all" ||
+      (hotelFilter === "none" && !user.hotelId) ||
+      (hotelFilter !== "none" && hotelFilter !== "all" && user.hotelId?.toString() === hotelFilter);
+
+    // Search filter
     const searchMatch = search === "" ||
       user.fullname?.toLowerCase().includes(search.toLowerCase()) ||
       user.email?.toLowerCase().includes(search.toLowerCase()) ||
       user.username?.toLowerCase().includes(search.toLowerCase());
 
-    return roleMatch && statusMatch && searchMatch;
+    return roleMatch && statusMatch && hotelMatch && searchMatch;
   });
 
   const getRoleIcon = (role: string) => {
     switch(role) {
       case 'customer': return <Person />;
-      case 'employee': return <Assignment />;
-      case 'manager': return <Business />;
+      case 'staff':
+      case 'shipper': return <Assignment />;
+      case 'hotel-manager': return <Business />;
       case 'admin': return <Security />;
       default: return <Person />;
     }
@@ -284,19 +383,22 @@ const AdminUserManagement: React.FC = () => {
   const getRoleColor = (role: string) => {
     switch(role) {
       case 'customer': return 'primary.main';
-      case 'employee': return 'info.main';
-      case 'manager': return 'warning.main';
+      case 'staff':
+      case 'shipper': return 'info.main';
+      case 'hotel-manager': return 'warning.main';
       case 'admin': return 'error.main';
       default: return 'grey.500';
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch(status) {
-      case 'active': return { color: 'success', label: 'Hoạt động' };
-      case 'banned': return { color: 'error', label: 'Bị khóa' };
-      case 'pending': return { color: 'warning', label: 'Chờ duyệt' };
-      default: return { color: 'default', label: 'Unknown' };
+  const getRoleLabel = (role: string) => {
+    switch(role) {
+      case 'customer': return 'Khách hàng';
+      case 'staff': return 'Nhân viên';
+      case 'shipper': return 'Nhân viên';
+      case 'hotel-manager': return 'Quản lý khách sạn';
+      case 'admin': return 'Admin';
+      default: return role;
     }
   };
 
@@ -383,8 +485,8 @@ const AdminUserManagement: React.FC = () => {
           >
             <MenuItem value="all">Tất cả</MenuItem>
             <MenuItem value="customer">Khách hàng</MenuItem>
-            <MenuItem value="employee">Nhân viên</MenuItem>
-            <MenuItem value="manager">Quản lý</MenuItem>
+            <MenuItem value="staff">Nhân viên</MenuItem>
+            <MenuItem value="hotel-manager">Quản lý khách sạn</MenuItem>
             <MenuItem value="admin">Admin</MenuItem>
           </Select>
         </FormControl>
@@ -401,22 +503,25 @@ const AdminUserManagement: React.FC = () => {
             <MenuItem value="pending">Chờ duyệt</MenuItem>
           </Select>
         </FormControl>
-        <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel>Khách sạn</InputLabel>
-          <Select
-            value={hotelFilter}
-            label="Khách sạn"
-            onChange={(e) => setHotelFilter(e.target.value)}
-          >
-            <MenuItem value="all">Tất cả</MenuItem>
-            <MenuItem value="1">Grande Saigon</MenuItem>
-            <MenuItem value="2">Grande Hanoi</MenuItem>
-            <MenuItem value="3">Grande Da Nang</MenuItem>
-            <MenuItem value="4">Grande Nha Trang</MenuItem>
-            <MenuItem value="5">Grande Airport</MenuItem>
-            <MenuItem value="none">Chưa chỉ định</MenuItem>
-          </Select>
-        </FormControl>
+        {/* Hotel filter - only show for staff and hotel-manager roles */}
+        {roleFilter !== 'customer' && roleFilter !== 'admin' && (
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel>Khách sạn</InputLabel>
+            <Select
+              value={hotelFilter}
+              label="Khách sạn"
+              onChange={(e) => setHotelFilter(e.target.value)}
+            >
+              <MenuItem value="all">Tất cả</MenuItem>
+              {hotels.filter(h => (h._id || h.id)).map((hotel) => (
+                <MenuItem key={hotel._id || hotel.id} value={(hotel._id || hotel.id)?.toString() || ''}>
+                  {hotel.name}
+                </MenuItem>
+              ))}
+              <MenuItem value="none">Chưa chỉ định</MenuItem>
+            </Select>
+          </FormControl>
+        )}
         <Box display="flex" gap={1} alignItems="center">
           <FormControlLabel
             control={
@@ -511,12 +616,12 @@ const AdminUserManagement: React.FC = () => {
                     <TableCell>
                       <Box display="flex" alignItems="center" gap={1}>
                         <Avatar sx={{
-                          bgcolor: getRoleColor(user.role === 'staff' || user.role === 'shipper' ? 'employee' : user.role),
+                          bgcolor: getRoleColor(user.role),
                           width: 40,
                           height: 40,
                           opacity: user.isBanned ? 0.5 : 1
                         }}>
-                          {getRoleIcon(user.role === 'staff' || user.role === 'shipper' ? 'employee' : user.role)}
+                          {getRoleIcon(user.role)}
                         </Avatar>
                         <Box>
                           <Typography fontWeight={600}>{user.fullname || user.username}</Typography>
@@ -532,16 +637,11 @@ const AdminUserManagement: React.FC = () => {
                     <TableCell>
                       <Chip
                         size="small"
-                        label={
-                          user.role === 'customer' ? 'Khách hàng' :
-                          user.role === 'staff' ? 'Nhân viên' :
-                          user.role === 'shipper' ? 'Nhân viên' :
-                          user.role === 'admin' ? 'Admin' : user.role
-                        }
+                        label={getRoleLabel(user.role)}
                         variant="outlined"
                         sx={{
-                          color: getRoleColor(user.role === 'staff' || user.role === 'shipper' ? 'employee' : user.role),
-                          borderColor: getRoleColor(user.role === 'staff' || user.role === 'shipper' ? 'employee' : user.role),
+                          color: getRoleColor(user.role),
+                          borderColor: getRoleColor(user.role),
                           fontWeight: 600,
                           textTransform: 'capitalize'
                         }}
@@ -549,9 +649,9 @@ const AdminUserManagement: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Box display="flex" alignItems="center" gap={1}>
-                        <Hotel sx={{ fontSize: 16, color: 'text.secondary' }} />
+                        <HotelIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                         <Typography variant="body2">
-                          {user.address || 'Chưa chỉ định'}
+                          {getHotelName(user.hotelId)}
                         </Typography>
                       </Box>
                     </TableCell>
@@ -650,8 +750,8 @@ const AdminUserManagement: React.FC = () => {
           <>
             <DialogTitle>
               <Box display="flex" alignItems="center" gap={2}>
-                <Avatar sx={{ bgcolor: getRoleColor(detailUser.role === 'staff' || detailUser.role === 'shipper' ? 'employee' : detailUser.role), width: 60, height: 60 }}>
-                  {getRoleIcon(detailUser.role === 'staff' || detailUser.role === 'shipper' ? 'employee' : detailUser.role)}
+                <Avatar sx={{ bgcolor: getRoleColor(detailUser.role), width: 60, height: 60 }}>
+                  {getRoleIcon(detailUser.role)}
                 </Avatar>
                 <Box>
                   <Typography variant="h5" fontWeight="bold">{detailUser.fullname || detailUser.username}</Typography>
@@ -660,79 +760,356 @@ const AdminUserManagement: React.FC = () => {
               </Box>
             </DialogTitle>
             <DialogContent>
-              <Tabs value={0} sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+              <Tabs value={detailTabValue} onChange={handleTabChange} sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
                 <Tab label="Thông tin cơ bản" />
                 <Tab label="Hoạt động" />
                 <Tab label="Quyền & Vai trò" />
               </Tabs>
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-                <Box>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                    Thông tin cá nhân
-                  </Typography>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">Role</Typography>
-                    <Chip
-                      label={
-                        detailUser.role === 'customer' ? 'Khách hàng' :
-                        detailUser.role === 'staff' ? 'Nhân viên' :
-                        detailUser.role === 'shipper' ? 'Nhân viên' :
-                        detailUser.role === 'admin' ? 'Admin' : detailUser.role
-                      }
-                      color={getRoleColor(detailUser.role === 'staff' || detailUser.role === 'shipper' ? 'employee' : detailUser.role) as any}
-                      size="small"
-                      sx={{ mt: 0.5 }}
-                    />
+              {/* Tab Panels */}
+              {detailTabValue === 0 && (
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                      Thông tin cá nhân
+                    </Typography>
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">Role</Typography>
+                      <Chip
+                        label={getRoleLabel(detailUser.role)}
+                        color={getRoleColor(detailUser.role) as any}
+                        size="small"
+                        sx={{ mt: 0.5 }}
+                      />
+                    </Box>
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">Trạng thái</Typography>
+                      <Chip
+                        label={detailUser.isBanned ? 'Bị khóa' : 'Hoạt động'}
+                        color={detailUser.isBanned ? 'error' : 'success'}
+                        size="small"
+                        sx={{ mt: 0.5 }}
+                      />
+                    </Box>
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">Địa chỉ</Typography>
+                      <Typography variant="body1">{detailUser.address || 'Chưa cập nhật'}</Typography>
+                    </Box>
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">Phone</Typography>
+                      <Typography variant="body1">{detailUser.phone || 'Chưa cập nhật'}</Typography>
+                    </Box>
                   </Box>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">Trạng thái</Typography>
-                    <Chip
-                      label={detailUser.isBanned ? 'Bị khóa' : 'Hoạt động'}
-                      color={detailUser.isBanned ? 'error' : 'success'}
-                      size="small"
-                      sx={{ mt: 0.5 }}
-                    />
-                  </Box>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">Địa chỉ</Typography>
-                    <Typography variant="body1">{detailUser.address || 'Chưa cập nhật'}</Typography>
-                  </Box>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">Phone</Typography>
-                    <Typography variant="body1">{detailUser.phone || 'Chưa cập nhật'}</Typography>
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                      Thống kê
+                    </Typography>
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">Ngày tham gia</Typography>
+                      <Typography variant="body1">
+                        {detailUser.createdAt ? new Date(detailUser.createdAt).toLocaleDateString('vi-VN') : 'Chưa xác định'}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">Cập nhật cuối</Typography>
+                      <Typography variant="body1">
+                        {detailUser.updatedAt ? new Date(detailUser.updatedAt).toLocaleDateString('vi-VN') : 'Chưa xác định'}
+                      </Typography>
+                    </Box>
+                    {detailUser.role === 'customer' && (
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary">Khách hàng thân thiết</Typography>
+                        <Typography variant="body1">✓</Typography>
+                      </Box>
+                    )}
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">Trạng thái tài khoản</Typography>
+                      <Typography variant="body1" color={detailUser.isBanned ? 'error.main' : 'success.main'}>
+                        {detailUser.isBanned ? 'Đã bị khóa' : 'Đang hoạt động'}
+                      </Typography>
+                    </Box>
                   </Box>
                 </Box>
+              )}
+
+              {detailTabValue === 1 && (
                 <Box>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                    Thống kê
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ mb: 3 }}>
+                    <History sx={{ mr: 1, verticalAlign: 'middle' }} />
+                    Lịch sử đặt phòng
                   </Typography>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">Ngày tham gia</Typography>
-                    <Typography variant="body1">
-                      {detailUser.createdAt ? new Date(detailUser.createdAt).toLocaleDateString('vi-VN') : 'Chưa xác định'}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">Cập nhật cuối</Typography>
-                    <Typography variant="body1">
-                      {detailUser.updatedAt ? new Date(detailUser.updatedAt).toLocaleDateString('vi-VN') : 'Chưa xác định'}
-                    </Typography>
-                  </Box>
-                  {detailUser.role === 'customer' && (
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="body2" color="text.secondary">Khách hàng thân thiết</Typography>
-                      <Typography variant="body1">✓</Typography>
+
+                  {detailUser.role === 'customer' ? (
+                    userReservationsLoading ? (
+                      <Box sx={{ textAlign: 'center', py: 4 }}>
+                        <CircularProgress size={40} />
+                        <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
+                          Đang tải lịch sử đặt phòng...
+                        </Typography>
+                      </Box>
+                    ) : userReservations.length === 0 ? (
+                      <Box sx={{ textAlign: 'center', py: 4 }}>
+                        <History sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary">
+                          Chưa có lịch sử đặt phòng
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Box>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                          Tổng cộng: {userReservations.length} đặt phòng
+                        </Typography>
+                        <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+                          <Table size="small">
+                            <TableHead sx={{ background: '#f5f7fa' }}>
+                              <TableRow>
+                                <TableCell>Mã đặt phòng</TableCell>
+                                <TableCell>Khách sạn</TableCell>
+                                <TableCell>Ngày nhận</TableCell>
+                                <TableCell>Ngày trả</TableCell>
+                                <TableCell>Tổng tiền</TableCell>
+                                <TableCell>Trạng thái</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {userReservations.slice(0, 10).map((reservation) => (
+                                <TableRow key={reservation._id || reservation.id}>
+                                  <TableCell>
+                                    <Typography variant="body2" fontWeight="medium">
+                                      {reservation.bookingNumber || reservation._id || reservation.id}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography variant="body2">
+                                      {typeof reservation.hotel === 'object' && reservation.hotel?.name
+                                        ? reservation.hotel.name
+                                        : getHotelName(typeof reservation.hotel === 'string' ? reservation.hotel : reservation.hotel?._id || reservation.hotel?.id)
+                                      }
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography variant="body2">
+                                      {(reservation as any).checkInDate ? new Date((reservation as any).checkInDate).toLocaleDateString('vi-VN') : 'N/A'}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography variant="body2">
+                                      {(reservation as any).checkOutDate ? new Date((reservation as any).checkOutDate).toLocaleDateString('vi-VN') : 'N/A'}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography variant="body2" fontWeight="medium">
+                                      {(reservation as any).payment?.totalPrice ? `${(reservation as any).payment.totalPrice.toLocaleString('vi-VN')} VND` : 'N/A'}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Chip
+                                      size="small"
+                                      label={(() => {
+                                        const status = (reservation as any).status;
+                                        switch(status) {
+                                          case 'pending': return 'Chờ duyệt';
+                                          case 'approved': return 'Đã xác nhận';
+                                          case 'checked_in': return 'Đã nhận phòng';
+                                          case 'checked_out': return 'Đã trả phòng';
+                                          case 'canceled': return 'Đã hủy';
+                                          case 'completed': return 'Hoàn thành';
+                                          default: return status || 'Unknown';
+                                        }
+                                      })()}
+                                      color={(() => {
+                                        const status = (reservation as any).status;
+                                        switch(status) {
+                                          case 'pending': return 'warning';
+                                          case 'approved': return 'info';
+                                          case 'checked_in':
+                                          case 'checked_out':
+                                          case 'completed': return 'success';
+                                          case 'canceled': return 'error';
+                                          default: return 'default';
+                                        }
+                                      })() as any}
+                                      variant="outlined"
+                                      sx={{ fontSize: '0.75rem' }}
+                                    />
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                        {userReservations.length > 10 && (
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
+                            Hiển thị 10 đặt phòng gần nhất, tổng cộng {userReservations.length} đặt phòng
+                          </Typography>
+                        )}
+                      </Box>
+                    )
+                  ) : (
+                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                      <Person sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+                      <Typography variant="h6" color="text.secondary">
+                        Tính năng này chỉ dành cho khách hàng
+                      </Typography>
                     </Box>
                   )}
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">Trạng thái tài khoản</Typography>
-                    <Typography variant="body1" color={detailUser.isBanned ? 'error.main' : 'success.main'}>
-                      {detailUser.isBanned ? 'Đã bị khóa' : 'Đang hoạt động'}
+                </Box>
+              )}
+
+              {detailTabValue === 2 && (
+                <Box>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ mb: 3 }}>
+                    <Security sx={{ mr: 1, verticalAlign: 'middle' }} />
+                    Quyền và vai trò
+                  </Typography>
+
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+                    <Box>
+                      <Typography variant="subtitle2" fontWeight="bold" gutterBottom color="primary">
+                        Vai trò hiện tại
+                      </Typography>
+                      <Box sx={{ mb: 3 }}>
+                        <Chip
+                          label={getRoleLabel(detailUser.role)}
+                          icon={getRoleIcon(detailUser.role)}
+                          color={getRoleColor(detailUser.role) as any}
+                          size="medium"
+                          sx={{ py: 1, px: 2, fontSize: '1rem' }}
+                        />
+                      </Box>
+
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Quản trị viên có thể thay đổi vai trò từ "Khách hàng" lên "Quản lý khách sạn".<br />
+                        Các vai trò khác không thể thay đổi được.
+                      </Typography>
+                    </Box>
+
+                    <Box>
+                      <Typography variant="subtitle2" fontWeight="bold" gutterBottom color="primary">
+                        Thay đổi vai trò
+                      </Typography>
+
+                      {detailUser.role === 'customer' ? (
+                        <>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            Chọn vai trò mới cho người dùng này:
+                          </Typography>
+                          {!roleEditMode ? (
+                            <Button
+                              variant="contained"
+                              startIcon={<Edit />}
+                              onClick={() => setRoleEditMode(true)}
+                              sx={{ mb: 2 }}
+                            >
+                              Thay đổi vai trò
+                            </Button>
+                          ) : (
+                            <Box>
+                              <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                                <InputLabel>Vai trò mới</InputLabel>
+                                <Select
+                                  value={newRole}
+                                  label="Vai trò mới"
+                                  onChange={(e) => setNewRole(e.target.value)}
+                                >
+                                  <MenuItem value="hotel-manager">Quản lý khách sạn</MenuItem>
+                                </Select>
+                              </FormControl>
+
+                              <Box sx={{ display: 'flex', gap: 1 }}>
+                                <Button
+                                  variant="contained"
+                                  color="success"
+                                  size="small"
+                                  startIcon={<Save />}
+                                  disabled={!newRole || newRole === detailUser.role || actionLoading}
+                                  onClick={() => handleRoleChange((detailUser._id || detailUser.id).toString(), newRole)}
+                                >
+                                  {actionLoading ? 'Đang lưu...' : 'Lưu'}
+                                </Button>
+                                <Button
+                                  variant="outlined"
+                                  size="small"
+                                  onClick={() => {
+                                    setRoleEditMode(false);
+                                    setNewRole('');
+                                  }}
+                                >
+                                  Hủy
+                                </Button>
+                              </Box>
+                            </Box>
+                          )}
+                        </>
+                      ) : (
+                        <Alert severity="info" sx={{ mt: 0 }}>
+                          Không thể thay đổi vai trò của {getRoleLabel(detailUser.role).toLowerCase()} thông qua giao diện này.
+                        </Alert>
+                      )}
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ mt: 4 }}>
+                    <Typography variant="subtitle2" fontWeight="bold" gutterBottom color="primary">
+                      Quyền của vai trò hiện tại
                     </Typography>
+                    {detailUser.role === 'admin' && (
+                      <Box component={Paper} sx={{ p: 2, bgcolor: 'error.main', color: 'black' }}>
+                        <CheckCircle sx={{ mr: 1, verticalAlign: 'middle' }} />
+                        <Typography variant="body2" component="span" fontWeight="medium">
+                          Toàn quyền quản trị hệ thống
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 1, color: 'rgba(0,0,0,0.8)' }}>
+                          • Quản lý tất cả người dùng, khách sạn, đặt phòng<br />
+                          • Xem và chỉnh sửa mọi dữ liệu<br />
+                          • Thay đổi vai trò và quyền của người dùng<br />
+                          • Xóa dữ liệu hệ thống
+                        </Typography>
+                      </Box>
+                    )}
+                    {detailUser.role === 'hotel-manager' && (
+                      <Box component={Paper} sx={{ p: 2, bgcolor: 'warning.main', color: 'black' }}>
+                        <Business sx={{ mr: 1, verticalAlign: 'middle' }} />
+                        <Typography variant="body2" component="span" fontWeight="medium">
+                          Quản lý khách sạn
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 1, color: 'rgba(0,0,0,0.8)' }}>
+                          • Quản lý khách sạn được chỉ định<br />
+                          • Xem và chỉnh sửa đặt phòng của khách sạn<br />
+                          • Quản lý nhân viên của khách sạn
+                        </Typography>
+                      </Box>
+                    )}
+                    {(detailUser.role === 'staff' || detailUser.role === 'shipper') && (
+                      <Box component={Paper} sx={{ p: 2, bgcolor: 'info.main', color: 'black' }}>
+                        <Assignment sx={{ mr: 1, verticalAlign: 'middle' }} />
+                        <Typography variant="body2" component="span" fontWeight="medium">
+                          Nhân viên khách sạn
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 1, color: 'rgba(0,0,0,0.8)' }}>
+                          • Xem và xử lý đặt phòng của khách sạn<br />
+                          • Cập nhật trạng thái đặt phòng<br />
+                          • Phục vụ khách hàng trực tiếp
+                        </Typography>
+                      </Box>
+                    )}
+                    {detailUser.role === 'customer' && (
+                      <Box component={Paper} sx={{ p: 2, bgcolor: 'success.main', color: 'black' }}>
+                        <Person sx={{ mr: 1, verticalAlign: 'middle' }} />
+                        <Typography variant="body2" component="span" fontWeight="medium">
+                          Khách hàng
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 1, color: 'rgba(0,0,0,0.8)' }}>
+                          • Đặt phòng khách sạn<br />
+                          • Xem lịch sử đặt phòng<br />
+                          • Thanh toán và hủy đặt phòng<br />
+                          • Xem và đánh giá khách sạn
+                        </Typography>
+                      </Box>
+                    )}
                   </Box>
                 </Box>
-              </Box>
+              )}
             </DialogContent>
             <DialogActions>
               <Button onClick={() => setDetailModalOpen(false)}>Đóng</Button>

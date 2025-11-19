@@ -23,6 +23,7 @@ import VerifyEmail from "../pages/auth/VerifyEmail";
 import Profile from "../pages/customer/Profile";
 import WishLists from "../pages/customer/WishLists";
 import CustomerChat from "../pages/customer/CustomerChat";
+import BookingsHistory from "../pages/customer/BookingsHistory";
 
 import Hotels from "../pages/Hotels";
 // import RoomDetail from "../pages/RoomDetail";
@@ -67,6 +68,7 @@ import {
   MANAGER_PATHS,
   STAFF_PATHS,
 } from "../utils/constant/enum";
+import VoucherManagementPage from "../pages/voucher/VoucherManagementPage.tsx";
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const routes = {
@@ -80,6 +82,7 @@ export const routes = {
   PROFILE_PATH: "/profile",
   PROFILE_WISHLISTS_PATH: "/profile/wishlists",
   PROFILE_SUPPORT_PATH: "/profile/support",
+  PROFILE_BOOKINGS_HISTORY_PATH: "/profile/bookings-history",
   NEWSFEED_PATH: "/news-feeds",
   SHOPPING_PATH: "/shopping",
   PRODUCT_DETAIL_PATH: "/product/:id",
@@ -144,6 +147,14 @@ export const router = createBrowserRouter([
       { path: routes.PROFILE_PATH, element: <Profile /> },
       { path: routes.PROFILE_WISHLISTS_PATH, element: <WishLists /> },
       { path: routes.PROFILE_SUPPORT_PATH, element: <CustomerChat /> },
+      {
+        path: routes.PROFILE_BOOKINGS_HISTORY_PATH,
+        element: (
+          <RoleBasedRoute allowedRoles={[USER_ROLES.CUSTOMER]}>
+            <BookingsHistory />
+          </RoleBasedRoute>
+        ),
+      },
       { path: routes.HOTELS_PATH, element: <Hotels /> },
       { path: routes.ROOMS_PATH, element: <Rooms /> },
       {
@@ -214,6 +225,7 @@ export const router = createBrowserRouter([
       { path: "dashboard", element: <AdminDashboard /> },
       { path: "user-management", element: <AdminUserManagement /> },
       { path: "hotel-list", element: <AdminHotelList /> },
+      { path: "voucher-management", element: <VoucherManagementPage /> },
       { path: "contact-management", element: <ContactManagement /> },
       { path: "projects", element: <AdminDashboard /> },
       { path: "projects/create", element: <AdminDashboard /> },

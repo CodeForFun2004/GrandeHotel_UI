@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import heroBg from '../assets/images/login.avif';
-import './Room.css';
-import * as roomApi from '../api/room';
-import BookingForm from './landing/components/BookingForm';
+import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import heroBg from "../assets/images/login.avif";
+import "./Room.css";
+import * as roomApi from "../api/room";
+import * as voucherApi from "../api/voucher";
+import BookingForm from "./landing/components/BookingForm";
+import type { Voucher } from "../types/entities";
 // We'll navigate to a review page before creating a reservation
 //Chon phong ne
 
@@ -15,11 +17,10 @@ function useQuery() {
 interface TempSelection {
   roomTypeId: string;
   quantity: number; // 1..4 or available
-  adults: number;   // >=1
+  adults: number; // >=1
   children: number; // 0..3
-  infants: number;  // 0..3
+  infants: number; // 0..3
 }
-
 
 interface SelectedRoom {
   roomTypeId: string;
@@ -37,10 +38,11 @@ const RoomPage: React.FC = () => {
   const query = useQuery();
   const navigate = useNavigate();
 
-  const hotelId = query.get('hotel') || '';
-  const checkInDate = query.get('checkInDate') || '';
-  const checkOutDate = query.get('checkOutDate') || '';
-  const numberOfRoomsQuery = Number(query.get('rooms') || '');
+  const hotelId = query.get("hotel") || "";
+  const checkInDate = query.get("checkInDate") || "";
+  const checkOutDate = query.get("checkOutDate") || "";
+  const numberOfRoomsQuery = Number(query.get("rooms") || "");
+  const voucherCodeFromQuery = query.get("voucher") || "";
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +52,13 @@ const RoomPage: React.FC = () => {
   const [limit] = useState(5);
 
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [temp, setTemp] = useState<TempSelection>({ roomTypeId: '', quantity: 1, adults: 2, children: 0, infants: 0 });
+  const [temp, setTemp] = useState<TempSelection>({
+    roomTypeId: "",
+    quantity: 1,
+    adults: 2,
+    children: 0,
+    infants: 0,
+  });
   const [selected, setSelected] = useState<SelectedRoom[]>([]);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
@@ -59,20 +67,20 @@ const RoomPage: React.FC = () => {
   const [dateError, setDateError] = useState<string | null>(null);
   // Helper to get date-only (YYYY-MM-DD) without timezone shifts
   const dateOnly = (s?: string) => {
-    if (!s) return '';
-    const idx = s.indexOf('T');
+    if (!s) return "";
+    const idx = s.indexOf("T");
     return idx > 0 ? s.slice(0, 10) : s;
   };
   // Helpers for local YMD and parsing without timezone surprises
   const ymdLocal = (d: Date) => {
     const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
     return `${y}-${m}-${day}`;
   };
   const parseYMD = (s?: string): Date | null => {
     if (!s) return null;
-    const str = s.includes('T') ? s.slice(0, 10) : s;
+    const str = s.includes("T") ? s.slice(0, 10) : s;
     const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(str);
     if (!m) {
       const d = new Date(s);
@@ -92,22 +100,31 @@ const RoomPage: React.FC = () => {
   const [tempIn, setTempIn] = useState<string>(dateOnly(checkInDate));
   const [tempOut, setTempOut] = useState<string>(dateOnly(checkOutDate));
   const [editingQty, setEditingQty] = useState<Record<string, boolean>>({});
+  
+  // Voucher states
+  const [voucherCode, setVoucherCode] = useState<string>("");
+  const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
+  const [voucherDiscount, setVoucherDiscount] = useState<number>(0);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [validatingVoucher, setValidatingVoucher] = useState(false);
 
   useEffect(() => {
     if (!hotelId) return;
     const fetchRooms = async () => {
-      setLoading(true); setError(null);
+      setLoading(true);
+      setError(null);
       try {
         const res = await roomApi.searchHotelRooms(hotelId, {
           checkInDate: checkInDate || undefined,
           checkOutDate: checkOutDate || undefined,
           numberOfRooms: numberOfRoomsQuery || undefined,
-          page, limit,
+          page,
+          limit,
         });
         setRoomList(res.results || []);
         setTotal(res.total || 0);
       } catch (e: any) {
-        setError(e?.message || 'Không thể tải phòng');
+        setError(e?.message || "Không thể tải phòng");
       } finally {
         setLoading(false);
       }
@@ -121,20 +138,163 @@ const RoomPage: React.FC = () => {
     setTempOut(dateOnly(checkOutDate));
   }, [checkInDate, checkOutDate]);
 
+  // Load voucher code from query params or localStorage
+  useEffect(() => {
+    const savedVoucher = localStorage.getItem('selectedVoucherCode');
+    const codeToUse = voucherCodeFromQuery || savedVoucher || "";
+    if (codeToUse) {
+      setVoucherCode(codeToUse);
+      localStorage.setItem('selectedVoucherCode', codeToUse);
+    }
+  }, [voucherCodeFromQuery]);
+
   const nights = useMemo(() => {
     if (!checkInDate || !checkOutDate) return 1;
-    const inD = new Date(checkInDate); const outD = new Date(checkOutDate);
-    const diff = Math.max(1, Math.ceil((outD.getTime() - inD.getTime()) / (1000*60*60*24)));
+    const inD = new Date(checkInDate);
+    const outD = new Date(checkOutDate);
+    const diff = Math.max(
+      1,
+      Math.ceil((outD.getTime() - inD.getTime()) / (1000 * 60 * 60 * 24))
+    );
     return diff;
   }, [checkInDate, checkOutDate]);
 
-  const totalPrice = useMemo(() => selected.reduce((acc, s) => acc + (s.unitPrice * s.quantity * nights), 0), [selected, nights]);
+  const totalPrice = useMemo(
+    () =>
+      selected.reduce((acc, s) => acc + s.unitPrice * s.quantity * nights, 0),
+    [selected, nights]
+  );
 
-  const removeSelected = (roomTypeId: string) => setSelected((prev) => prev.filter(x => x.roomTypeId !== roomTypeId));
+  // Calculate final price after voucher discount
+  const finalPrice = useMemo(
+    () => Math.max(0, totalPrice - voucherDiscount),
+    [totalPrice, voucherDiscount]
+  );
+
+  // Validate and apply voucher when totalPrice or voucherCode changes
+  useEffect(() => {
+    const validateAndApplyVoucher = async () => {
+      if (!voucherCode || !totalPrice || totalPrice <= 0) {
+        setAppliedVoucher(null);
+        setVoucherDiscount(0);
+        setVoucherError(null);
+        return;
+      }
+
+      setValidatingVoucher(true);
+      setVoucherError(null);
+
+      try {
+        // First, try to get voucher by code
+        const voucher = await voucherApi.getVoucherByCode(voucherCode.toUpperCase().trim());
+        
+        if (!voucher) {
+          setAppliedVoucher(null);
+          setVoucherDiscount(0);
+          setVoucherError('Mã voucher không tồn tại');
+          return;
+        }
+
+        // Validate voucher status and dates
+        const now = new Date();
+        const startDate = typeof voucher.startDate === 'string' ? new Date(voucher.startDate) : voucher.startDate;
+        const endDate = typeof voucher.endDate === 'string' ? new Date(voucher.endDate) : voucher.endDate;
+
+        if (voucher.status !== 'active') {
+          setAppliedVoucher(null);
+          setVoucherDiscount(0);
+          setVoucherError('Voucher không còn hoạt động');
+          return;
+        }
+
+        if (startDate > now) {
+          setAppliedVoucher(null);
+          setVoucherDiscount(0);
+          setVoucherError('Voucher chưa có hiệu lực');
+          return;
+        }
+
+        if (endDate < now) {
+          setAppliedVoucher(null);
+          setVoucherDiscount(0);
+          setVoucherError('Voucher đã hết hạn');
+          return;
+        }
+
+        // Check minBookingValue
+        if (voucher.minBookingValue && totalPrice < voucher.minBookingValue) {
+          setAppliedVoucher(null);
+          setVoucherDiscount(0);
+          setVoucherError(`Đơn tối thiểu: ${voucher.minBookingValue.toLocaleString('vi-VN')} ₫`);
+          return;
+        }
+
+        // Check hotel scope if multi-hotel
+        if (voucher.scope === 'multi-hotel' && voucher.hotelIds && hotelId) {
+          const hotelIds = voucher.hotelIds.map(h => typeof h === 'string' ? h : (h._id || h.id));
+          if (!hotelIds.includes(hotelId)) {
+            setAppliedVoucher(null);
+            setVoucherDiscount(0);
+            setVoucherError('Voucher không áp dụng cho khách sạn này');
+            return;
+          }
+        }
+
+        // Calculate discount amount
+        let discountAmount = 0;
+        if (voucher.discountType === 'percent') {
+          discountAmount = (totalPrice * voucher.discountValue) / 100;
+          // Apply maxDiscount if exists
+          if (voucher.maxDiscount && discountAmount > voucher.maxDiscount) {
+            discountAmount = voucher.maxDiscount;
+          }
+        } else {
+          // Fixed discount
+          discountAmount = voucher.discountValue;
+        }
+
+        // Ensure discount doesn't exceed total price
+        discountAmount = Math.min(discountAmount, totalPrice);
+
+        setAppliedVoucher(voucher);
+        setVoucherDiscount(discountAmount);
+        setVoucherError(null);
+        console.log('✅ Voucher applied:', {
+          code: voucher.code,
+          discountAmount: discountAmount,
+          originalPrice: totalPrice,
+          finalPrice: totalPrice - discountAmount
+        });
+      } catch (err: any) {
+        setAppliedVoucher(null);
+        setVoucherDiscount(0);
+        if (err?.response?.status === 404) {
+          setVoucherError('Mã voucher không tồn tại');
+        } else {
+          setVoucherError(err?.response?.data?.message || err?.message || 'Không thể kiểm tra voucher');
+        }
+        console.error('❌ Error validating voucher:', err);
+      } finally {
+        setValidatingVoucher(false);
+      }
+    };
+
+    // Debounce validation to avoid too many API calls
+    const timeoutId = setTimeout(validateAndApplyVoucher, 500);
+    return () => clearTimeout(timeoutId);
+  }, [voucherCode, totalPrice, hotelId]);
+
+  const removeSelected = (roomTypeId: string) =>
+    setSelected((prev) => prev.filter((x) => x.roomTypeId !== roomTypeId));
 
   // Helpers for capacity rules: 2 children = 1 adult equivalent, infants do not count
-  const effAdults = (adults: number, children: number) => adults + Math.ceil((children || 0) / 2);
-  const minRoomsNeeded = (adults: number, children: number, capacity?: number) => {
+  const effAdults = (adults: number, children: number) =>
+    adults + Math.ceil((children || 0) / 2);
+  const minRoomsNeeded = (
+    adults: number,
+    children: number,
+    capacity?: number
+  ) => {
     const cap = Number(capacity || 0);
     if (!cap) return 1;
     return Math.ceil(effAdults(adults, children) / cap);
@@ -143,17 +303,36 @@ const RoomPage: React.FC = () => {
   const onAddToBooking = (item: any) => {
     const roomType = item.roomType;
     const capacity = Number(roomType?.capacity || 0);
-    const sample = (item.availableRooms && item.availableRooms.length) ? item.availableRooms[0] : null;
-    const unitPrice = typeof sample?.pricePerNight === 'number' ? sample.pricePerNight : (roomType?.basePrice || 0);
+    const sample =
+      item.availableRooms && item.availableRooms.length
+        ? item.availableRooms[0]
+        : null;
+    // Price normalize: prioritize basePrice from roomType, fallback to pricePerNight from sample
+    const raw = roomType?.basePrice ?? sample?.pricePerNight;
+    let unitPrice = 0;
+    if (typeof raw === "number") {
+      unitPrice = raw;
+    } else if (typeof raw === "string") {
+      const n = Number(raw);
+      if (!isNaN(n)) unitPrice = n;
+    } else if (raw && typeof raw === "object") {
+      const d = (raw as any).$numberDecimal;
+      if (d) {
+        const n = Number(d);
+        if (!isNaN(n)) unitPrice = n;
+      }
+    }
     // Validate capacity: adults + ceil(children/2) must be <= capacity * quantity
     const needed = minRoomsNeeded(temp.adults, temp.children, capacity);
     if (needed > temp.quantity) {
-      setBookingError(`Vượt sức chứa. Cần ít nhất ${needed} phòng cho ${temp.adults} NL và ${temp.children} TE (2 TE = 1 NL).`);
+      setBookingError(
+        `Vượt sức chứa. Cần ít nhất ${needed} phòng cho ${temp.adults} NL và ${temp.children} TE (2 TE = 1 NL).`
+      );
       return;
     }
     const entry: SelectedRoom = {
       roomTypeId: roomType._id,
-      name: roomType?.name || 'Room',
+      name: roomType?.name || "Room",
       unitPrice,
       capacity,
       quantity: temp.quantity,
@@ -162,16 +341,26 @@ const RoomPage: React.FC = () => {
       infants: temp.infants,
     };
     setSelected((prev) => {
-      const found = prev.find(p => p.roomTypeId === entry.roomTypeId);
+      const found = prev.find((p) => p.roomTypeId === entry.roomTypeId);
       if (found) {
         // Merge quantities but ensure capacity is respected
-        return prev.map(p => {
+        return prev.map((p) => {
           if (p.roomTypeId !== entry.roomTypeId) return p;
-          const mergedQty = Math.min((p.quantity || 1) + (entry.quantity || 1), 4);
+          const mergedQty = Math.min(
+            (p.quantity || 1) + (entry.quantity || 1),
+            4
+          );
           const cap = p.capacity ?? capacity;
           const neededRooms = minRoomsNeeded(entry.adults, entry.children, cap);
           const finalQty = Math.max(mergedQty, neededRooms);
-          return { ...p, capacity: cap, quantity: finalQty, adults: entry.adults, children: entry.children, infants: entry.infants };
+          return {
+            ...p,
+            capacity: cap,
+            quantity: finalQty,
+            adults: entry.adults,
+            children: entry.children,
+            infants: entry.infants,
+          };
         });
       }
       return [...prev, entry];
@@ -180,11 +369,13 @@ const RoomPage: React.FC = () => {
   };
 
   const submitBooking = async () => {
-    if (!hotelId) return setBookingError('Thiếu khách sạn');
-    if (!checkInDate || !checkOutDate) return setBookingError('Vui lòng chọn ngày');
-    if (selected.length === 0) return setBookingError('Chưa chọn phòng');
+    if (!hotelId) return setBookingError("Thiếu khách sạn");
+    if (!checkInDate || !checkOutDate)
+      return setBookingError("Vui lòng chọn ngày");
+    if (selected.length === 0) return setBookingError("Chưa chọn phòng");
 
-    setBookingLoading(true); setBookingError(null);
+    setBookingLoading(true);
+    setBookingError(null);
     try {
       const draft = {
         hotelId,
@@ -192,25 +383,28 @@ const RoomPage: React.FC = () => {
         checkOutDate,
         nights,
         selected,
-        total: totalPrice,
+        total: finalPrice, // Use final price after discount
+        originalTotal: totalPrice, // Keep original for reference
+        voucherDiscount: voucherDiscount,
+        voucherCode: voucherCode || undefined,
         queryString: window.location.search,
       };
-      sessionStorage.setItem('reservationDraft', JSON.stringify(draft));
-      navigate('/reservation/review');
+      sessionStorage.setItem("reservationDraft", JSON.stringify(draft));
+      navigate("/reservation/review");
     } catch (e: any) {
-      setBookingError(e?.message || 'Không thể mở trang xác nhận');
+      setBookingError(e?.message || "Không thể mở trang xác nhận");
     } finally {
       setBookingLoading(false);
     }
   };
 
   const displayDate = (value?: string) => {
-    if (!value) return '—';
+    if (!value) return "—";
     const dstr = dateOnly(value);
     // Construct local time to avoid UTC shift
     const d = new Date(`${dstr}T00:00:00`);
     if (isNaN(d.getTime())) return dstr;
-    return d.toLocaleDateString('vi-VN');
+    return d.toLocaleDateString("vi-VN");
   };
 
   const saveDates = () => {
@@ -237,8 +431,10 @@ const RoomPage: React.FC = () => {
     inStr = ymdLocal(validIn);
     outStr = ymdLocal(validOut);
 
-    if (inStr) params.set('checkInDate', inStr); else params.delete('checkInDate');
-    if (outStr) params.set('checkOutDate', outStr); else params.delete('checkOutDate');
+    if (inStr) params.set("checkInDate", inStr);
+    else params.delete("checkInDate");
+    if (outStr) params.set("checkOutDate", outStr);
+    else params.delete("checkOutDate");
     navigate(`${window.location.pathname}?${params.toString()}`);
     setIsEditingDates(false);
   };
@@ -246,7 +442,7 @@ const RoomPage: React.FC = () => {
   // Restore draft (selected rooms and dates) when returning from review or after login
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem('reservationDraft');
+      const raw = sessionStorage.getItem("reservationDraft");
       if (!raw) return;
       const draft = JSON.parse(raw);
       // Only restore for same hotel
@@ -254,12 +450,15 @@ const RoomPage: React.FC = () => {
         if (Array.isArray(draft.selected)) setSelected(draft.selected);
         if (draft.checkInDate && !checkInDate) {
           const params = new URLSearchParams(window.location.search);
-          params.set('checkInDate', dateOnly(draft.checkInDate));
-          if (draft.checkOutDate) params.set('checkOutDate', dateOnly(draft.checkOutDate));
+          params.set("checkInDate", dateOnly(draft.checkInDate));
+          if (draft.checkOutDate)
+            params.set("checkOutDate", dateOnly(draft.checkOutDate));
           navigate(`${window.location.pathname}?${params.toString()}`);
         }
       }
-    } catch {/* ignore */}
+    } catch {
+      /* ignore */
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -275,16 +474,28 @@ const RoomPage: React.FC = () => {
         total: totalPrice,
         queryString: window.location.search,
       };
-      sessionStorage.setItem('reservationDraft', JSON.stringify(draft));
-    } catch {/* ignore */}
+      sessionStorage.setItem("reservationDraft", JSON.stringify(draft));
+    } catch {
+      /* ignore */
+    }
   }, [hotelId, checkInDate, checkOutDate, nights, selected, totalPrice]);
 
-                {dateError && <div className="text-danger" style={{ fontSize: 12 }}>{dateError}</div>}
+  {
+    dateError && (
+      <div className="text-danger" style={{ fontSize: 12 }}>
+        {dateError}
+      </div>
+    );
+  }
   return (
     <>
       <div className="hero-wrap" style={{ backgroundImage: `url(${heroBg})` }}>
         <div className="overlay" />
-        <div className="container"><div className="text-center"><h1 className="mb-4 bread">Chọn phòng</h1></div></div>
+        <div className="container">
+          <div className="text-center">
+            <h1 className="mb-4 bread">Chọn phòng</h1>
+          </div>
+        </div>
       </div>
 
       {/* Floating booking form below hero, same as landing */}
@@ -296,69 +507,136 @@ const RoomPage: React.FC = () => {
             <div className="col-md-8">
               {loading && <p>Đang tải...</p>}
               {error && <p className="text-danger">{error}</p>}
-              {!loading && !error && roomList.length === 0 && <p>Không có phòng phù hợp.</p>}
+              {!loading && !error && roomList.length === 0 && (
+                <p>Không có phòng phù hợp.</p>
+              )}
 
               {roomList.map((item: any) => {
                 const rt = item.roomType;
                 const available: number = item.available || 0;
-                const sample = (item.availableRooms && item.availableRooms.length) ? item.availableRooms[0] : null;
+                const sample =
+                  item.availableRooms && item.availableRooms.length
+                    ? item.availableRooms[0]
+                    : null;
                 const img = sample?.images?.[0] || heroBg;
 
                 // price normalize
-                const raw = sample?.pricePerNight ?? rt?.basePrice;
+                //                const raw = sample?.pricePerNight ?? rt?.basePrice;
+                const raw = rt?.basePrice ?? sample?.pricePerNight ;
+                console.log("raw price", raw);
                 let unitPrice: number | undefined;
-                if (typeof raw === 'number') unitPrice = raw; else if (typeof raw === 'string') { const n = Number(raw); if (!isNaN(n)) unitPrice = n; }
-                else if (raw && typeof raw === 'object') {
-                  const d = (raw as any).$numberDecimal; if (d) { const n = Number(d); if (!isNaN(n)) unitPrice = n; }
+                if (typeof raw === "number") unitPrice = raw;
+                else if (typeof raw === "string") {
+                  const n = Number(raw);
+                  if (!isNaN(n)) unitPrice = n;
+                } else if (raw && typeof raw === "object") {
+                  const d = (raw as any).$numberDecimal;
+                  if (d) {
+                    const n = Number(d);
+                    if (!isNaN(n)) unitPrice = n;
+                  }
                 }
-                const priceText = unitPrice != null ? `${unitPrice.toLocaleString()} VNĐ` : '—';
+                const priceText =
+                  unitPrice != null ? `${unitPrice.toLocaleString()} VNĐ` : "—";
                 const typeId = rt?._id as string;
                 const isOpen = expanded === typeId;
 
                 // Derived capacity calculations for UI enforcement
                 const cap = Number(rt?.capacity || 0);
                 // Max adults allowed given current children and quantity
-                const maxAdults = cap ? Math.max(1, temp.quantity * cap - Math.ceil((temp.children || 0)/2)) : 4;
+                const maxAdults = cap
+                  ? Math.max(
+                      1,
+                      temp.quantity * cap - Math.ceil((temp.children || 0) / 2)
+                    )
+                  : 4;
                 // Max children allowed given current adults and quantity
-                const maxChildren = cap ? Math.max(0, 2 * Math.max(0, temp.quantity * cap - (temp.adults || 0))) : 3;
+                const maxChildren = cap
+                  ? Math.max(
+                      0,
+                      2 * Math.max(0, temp.quantity * cap - (temp.adults || 0))
+                    )
+                  : 3;
 
                 return (
                   <div className="room-card" key={typeId}>
                     <div className="room-card-inner">
-                      <div className="room-image" style={{ backgroundImage: `url(${img})` }} />
+                      <div
+                        className="room-image"
+                        style={{ backgroundImage: `url(${img})` }}
+                      />
                       <div className="room-body">
-                        <h4 className="room-title">{rt?.name || 'Room'}</h4>
-                        <p className="room-desc">{rt?.description || sample?.description || ''}</p>
+                        <h4 className="room-title">{rt?.name || "Room"}</h4>
+                        <p className="room-desc">
+                          {rt?.description || sample?.description || ""}
+                        </p>
                         <div className="room-meta">
-                          <div>Sức chứa: {rt?.capacity ?? '—'} người</div>
-                          <div>Số giường: {rt?.numberOfBeds ?? '—'}</div>
+                          <div>Sức chứa: {rt?.capacity ?? "—"} người</div>
+                          <div>Số giường: {rt?.numberOfBeds ?? "—"}</div>
                           <div>Phòng trống: {available}</div>
                         </div>
                       </div>
                       <div className="room-action">
                         <div className="room-price">{priceText}</div>
-                        <button className="btn-choose" onClick={() => {
-                          if (isOpen) setExpanded(null);
-                          else { setExpanded(typeId); setTemp({ roomTypeId: typeId, quantity: 1, adults: 1, children: 0, infants: 0 }); }
-                        }}>{isOpen ? 'Đóng' : 'Chọn phòng'}</button>
+                        <button
+                          className="btn-choose"
+                          onClick={() => {
+                            if (isOpen) setExpanded(null);
+                            else {
+                              setExpanded(typeId);
+                              setTemp({
+                                roomTypeId: typeId,
+                                quantity: 1,
+                                adults: 1,
+                                children: 0,
+                                infants: 0,
+                              });
+                            }
+                          }}
+                        >
+                          {isOpen ? "Đóng" : "Chọn phòng"}
+                        </button>
                       </div>
                     </div>
 
                     {isOpen && (
                       <div className="room-detail">
                         <div className="detail-header">
-                          <div className="detail-adults">👥 {temp.adults} Người lớn</div>
-                          <div className="detail-price">{priceText} <span className="per">/ đêm</span></div>
+                          <div className="detail-adults">
+                            👥 {temp.adults} Người lớn
+                          </div>
+                          <div className="detail-price">
+                            {priceText} <span className="per">/ đêm</span>
+                          </div>
                           <div className="detail-rooms">
-                            <select className="select" value={temp.quantity} onChange={(e) => {
-                              const nextQ = Math.max(1, Math.min(Number(e.target.value||1), Math.min(available, 4)));
-                              // Ensure quantity is at least the rooms needed for current headcount
-                              const minQ = minRoomsNeeded(temp.adults, temp.children, cap);
-                              const adjustedQ = Math.max(nextQ, minQ);
-                              setTemp(t => ({ ...t, quantity: adjustedQ }));
-                            }}>
-                              {Array.from({ length: Math.max(1, Math.min(available, 4)) }, (_, i) => i + 1).map(n => (
-                                <option key={n} value={n}>{n} Phòng</option>
+                            <select
+                              className="select"
+                              value={temp.quantity}
+                              onChange={(e) => {
+                                const nextQ = Math.max(
+                                  1,
+                                  Math.min(
+                                    Number(e.target.value || 1),
+                                    Math.min(available, 4)
+                                  )
+                                );
+                                // Ensure quantity is at least the rooms needed for current headcount
+                                const minQ = minRoomsNeeded(
+                                  temp.adults,
+                                  temp.children,
+                                  cap
+                                );
+                                const adjustedQ = Math.max(nextQ, minQ);
+                                setTemp((t) => ({ ...t, quantity: adjustedQ }));
+                              }}
+                            >
+                              {Array.from(
+                                { length: Math.max(1, Math.min(available, 4)) },
+                                (_, i) => i + 1
+                              ).map((n) => (
+                                <option key={n} value={n}>
+                                  {n} Phòng
+                                </option>
                               ))}
                             </select>
                           </div>
@@ -366,57 +644,179 @@ const RoomPage: React.FC = () => {
                         <div className="detail-guests">
                           <div className="field">
                             <label>Người lớn</label>
-                            <select className="select" value={Math.min(temp.adults, maxAdults)} onChange={(e)=> {
-                              const val = Math.max(1, Number(e.target.value||1));
-                              // Clamp adults against capacity and recompute children clamp afterwards
-                              const newAdults = cap ? Math.min(val, Math.max(1, maxAdults)) : val;
-                              // After adults change, children may exceed available child capacity
-                              const newMaxChildren = cap ? Math.max(0, 2 * Math.max(0, (temp.quantity * cap) - newAdults)) : 3;
-                              const newChildren = Math.min(temp.children, newMaxChildren);
-                              setTemp(t => ({...t, adults: newAdults, children: newChildren}));
-                            }}>
-                              {Array.from({length: Math.max(1, Math.min(Math.max(1, maxAdults), 10))}, (_,i)=> i+1).map(n=> <option key={n} value={n}>{n}</option>)}
+                            <select
+                              className="select"
+                              value={Math.min(temp.adults, maxAdults)}
+                              onChange={(e) => {
+                                const val = Math.max(
+                                  1,
+                                  Number(e.target.value || 1)
+                                );
+                                // Clamp adults against capacity and recompute children clamp afterwards
+                                const newAdults = cap
+                                  ? Math.min(val, Math.max(1, maxAdults))
+                                  : val;
+                                // After adults change, children may exceed available child capacity
+                                const newMaxChildren = cap
+                                  ? Math.max(
+                                      0,
+                                      2 *
+                                        Math.max(
+                                          0,
+                                          temp.quantity * cap - newAdults
+                                        )
+                                    )
+                                  : 3;
+                                const newChildren = Math.min(
+                                  temp.children,
+                                  newMaxChildren
+                                );
+                                setTemp((t) => ({
+                                  ...t,
+                                  adults: newAdults,
+                                  children: newChildren,
+                                }));
+                              }}
+                            >
+                              {Array.from(
+                                {
+                                  length: Math.max(
+                                    1,
+                                    Math.min(Math.max(1, maxAdults), 10)
+                                  ),
+                                },
+                                (_, i) => i + 1
+                              ).map((n) => (
+                                <option key={n} value={n}>
+                                  {n}
+                                </option>
+                              ))}
                             </select>
                           </div>
                           <div className="field">
                             <label>Trẻ em (6-11 tuổi)</label>
-                            <select className="select" value={Math.min(temp.children, maxChildren)} onChange={(e)=> {
-                              const val = Math.max(0, Number(e.target.value||0));
-                              // Clamp children to capacity left after adults
-                              const clampedChildren = cap ? Math.min(val, maxChildren) : val;
-                              // If children increased, adults might need clamping too
-                              const newMaxAdults = cap ? Math.max(1, temp.quantity * cap - Math.ceil(clampedChildren/2)) : 4;
-                              const newAdults = Math.min(temp.adults, newMaxAdults);
-                              // Also ensure quantity still enough for the new headcount
-                              const minQ = minRoomsNeeded(newAdults, clampedChildren, cap);
-                              const q = Math.max(temp.quantity, minQ);
-                              setTemp(t => ({...t, adults: newAdults, children: clampedChildren, quantity: q}));
-                            }}>
-                              {Array.from({length: Math.max(1, Math.min(Math.max(0, maxChildren) + 1, 8))}, (_,i)=> i).map(n=> <option key={n} value={n}>{n}</option>)}
+                            <select
+                              className="select"
+                              value={Math.min(temp.children, maxChildren)}
+                              onChange={(e) => {
+                                const val = Math.max(
+                                  0,
+                                  Number(e.target.value || 0)
+                                );
+                                // Clamp children to capacity left after adults
+                                const clampedChildren = cap
+                                  ? Math.min(val, maxChildren)
+                                  : val;
+                                // If children increased, adults might need clamping too
+                                const newMaxAdults = cap
+                                  ? Math.max(
+                                      1,
+                                      temp.quantity * cap -
+                                        Math.ceil(clampedChildren / 2)
+                                    )
+                                  : 4;
+                                const newAdults = Math.min(
+                                  temp.adults,
+                                  newMaxAdults
+                                );
+                                // Also ensure quantity still enough for the new headcount
+                                const minQ = minRoomsNeeded(
+                                  newAdults,
+                                  clampedChildren,
+                                  cap
+                                );
+                                const q = Math.max(temp.quantity, minQ);
+                                setTemp((t) => ({
+                                  ...t,
+                                  adults: newAdults,
+                                  children: clampedChildren,
+                                  quantity: q,
+                                }));
+                              }}
+                            >
+                              {Array.from(
+                                {
+                                  length: Math.max(
+                                    1,
+                                    Math.min(Math.max(0, maxChildren) + 1, 8)
+                                  ),
+                                },
+                                (_, i) => i
+                              ).map((n) => (
+                                <option key={n} value={n}>
+                                  {n}
+                                </option>
+                              ))}
                             </select>
                           </div>
                           <div className="field">
                             <label>Em bé (0-5 tuổi)</label>
-                            <select className="select" value={temp.infants} onChange={(e)=> setTemp(t => ({...t, infants: Math.max(0, Number(e.target.value||0))}))}>
-                              {[0,1,2,3].map(n=> <option key={n} value={n}>{n}</option>)}
+                            <select
+                              className="select"
+                              value={temp.infants}
+                              onChange={(e) =>
+                                setTemp((t) => ({
+                                  ...t,
+                                  infants: Math.max(
+                                    0,
+                                    Number(e.target.value || 0)
+                                  ),
+                                }))
+                              }
+                            >
+                              {[0, 1, 2, 3].map((n) => (
+                                <option key={n} value={n}>
+                                  {n}
+                                </option>
+                              ))}
                             </select>
                           </div>
                         </div>
-                        <div style={{ fontSize: 12, color: '#555', marginTop: 6 }}>
-                          Tối đa {cap ? (cap * temp.quantity) : '—'} người lớn quy đổi (2 trẻ em = 1 người lớn). Em bé không tính.
+                        <div
+                          style={{ fontSize: 12, color: "#555", marginTop: 6 }}
+                        >
+                          Tối đa {cap ? cap * temp.quantity : "—"} người lớn quy
+                          đổi (2 trẻ em = 1 người lớn). Em bé không tính.
                           {cap ? (
-                            effAdults(temp.adults, temp.children) > (cap * temp.quantity) ? (
-                              <div className="text-danger">Vượt sức chứa. Hãy tăng số phòng hoặc giảm số người.</div>
+                            effAdults(temp.adults, temp.children) >
+                            cap * temp.quantity ? (
+                              <div className="text-danger">
+                                Vượt sức chứa. Hãy tăng số phòng hoặc giảm số
+                                người.
+                              </div>
                             ) : null
                           ) : null}
                         </div>
-                        <div className="detail-total">{(() => {
-                          const unit = unitPrice || 0; const qty = temp.quantity || 1;
-                          return `${(unit * qty * nights).toLocaleString()} VNĐ`;
-                        })()}</div>
+                        <div className="detail-total">
+                          {(() => {
+                            const unit = unitPrice || 0;
+                            const qty = temp.quantity || 1;
+                            return `${(
+                              unit *
+                              qty *
+                              nights
+                            ).toLocaleString()} VNĐ`;
+                          })()}
+                        </div>
                         <div className="detail-actions">
-                          <button className="small-btn" disabled={cap ? effAdults(temp.adults, temp.children) > (cap * temp.quantity) : false} onClick={() => onAddToBooking(item)}>Thêm vào đặt phòng</button>
-                          <button className="small-btn grey" onClick={() => setExpanded(null)}>Hủy</button>
+                          <button
+                            className="small-btn"
+                            disabled={
+                              cap
+                                ? effAdults(temp.adults, temp.children) >
+                                  cap * temp.quantity
+                                : false
+                            }
+                            onClick={() => onAddToBooking(item)}
+                          >
+                            Thêm vào đặt phòng
+                          </button>
+                          <button
+                            className="small-btn grey"
+                            onClick={() => setExpanded(null)}
+                          >
+                            Hủy
+                          </button>
                         </div>
                       </div>
                     )}
@@ -427,10 +827,22 @@ const RoomPage: React.FC = () => {
               <div style={{ marginTop: 20 }}>
                 {total > limit && (
                   <div className="pagination">
-                    <button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p-1))}>Previous</button>
-                    <span style={{ margin: '0 8px' }}>{page}</span>
-                    <button disabled={page*limit >= total} onClick={() => setPage(p => p+1)}>Next</button>
-                    <span style={{ marginLeft: 12, color: '#666' }}>Total: {total}</span>
+                    <button
+                      disabled={page <= 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    >
+                      Previous
+                    </button>
+                    <span style={{ margin: "0 8px" }}>{page}</span>
+                    <button
+                      disabled={page * limit >= total}
+                      onClick={() => setPage((p) => p + 1)}
+                    >
+                      Next
+                    </button>
+                    <span style={{ marginLeft: 12, color: "#666" }}>
+                      Total: {total}
+                    </span>
                   </div>
                 )}
               </div>
@@ -447,7 +859,9 @@ const RoomPage: React.FC = () => {
                       title="Nhấp để chỉnh sửa"
                       onClick={() => setIsEditingDates(true)}
                     >
-                      {displayDate(checkInDate)} <span style={{margin: '0 4px'}}>—</span> {displayDate(checkOutDate)}
+                      {displayDate(checkInDate)}{" "}
+                      <span style={{ margin: "0 4px" }}>—</span>{" "}
+                      {displayDate(checkOutDate)}
                     </span>
                   ) : (
                     <div className="editable-inputs">
@@ -455,7 +869,7 @@ const RoomPage: React.FC = () => {
                         type="date"
                         value={tempIn}
                         min={todayYMD}
-                        onChange={(e)=> {
+                        onChange={(e) => {
                           const val = e.target.value;
                           setTempIn(val);
                           // If checkout is invalid, auto-adjust to next day
@@ -475,36 +889,66 @@ const RoomPage: React.FC = () => {
                           const inD = parseYMD(tempIn) ?? parseYMD(todayYMD)!;
                           return ymdLocal(addDays(inD, 1));
                         })()}
-                        onChange={(e)=> {
+                        onChange={(e) => {
                           const val = e.target.value;
                           setTempOut(val);
                           // Validate on the fly
                           const inD = parseYMD(tempIn) ?? parseYMD(todayYMD)!;
                           const outD = parseYMD(val);
                           if (!outD || outD <= inD) {
-                            setDateError('Ngày trả phòng phải sau ngày nhận phòng.');
+                            setDateError(
+                              "Ngày trả phòng phải sau ngày nhận phòng."
+                            );
                           } else {
                             setDateError(null);
                           }
                         }}
                       />
-                      <button className="link-btn" onClick={saveDates}>Lưu</button>
-                      <button className="link-btn" onClick={()=>{ setIsEditingDates(false); setTempIn(dateOnly(checkInDate)); setTempOut(dateOnly(checkOutDate)); setDateError(null); }}>Hủy</button>
+                      <button className="link-btn" onClick={saveDates}>
+                        Lưu
+                      </button>
+                      <button
+                        className="link-btn"
+                        onClick={() => {
+                          setIsEditingDates(false);
+                          setTempIn(dateOnly(checkInDate));
+                          setTempOut(dateOnly(checkOutDate));
+                          setDateError(null);
+                        }}
+                      >
+                        Hủy
+                      </button>
                     </div>
                   )}
                 </div>
-                {dateError && <div className="text-danger" style={{ fontSize: 12 }}>{dateError}</div>}
+                {dateError && (
+                  <div className="text-danger" style={{ fontSize: 12 }}>
+                    {dateError}
+                  </div>
+                )}
                 <div>
                   {selected.length === 0 && <p>Chưa chọn phòng.</p>}
-                  {selected.map(s => (
+                  {selected.map((s) => (
                     <div className="item" key={s.roomTypeId}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          flexWrap: "wrap",
+                        }}
+                      >
                         <span>{s.name}</span>
                         {!editingQty[s.roomTypeId] ? (
                           <span
                             className="editable"
                             title="Nhấp để chỉnh số lượng"
-                            onClick={() => setEditingQty(prev => ({ ...prev, [s.roomTypeId]: true }))}
+                            onClick={() =>
+                              setEditingQty((prev) => ({
+                                ...prev,
+                                [s.roomTypeId]: true,
+                              }))
+                            }
                           >
                             x{s.quantity}
                           </span>
@@ -512,41 +956,137 @@ const RoomPage: React.FC = () => {
                           <select
                             autoFocus
                             value={s.quantity}
-                            onBlur={() => setEditingQty(prev => ({ ...prev, [s.roomTypeId]: false }))}
-                            onChange={(e)=> {
+                            onBlur={() =>
+                              setEditingQty((prev) => ({
+                                ...prev,
+                                [s.roomTypeId]: false,
+                              }))
+                            }
+                            onChange={(e) => {
                               const val = Number(e.target.value);
                               // Ensure new quantity respects min rooms needed for headcount if we have capacity info
-                              setSelected(prev => prev.map(p => {
-                                if (p.roomTypeId !== s.roomTypeId) return p;
-                                const cap = p.capacity;
-                                if (!cap) return { ...p, quantity: val };
-                                const minQ = minRoomsNeeded(p.adults, p.children, cap);
-                                const finalQ = Math.max(val, minQ);
-                                return { ...p, quantity: finalQ };
+                              setSelected((prev) =>
+                                prev.map((p) => {
+                                  if (p.roomTypeId !== s.roomTypeId) return p;
+                                  const cap = p.capacity;
+                                  if (!cap) return { ...p, quantity: val };
+                                  const minQ = minRoomsNeeded(
+                                    p.adults,
+                                    p.children,
+                                    cap
+                                  );
+                                  const finalQ = Math.max(val, minQ);
+                                  return { ...p, quantity: finalQ };
+                                })
+                              );
+                              setEditingQty((prev) => ({
+                                ...prev,
+                                [s.roomTypeId]: false,
                               }));
-                              setEditingQty(prev => ({ ...prev, [s.roomTypeId]: false }));
                             }}
                           >
                             {(() => {
                               const cap = s.capacity;
-                              const minQ = cap ? minRoomsNeeded(s.adults, s.children, cap) : 1;
+                              const minQ = cap
+                                ? minRoomsNeeded(s.adults, s.children, cap)
+                                : 1;
                               const start = Math.min(Math.max(1, minQ), 4);
-                              return Array.from({length: (5 - start)}, (_,i)=> i+start).map(n=> <option key={n} value={n}>x{n}</option>);
+                              return Array.from(
+                                { length: 5 - start },
+                                (_, i) => i + start
+                              ).map((n) => (
+                                <option key={n} value={n}>
+                                  x{n}
+                                </option>
+                              ));
                             })()}
                           </select>
                         )}
                       </div>
                       <div className="controls">
-                        <span>{(s.unitPrice * s.quantity * nights).toLocaleString()} VNĐ</span>
-                        <button className="remove" onClick={() => removeSelected(s.roomTypeId)}>Hủy</button>
+                        <span>
+                          {(s.unitPrice * s.quantity * nights).toLocaleString()}{" "}
+                          VNĐ
+                        </span>
+                        <button
+                          className="remove"
+                          onClick={() => removeSelected(s.roomTypeId)}
+                        >
+                          Hủy
+                        </button>
                       </div>
                     </div>
                   ))}
                   <hr />
-                  <div style={{ fontWeight: 700 }}>Tổng: {totalPrice.toLocaleString()} VNĐ</div>
+                  <div style={{ fontWeight: 700, marginBottom: '8px' }}>
+                    Tổng: {totalPrice.toLocaleString()} VNĐ
+                  </div>
+                  
+                  {/* Voucher input and display */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
+                      Mã khuyến mãi/Voucher:
+                    </label>
+                    <input
+                      type="text"
+                      value={voucherCode}
+                      onChange={(e) => {
+                        const code = e.target.value.toUpperCase().trim();
+                        setVoucherCode(code);
+                        if (code) {
+                          localStorage.setItem('selectedVoucherCode', code);
+                        } else {
+                          localStorage.removeItem('selectedVoucherCode');
+                        }
+                      }}
+                      placeholder="Nhập mã voucher"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        fontSize: '14px'
+                      }}
+                    />
+                    {validatingVoucher && (
+                      <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                        Đang kiểm tra voucher...
+                      </div>
+                    )}
+                    {voucherError && (
+                      <div style={{ fontSize: '12px', color: '#dc2626', marginTop: '4px' }}>
+                        {voucherError}
+                      </div>
+                    )}
+                    {appliedVoucher && !voucherError && (
+                      <div style={{ fontSize: '12px', color: '#16a34a', marginTop: '4px' }}>
+                        ✅ Voucher {appliedVoucher.code} đã được áp dụng
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Discount and final price display */}
+                  {appliedVoucher && voucherDiscount > 0 && (
+                    <div style={{ marginBottom: '8px', padding: '8px', backgroundColor: '#f0fdf4', borderRadius: '4px' }}>
+                      <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
+                        Giảm giá: -{voucherDiscount.toLocaleString()} VNĐ
+                      </div>
+                      <div style={{ fontSize: '16px', fontWeight: 700, color: '#16a34a' }}>
+                        Tổng sau giảm: {finalPrice.toLocaleString()} VNĐ
+                      </div>
+                    </div>
+                  )}
                 </div>
-                {bookingError && <div className="text-danger">{bookingError}</div>}
-                <button className="btn-book-now" disabled={bookingLoading} onClick={submitBooking}>{bookingLoading ? 'Đang xử lý...' : 'ĐẶT NGAY'}</button>
+                {bookingError && (
+                  <div className="text-danger">{bookingError}</div>
+                )}
+                <button
+                  className="btn-book-now"
+                  disabled={bookingLoading}
+                  onClick={submitBooking}
+                >
+                  {bookingLoading ? "Đang xử lý..." : "ĐẶT NGAY"}
+                </button>
               </div>
             </div>
           </div>

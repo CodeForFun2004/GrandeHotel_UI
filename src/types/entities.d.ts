@@ -55,6 +55,7 @@ export interface Hotel {
   manager?: User | string;
   status?: 'available' | 'full' | 'closed';
   images?: string[];
+  amenities?: string[];
   rating?: number; // average rating
   services?: Array<Service | string>;
   roomTypes?: Array<RoomType | string>;
@@ -63,7 +64,6 @@ export interface Hotel {
   updatedAt?: string;
   // optional fields returned by search API
   minPricePerNight?: number;
-  images?: string[];
 }
 
 export interface User {
@@ -91,14 +91,31 @@ export interface User {
 export interface ReservationDetail {
   _id?: string;
   id?: string;
-  reservationId?: string;
-  room?: Room | string;
+  reservation?: string; // Reservation ID
   roomType?: RoomType | string;
-  price?: number; // price per night for this detail
-  nights?: number;
-  guests?: number;
-  subtotal?: number; // price * nights + extras
-  extras?: Array<Service | string>;
+  quantity?: number;
+  adults?: number;
+  children?: number;
+  infants?: number;
+  services?: Array<{ service: Service | string; quantity: number }>;
+  reservedRooms?: Array<Room | string>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Payment {
+  _id?: string;
+  id?: string;
+  reservation?: string;
+  totalPrice?: number;
+  depositAmount?: number;
+  paymentStatus?: 'unpaid' | 'deposit_paid' | 'fully_paid' | 'partially_paid' | 'refunded';
+  paidAmount?: number;
+  paymentMethod?: 'bank_transfer' | 'cash' | 'card' | 'other';
+  paymentNotes?: string;
+  remainingAmount?: number;
+  isFullyPaid?: boolean;
+  hasDeposit?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -106,23 +123,21 @@ export interface ReservationDetail {
 export interface Reservation {
   _id?: string;
   id?: string;
-  bookingNumber?: string;
-  userId?: string;
   hotel?: Hotel | string;
+  customer?: User | string;
+  checkInDate?: string; // ISO date
+  checkOutDate?: string; // ISO date
+  numberOfGuests?: number;
+  status?: 'pending' | 'approved' | 'rejected' | 'canceled' | 'completed';
+  stayStatus?: 'not_checked_in' | 'checked_in' | 'checked_out';
+  checkedInAt?: string;
+  checkedOutAt?: string;
+  checkedInBy?: User | string;
+  checkedOutBy?: User | string;
+  qrCodeToken?: string;
+  reason?: string;
   details?: ReservationDetail[];
-  checkIn?: string; // ISO date
-  checkOut?: string; // ISO date
-  totalAmount?: number;
-  status?:
-    | 'pending'
-    | 'confirmed'
-    | 'checked-in'
-    | 'checked-out'
-    | 'cancelled'
-    | 'no-show'
-    | 'completed';
-  paymentStatus?: 'unpaid' | 'paid' | 'refunded' | 'partial';
-  notes?: string;
+  payment?: Payment;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -136,6 +151,29 @@ export interface Contact {
   message: string;
   subject?: 'room-price' | 'services' | 'events' | 'complaint' | 'reservation' | 'other';
   status?: 'pending' | 'processed' | 'ignored';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Voucher {
+  _id?: string;
+  id?: string;
+  code: string; // unique, uppercase, trimmed, required
+  name: string; // required
+  description?: string;
+  discountType: 'percent' | 'fixed'; // required: enum ['percent', 'fixed']
+  discountValue: number; // required
+  maxDiscount?: number | null; // max discount for percent type, default null (0 = no limit)
+  minBookingValue?: number; // default 0
+  scope?: 'global' | 'multi-hotel'; // default 'global', enum ['global', 'multi-hotel']
+  hotelIds?: Array<string | Hotel>; // array of hotel ObjectIds or populated hotels (for multi-hotel scope)
+  startDate: string | Date; // required: ISO date
+  endDate: string | Date; // required: ISO date
+  maxUsageGlobal?: number; // default 0 (0 = unlimited)
+  maxUsagePerUser?: number; // default 0 (0 = unlimited per user)
+  status?: 'active' | 'inactive'; // default 'active', enum ['active', 'inactive']
+  isLock?: boolean; // default false - allows admin to lock voucher (prevent usage but keep for history)
+  createdBy?: string | User; // User ObjectId or populated user
   createdAt?: string;
   updatedAt?: string;
 }
