@@ -423,9 +423,9 @@ const BookingsHistory: React.FC = () => {
                 <div style={{ textAlign: 'center', padding: '60px 20px' }}>
                   <div
                     style={{
-                      width: 80,
-                      height: 80,
-                      margin: '0 auto 16px',
+                      width: 120,
+                      height: 120,
+                      margin: '0 auto 24px',
                       borderRadius: '50%',
                       background: '#f3f4f6',
                       display: 'flex',
@@ -434,18 +434,19 @@ const BookingsHistory: React.FC = () => {
                     }}
                   >
                     <svg
-                      width="40"
-                      height="40"
+                      width="64"
+                      height="64"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="#9ca3af"
                       strokeWidth="1.5"
                     >
-                      <path d="M6 8h12l-1 10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 8Z" />
-                      <path d="M9 8V7a3 3 0 0 1 6 0v1" />
+                      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                      <line x1="3" y1="6" x2="21" y2="6" />
+                      <path d="M8 10a4 4 0 0 1 8 0" />
                     </svg>
                   </div>
-                  <p style={{ color: '#6b7280', fontSize: 16, marginBottom: 8 }}>
+                  <p style={{ color: '#6b7280', fontSize: 18, fontWeight: 600, marginBottom: 8 }}>
                     Chưa có đặt phòng nào
                   </p>
                   <p style={{ color: '#9ca3af', fontSize: 14 }}>
