@@ -25,11 +25,11 @@ const mapBackendToFormRoom = (backendRoom: Room): FormRoom => {
   return {
     id: backendRoom._id,
     code: backendRoom.roomNumber,
-    name: backendRoom.roomType ? `${backendRoom.roomType.name} ${backendRoom.roomNumber}` : backendRoom.roomNumber,
     type: backendRoom.roomType?.name || '',
-    capacity: backendRoom.roomType?.capacity || 0,
-    pricePerNight: backendRoom.pricePerNight,
-    status: mapBackendStatusToFrontend(backendRoom.status) as "Active" | "Inactive" | "Maintenance"
+    status: mapBackendStatusToFrontend(backendRoom.status) as "Active" | "Inactive" | "Maintenance",
+    description: backendRoom.description || '',
+    images: backendRoom.images || [],
+    services: backendRoom.services || [],
   };
 };
 
@@ -50,8 +50,11 @@ const mapFormToBackendCreate = (formRoom: FormRoom, roomTypes: RoomType[], defau
     hotel: defaultHotelId,  // Send just the ObjectId
     roomNumber: formRoom.code,
     status: 'available',
-    pricePerNight: formRoom.pricePerNight,
-    description: formRoom.name
+    // pricePerNight is derived from room type's base price
+    pricePerNight: roomType.basePrice,
+    description: formRoom.description,
+    images: formRoom.images,
+    services: formRoom.services,
   };
 };
 
