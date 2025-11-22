@@ -252,8 +252,7 @@ export interface ConfirmCheckoutResponse {
   stayId: string;
 }
 
-export const searchReservationsForCheckIn = async (params?: { query?: string; checkInDate?: string; todayOnly?: boolean }) => {
-  const res = await instance.get<CheckinSearchItem[]>('/dashboard/checkin/search', { params });
+
 
 
 export const searchReservationsForCheckIn = async (
@@ -402,3 +401,4 @@ export const listInHouseStaysOld = async (
   const res = await instance.get('/dashboard/checkout/inhouse', { params });
   return res.data;
 };
+  

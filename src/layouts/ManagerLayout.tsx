@@ -42,8 +42,8 @@ const managerNavigationItems = [
   { title: "Rooms", icon: <MeetingRoomIcon />, path: MANAGER_PATHS.ROOMS },
   { title: "Room Types", icon: <CategoryIcon />, path: MANAGER_PATHS.ROOM_TYPES },
   { title: "Booking Management", icon: <BookOnlineIcon />, path: MANAGER_PATHS.BOOKINGS },
-  { title: "Staff Management", icon: <GroupIcon />, path: MANAGER_PATHS.STAFF_MANAGEMENT },
-  { title: "Profile", icon: <PersonIcon />, path: MANAGER_PATHS.PROFILE },
+  // { title: "Staff Management", icon: <GroupIcon />, path: MANAGER_PATHS.STAFF_MANAGEMENT },
+  // { title: "Profile", icon: <PersonIcon />, path: MANAGER_PATHS.PROFILE },
   { title: "Logout", icon: <LogoutIcon />, path: "/logout" },
 ];
 

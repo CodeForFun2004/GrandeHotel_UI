@@ -74,11 +74,11 @@ const NAV: NavGroup[] = [
     label: "Inventory & Booking",
     items: [
       { title: "Rooms", icon: <MeetingRoomIcon />, path: STAFF_PATHS.ROOMS },
-      {
-        title: "Bookings",
-        icon: <BookOnlineIcon />,
-        path: STAFF_PATHS.BOOKINGS,
-      },
+      // {
+      //   title: "Bookings",
+      //   icon: <BookOnlineIcon />,
+      //   path: STAFF_PATHS.BOOKINGS,
+      // },
       {
         title: "Calendar",
         icon: <CalendarMonthIcon />,
@@ -93,13 +93,13 @@ const NAV: NavGroup[] = [
       { title: "Chat", icon: <HeadsetMicIcon />, path: STAFF_PATHS.CHAT },
     ],
   },
-  {
-    label: "Admin",
-    items: [
-      { title: "Tasks", icon: <ChecklistIcon />, path: STAFF_PATHS.TASKS },
-      { title: "Profile", icon: <PersonIcon />, path: STAFF_PATHS.PROFILE },
-    ],
-  },
+  // {
+  //   label: "Admin",
+  //   items: [
+  //     { title: "Tasks", icon: <ChecklistIcon />, path: STAFF_PATHS.TASKS },
+  //     { title: "Profile", icon: <PersonIcon />, path: STAFF_PATHS.PROFILE },
+  //   ],
+  // },
 ];
 
 /** Các màn cần có hotel trước khi thao tác (chỉ để hiển thị toast UI) */
@@ -122,7 +122,7 @@ type Hotel = { id: string; name: string };
  */
 const CURRENT_HOTEL: Hotel | null = {
   id: "HCM-RIVERSIDE",
-  name: "Riverside Hotel Saigon",
+  // name: "Riverside Hotel Saigon",
   // đặt null để thử: null
 };
 
@@ -410,7 +410,7 @@ export default function StaffLayout() {
                 color="primary"
                 variant="outlined"
                 label={currentHotel.name}
-                sx={{ maxWidth: 360 }}
+                // sx={{ maxWidth: 360 }}
               />
             ) : (
               <Stack direction="row" spacing={1} alignItems="center">
